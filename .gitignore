@@ -1,0 +1,15 @@
+# Ignorar el entorno virtual
+/env
+
+# Otros archivos y carpetas a ignorar
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.spec
+build/
+dist/
+*.egg-info
+*.bat
+*.cmd
