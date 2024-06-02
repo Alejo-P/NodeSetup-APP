@@ -8,6 +8,7 @@ import subprocess
 import time
 import ast
 from typing import Literal
+from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(tk.Tk):
     def __init__(self):
@@ -39,6 +40,7 @@ class ConfigurarEntornoNode(tk.Tk):
         self._idAfterBar2 = None
         self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:")
         self.lbl_titulo = ttk.Label(self)
+        self.lbl_versionApp = ttk.Label(self.frameInfo)
         self.lbl_version = ttk.Label(self.frameInfo)
         self.lbl_versionNPM = ttk.Label(self.frameInfo)
         self._lbl_ruta = ttk.Label(self, text="Ruta", width=50)
@@ -131,7 +133,7 @@ class ConfigurarEntornoNode(tk.Tk):
                         if modulos.winfo_exists():
                             lista_widgets.append([ttk.Checkbutton(modulos, variable=dic["usar"]),
                                                 ttk.Label(modulos, text=dic["nombre"]),
-                                                ttk.Entry(modulos, textvariable=dic["argumento"]),
+                                                ttk.Combobox(modulos, textvariable=dic["argumento"], values=tuple(listaArgumentos)),
                                                 ttk.Combobox(modulos, textvariable=dic["version"], values=dic["versiones"], state="readonly"),
                                                 ttk.Checkbutton(modulos, variable=dic["global"])])
                         else:
@@ -212,12 +214,16 @@ class ConfigurarEntornoNode(tk.Tk):
         self.frameInfo.grid(row=1, column=0, columnspan=3, sticky="nsew")
         self.frameInfo.grid_columnconfigure(0, weight=1)
         self.frameInfo.grid_columnconfigure(1, weight=1)
+        self.frameInfo.grid_columnconfigure(2, weight=1)
+        
+        self.lbl_versionApp.config(text=f"Version app: {appVersion}")
+        self.lbl_versionApp.grid(row=0, column=0)
         
         if self._version:
             self.lbl_version.config(text=f"Versión de Node: {self._version}")
-            self.lbl_version.grid(row=0, column=0)
+            self.lbl_version.grid(row=0, column=1)
         
-        self.lbl_versionNPM.grid(row=0 , column=1)
+        self.lbl_versionNPM.grid(row=0 , column=2)
         
         threading.Thread(target=GetNPMVersionInfo).start()        
         
@@ -654,6 +660,25 @@ def lista_archivos_directorios(directorio_buscar:str):
         else:
             lista_directorios.append(elemento)
     return lista_archivos, lista_directorios
+
+listaArgumentos = [
+    "-g",
+    "-S",
+    "-D",
+    "-O",
+    "--no-save",
+    "--production",
+    "--only=dev",
+    "--only=prod",
+    "-E",
+    "-f",
+    "--no-optional",
+    "-P",
+    "--dry-run",
+    "--legacy-peer-deps",
+    "--strict-peer-deps",
+    "--global-style",
+]
 
 carpetas = [
     "config",
