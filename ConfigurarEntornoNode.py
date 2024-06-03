@@ -705,6 +705,14 @@ archivos = [
 lista_modulosNPM = [
     {
         "usar": None,
+        "nombre": "Bcrypt",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
         "nombre": "Cloudinary",
         "argumento": None,
         "version": None,
@@ -729,7 +737,7 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
-        "nombre": "Mongoose",
+        "nombre": "Json-server",
         "argumento": None,
         "version": None,
         "versiones": None,
@@ -737,7 +745,15 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
-        "nombre": "Nodemon",
+        "nombre": "jsonwebtoken",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
+        "nombre": "Mongoose",
         "argumento": None,
         "version": None,
         "versiones": None,
@@ -753,27 +769,19 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
+        "nombre": "Nodemon",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
         "nombre": "Uuid",
         "argumento": None,
         "version": None,
         "versiones": None,
         "global": None  
-    },
-    {
-        "usar": None,
-        "nombre": "Bcrypt",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Json-server",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
     }
 ]
 
