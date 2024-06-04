@@ -127,7 +127,7 @@ class ConfigurarEntornoNode(tk.Tk):
                         if not dic["global"]:
                             dic["global"] = tk.BooleanVar(value=False)
                         if not dic["argumento"]:
-                            dic["argumento"] = tk.StringVar(value="")
+                            dic["argumento"] = tk.StringVar(value=listaArgumentos[0])
                         if not dic["version"]:
                             dic["version"] = tk.StringVar(value= dic["versiones"][-1] if dic["versiones"] else "Ocurrio un Error")
                         if modulos.winfo_exists():
