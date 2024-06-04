@@ -133,7 +133,7 @@ class ConfigurarEntornoNode(tk.Tk):
                         if modulos.winfo_exists():
                             lista_widgets.append([ttk.Checkbutton(modulos, variable=dic["usar"]),
                                                 ttk.Label(modulos, text=dic["nombre"]),
-                                                ttk.Combobox(modulos, textvariable=dic["argumento"], values=tuple(listaArgumentos)),
+                                                ttk.Combobox(modulos, textvariable=dic["argumento"], values=tuple(listaArgumentos), state="readonly"),
                                                 ttk.Combobox(modulos, textvariable=dic["version"], values=dic["versiones"], state="readonly"),
                                                 ttk.Checkbutton(modulos, variable=dic["global"])])
                         else:
@@ -662,7 +662,7 @@ def lista_archivos_directorios(directorio_buscar:str):
     return lista_archivos, lista_directorios
 
 listaArgumentos = [
-    "-g",
+    "",
     "-S",
     "-D",
     "-O",
