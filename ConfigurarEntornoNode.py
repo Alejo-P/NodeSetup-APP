@@ -769,7 +769,23 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
+        "nombre": "MySQL2",
+        "argumento": None, 
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
         "nombre": "Nodemon",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
+        "nombre": "Sequelize",
         "argumento": None,
         "version": None,
         "versiones": None,
