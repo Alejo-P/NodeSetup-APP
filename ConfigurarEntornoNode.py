@@ -721,6 +721,14 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
+        "nombre": "Cors",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None    
+    },
+    {
+        "usar": None,
         "nombre": "Express",
         "argumento": None,
         "version": None,
