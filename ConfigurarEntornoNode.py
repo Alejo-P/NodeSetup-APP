@@ -8,6 +8,7 @@ import subprocess
 import time
 import ast
 from typing import Literal
+from VarSettings import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM
 from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(tk.Tk):
@@ -368,7 +369,7 @@ class ConfigurarEntornoNode(tk.Tk):
                 objetivo = (pasos_completados / total_pasos) * 100
             
             incremento = 1
-            incrementar_progreso(self.progreso, incremento, objetivo)
+            incrementar_progreso(self.progreso, incremento, objetivo, 50)
             self.update_idletasks()
         
         if len(self.entry_ruta.get()) == 0:
@@ -596,7 +597,6 @@ def obtener_version_paquete_npm(ruta_a_npm: str, paquete: str | None = None):
     except subprocess.CalledProcessError as e:
         return None
 
-
 def Verificar_version_NPM(paquete:str):
     try:
         version = subprocess.run(
@@ -660,154 +660,6 @@ def lista_archivos_directorios(directorio_buscar:str):
         else:
             lista_directorios.append(elemento)
     return lista_archivos, lista_directorios
-
-listaArgumentos = [
-    "",
-    "-S",
-    "-D",
-    "-O",
-    "--no-save",
-    "--production",
-    "--only=dev",
-    "--only=prod",
-    "-E",
-    "-f",
-    "--no-optional",
-    "-P",
-    "--dry-run",
-    "--legacy-peer-deps",
-    "--strict-peer-deps",
-    "--global-style",
-]
-
-carpetas = [
-    "config",
-    "controllers",
-    "helpers",
-    "models",
-    "public",
-    "routers",
-    "views"
-]
-
-archivos_p = [
-    ".env",
-    ".env.example",
-    ".gitignore"
-]
-
-archivos = [
-    "database.js",
-    "server.js",
-    "index.js"
-]
-
-lista_modulosNPM = [
-    {
-        "usar": None,
-        "nombre": "Bcrypt",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Cloudinary",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Cors",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Express",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Express-fileupload",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Json-server",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "jsonwebtoken",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Mongoose",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Morgan",
-        "argumento": None, 
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "MySQL2",
-        "argumento": None, 
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Nodemon",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Sequelize",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Uuid",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None  
-    }
-]
 
 if __name__ == "__main__":
     app = ConfigurarEntornoNode()
