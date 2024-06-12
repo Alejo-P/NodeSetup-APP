@@ -3,6 +3,27 @@
 <div align="center">
     <img src="https://img.shields.io/badge/Version-1.2.1-blue.svg" alt="Version de la app">
 </div>
+
+<h2>Herramientas utilizadas</h2>
+
+<ul>
+    <li>
+        <h3>Python</h3>
+        <p>Python es un lenguaje de programación interpretado cuya filosofía hace hincapié en una sintaxis que favorezca un código legible.</p>
+    </li>
+    <li>
+        <h3>Node.js</h3>
+        <p>Node.js es un entorno en tiempo de ejecución multiplataforma, de código abierto, para la capa del servidor basado en el lenguaje de programación JavaScript, asíncrono, con I/O de datos en una arquitectura orientada a eventos y basado en el motor V8 de Google.</p>
+    </li>
+    <li>
+        <h3>NPM</h3>
+        <p>Node Package Manager es un gestor de paquetes para el lenguaje de programación JavaScript. Es el gestor de paquetes por defecto para el entorno de ejecución de JavaScript Node.js.</p>
+    </li>
+    <li>
+        <h3>Tkinter</h3>
+        <p>Tkinter es un paquete de Python que permite la creación de interfaces gráficas de usuario para aplicaciones en Python.</p>
+    </li>
+
 <h2>Descripción</h2>
 
 <!--Reservado para la imagen-->
@@ -71,7 +92,7 @@
     </li>
     <li>
         <h4>4. Opciones para la inicializacion del proyecto</h4>
-        <p>En este apartado se encuentran operaciones adicionales que se pueden realiar una vez inicializado el proyecto, como la instalacion de paquetes externos, crear la carpeta <code>'src/'</code> y su contenido <strong>(en el programa esta opcion se llama 'Crear archivos adicionales')</strong> y abrir el proyecto con VS Code al finalizar la creacion del proyecto</p>
+        <p>En este apartado se encuentran operaciones adicionales que se pueden realiar una vez inicializado el proyecto, como la instalacion de paquetes externos, crear la carpeta <code>'src/'</code> y su contenido <strong>(en el programa esta opcion se llama 'Crear archivos adicionales')</strong> y abrir el proyecto con VS Code al finalizar la creacion del proyecto <strong>(Para verificar que tiene Visual Studio Code instalado, el programa hace uso del comando <code>where code</code> que da como resultado la ruta de ejecucion para el comando <code>code .</code>, si esta comprobacion no da resultado, la opcion <code>Abrir en VS Code al finalizar</code> estará deshanilitada)</srong></p>
     </li>
     <li>
         <h4>5. Progreso de la tarea</h4>
@@ -143,3 +164,40 @@ para cada modulo es el siguiente:</p>
         </li>
     </ul>
 </p>
+
+<h2>Instalacion</h2>
+
+<p>Para instalar la aplicacion se debe clonar el repositorio en la maquina local y ejecutar el archivo <code>main.py</code> <strong>(que coresponde al programa principal)</strong> con Python, se recomienda tener instalado Python 3.8 o superior para ejecutar la aplicacion</p>
+
+<h2>Uso</h2>
+
+<p>Para usar la aplicacion se debe seguir los siguientes pasos:</p>
+
+<ol>
+    <li>
+        <h4>Seleccionar el directorio</h4>
+        <p>Se debe seleccionar el directorio donde se creara el proyecto de Node.js, se puede hacer de dos formas:</p>
+        <ul>
+            <li>
+                <strong>1. Ingresar la ruta manualmente</strong>
+                <p>Se puede ingresar la ruta manualmente en el entry de la ventana principal</p>
+            </li>
+            <li>
+                <strong>2. Seleccionar la ruta con el boton "Explorar"</strong>
+                <p>Se puede seleccionar la ruta con el boton "Explorar" que se encuentra en la ventana principal</p>
+            </li>
+        </ul>
+    </li>
+    <li>
+        <h4>Configuraciones adicionales</h4>
+        <p>Se pueden marcar las opciones adicionales que se deseen, como eliminar el contenido de la carpeta, crear la ruta si no existe, eliminar contenido tras un fallo y detener en caso de fallo</p>
+    </li>
+    <li>
+        <h4>Seleccionar modulos</h4>
+        <p>Se debe presionar el boton "Instalar modulos" para seleccionar los modulos que se desean instalar en el proyecto y algunas operaciones porsteriores que quiere realizar, como crear la carpeta <code>'src'</code> con su contenido y abrir el proyecto con VS Code una ves finalizado</p>
+    </li>
+    <li>
+        <h4>Instalar modulos</h4>
+        <p>Se debe presionar el boton "Crear" para iniciar el proceso de creacion del proyecto, una vez que se han seleccionado los modulos y se ha marcado las opciones deseadas</p>
+    </li>
+</ol>
