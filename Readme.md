@@ -33,7 +33,7 @@
     <img
     src="https://github.com/Alejo-P/NodeSetup-APP/assets/150528715/618ca78f-ede2-4fce-8786-d30df888e42f"
     alt="NodeSetup-APP"
-    style="width:80%; height:auto;"
+    style="width:60%; height:auto;"
     >
 </div>
 
@@ -91,7 +91,7 @@
     <img
     src="https://github.com/Alejo-P/NodeSetup-APP/assets/150528715/b2240646-e2c1-4ebe-9c6e-8f926cea31e3"
     alt="NodeSetup-APP"
-    style="width:80%; height:auto;"
+    style="width:60%; height:auto;"
     >
 </div>
 
