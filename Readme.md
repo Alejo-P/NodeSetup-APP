@@ -92,7 +92,7 @@
     </li>
     <li>
         <h4>4. Opciones para la inicializacion del proyecto</h4>
-        <p>En este apartado se encuentran operaciones adicionales que se pueden realiar una vez inicializado el proyecto, como la instalacion de paquetes externos, crear la carpeta <code>'src/'</code> y su contenido <strong>(en el programa esta opcion se llama 'Crear archivos adicionales')</strong> y abrir el proyecto con VS Code al finalizar la creacion del proyecto <strong>(Para verificar que tiene Visual Studio Code instalado, el programa hace uso del comando <code>where code</code> que da como resultado la ruta de ejecucion para el comando <code>code .</code>, si esta comprobacion no da resultado, la opcion <code>Abrir en VS Code al finalizar</code> estará deshanilitada)</srong></p>
+        <p>En este apartado se encuentran operaciones adicionales que se pueden realiar una vez inicializado el proyecto, como la instalacion de paquetes externos, crear la carpeta <code>'src/'</code> y su contenido <strong>(en el programa esta opcion se llama 'Crear archivos adicionales')</strong> y abrir el proyecto con VS Code al finalizar la creacion del proyecto <strong>(Para verificar que tiene Visual Studio Code instalado, el programa hace uso del comando <code>where code</code> que da como resultado la ruta de ejecucion para el comando <code>code .</code>, si esta comprobacion no da resultado, la opcion <code>Abrir en VS Code al finalizar</code> estará deshabilitada)</srong></p>
     </li>
     <li>
         <h4>5. Progreso de la tarea</h4>
@@ -120,7 +120,6 @@
     <li>
         <h4>1. Selecion de modulos</h4>
         <p>En esta columna se encuentran cuadros de marcado que el usuario puede marcar para seleccionar el modulo que desee incluir en la creacion del proyecto</p>
-        <p>Comando usado:</p>
     </li>
     <li>
         <h4>2. Nombre del modulo</h4>
@@ -132,7 +131,7 @@
     </li>
     <li>
         <h4>4. Versiones disponibles para cada modulo</h4>
-        <p>En esta columna se muestra una lista desplegable que permite escojer la version para instalar el modulo, la version mas reciente del modulo es el valor predeterminado</p>
+        <p>En esta columna se muestra una lista desplegable que permite escojer la version a instalar para el modulo, la version mas reciente del modulo es el valor predeterminado</p>
     </li>
     <li>
         <h4>5. Instalacion global del modulo</h4>
