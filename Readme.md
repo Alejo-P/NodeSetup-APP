@@ -11,14 +11,14 @@
         <img
         src="https://github.com/Alejo-P/NodeSetup-APP/assets/150528715/557f2356-4170-428c-8c8c-5a22e668fb6d"
         alt="NodeSetup-APP"
-        style="width:90%; height:auto;"
+        style="width:50%; height:auto;"
         >
     </div>
     <div>
         <img
         src="https://github.com/Alejo-P/NodeSetup-APP/assets/150528715/cc092be2-3661-4f7f-8931-27e322b6b1a6"
         alt="NodeSetup-APP"
-        style="width:80%; height:auto;"
+        style="width:50%; height:auto;"
         >
     </div>
 </div>
