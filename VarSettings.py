@@ -82,6 +82,14 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
+        "nombre": "Fs-extra",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None    
+    },
+    {
+        "usar": None,
         "nombre": "Json-server",
         "argumento": None,
         "version": None,
