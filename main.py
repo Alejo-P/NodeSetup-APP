@@ -397,10 +397,10 @@ class ConfigurarEntornoNode(tk.Tk):
         
         self.progreso['value'] = 0
         
-        # Ejecutar `npm init -y` para inicializar el proyecto
         def Iniciar_npm():
             try:
                 actualizar_progreso("Inicializando proyecto Node")
+                # Ejecutar `npm init -y` para inicializar el proyecto
                 subprocess.run(
                     [self._npm_path, "init", "-y"],
                     cwd=self.entry_ruta.get(),

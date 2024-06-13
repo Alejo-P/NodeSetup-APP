@@ -44,7 +44,7 @@
     </div>
 </div>
 
-<p>NodeSetup es una aplicacion GUI de escritorio desarrollada con Python, la aplicacion permite estabelcer e inicializar un proyecto con Node.js en un directorio seleccionado e instalar paquetes que el usuario escoja, a continuacion se explica cada parte de los cmoponentes GUI de la app:</p>
+<p>NodeSetup es una aplicacion GUI de escritorio desarrollada con Python, la aplicacion permite inicializar un proyecto con Node.js en un directorio seleccionado e instalar paquetes que el usuario escoja, a continuacion se explica cada parte de los componentes GUI de la app:</p>
 
 <h3>1. Ventana Principal</h3>
 
