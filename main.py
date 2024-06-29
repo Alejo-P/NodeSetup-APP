@@ -2,18 +2,19 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
 import shutil
-import asyncio
 import threading
 import subprocess
 import time
 import ast
-from typing import Literal
+
+from typing import List, Literal
 from VarSettings import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM
 from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(tk.Tk):
+    
     def __init__(self):
-        self._version = Verificar_version()
+        self._version = Verificar_version("node")
         self._veri_code = Obtener_ruta_de("code")
         self._npm_path = Obtener_ruta_de("npm")
         self._version_NPM = None
@@ -34,6 +35,29 @@ class ConfigurarEntornoNode(tk.Tk):
         self.title("NodeSetup")
         self.resizable(0, 0)  # type: ignore
         self.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
+        
+        style = ttk.Style(self)
+        style.theme_use('clam')
+        self.configure(bg="lightgray")
+       
+        # Personalizar la barra de progreso
+        style.configure("TProgressbar",
+            troughcolor='#D3D3D3',  # Color del fondo del canal
+            background='#4CAF50',  # Color del progreso
+            thickness=20,  # Grosor de la barra de progreso
+        )
+        
+        style.configure("Custom.TCheckbutton",
+                        font=("Arial", 10),
+                        foreground="grey",
+                        relief="raised",
+                        padding=5,
+                        )
+        
+        style.map("Custom.TCheckbutton",
+                  foreground=[('active', 'black'), ('disabled', 'gray')],
+                  background=[('active', 'lightgrey')],
+                  relief=[('pressed', 'sunken')])
         
         self._checkVars = []
         
@@ -71,27 +95,28 @@ class ConfigurarEntornoNode(tk.Tk):
         self.frm_progreso = ttk.Labelframe(self, text="Progreso:", width=100)
         self.lbl_progreso = ttk.Label(self.frm_progreso, text="Descripcion: Ninguna tarea en ejecucion")
         self.frm_progreso.grid_columnconfigure(0, weight=1)
-        self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate')
+        self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate', style="TProgressbar")
         
         self.crear_widgets()
         self._centrar_ventana()
     
     def crear_widgets(self):
-        async def cargarinfo_versionNPM():
+        def cargarinfo_versionNPM():
             self.lbl_versionNPM.config(text="Version de NPM: Cargando...")
-            versionNPM = await async_Verificar_version_NPM(self._npm_path)
-            lista_versionesNPM = await async_Obtenerversiones_paqueteNPM("npm", self._npm_path)
-            if versionNPM:
-                self.lbl_versionNPM.config(text=f"Version de NPM: {versionNPM}")
-            else:
-                self.lbl_versionNPM.config(text="Version de NPM: No instalado")
             
-            if versionNPM < lista_versionesNPM[-1]:
-                messagebox.showinfo("Debe actualizar NPM", f"Se encontro una nueva version de NPM:\nTiene la version: {versionNPM}\nSe encontro la version: {lista_versionesNPM[-1]}")
+            versionNPM = Ejecutar_comando([self._npm_path, "-v"])
+            if isinstance(versionNPM, subprocess.CalledProcessError):
+                messagebox.showerror("Error", f"Error al obtener la version de NPM: {versionNPM}")
+                self.lbl_versionNPM.config(text="Version de NPM: Error")
+            else:
+                self.lbl_versionNPM.config(text=f"Version de NPM: {versionNPM.stdout.strip()}")
+            
+            versiones_paquetesNPM = Ejecutar_comando([self._npm_path, "show", "npm", "versions", "--depth=0"])
+            lista_versionesNPM = list(ast.literal_eval(f"{versiones_paquetesNPM.stdout.strip()}"))
+            
+            if versionNPM.stdout.strip() < lista_versionesNPM[-1]:
+                messagebox.showinfo("Debe actualizar NPM", f"Se encontro una nueva version de NPM:\nTiene la version: {versionNPM.stdout.strip()}\nSe encontro la version: {lista_versionesNPM[-1]}")
             self.update_idletasks()
-        
-        def GetNPMVersionInfo():
-            asyncio.run(cargarinfo_versionNPM())
         
         def ventana_seleccionModulos():
             def incrementar_progreso(progreso:ttk.Progressbar, incremento:int | float, objetivo:int | float, delay:int=30):
@@ -115,13 +140,19 @@ class ConfigurarEntornoNode(tk.Tk):
                     dic["argumento"].set("")
                     dic["version"].set(dic["versiones"][-1] if dic["versiones"] else "Ocurrio un Error")
             
-            async def update_modulos_ui(lista_modulosNPM, npm_path, msg_estado, progress_bar, modulos:tk.Toplevel):
+            def update_modulos_ui(lista_modulosNPM, npm_path, msg_estado, progress_bar, modulos:tk.Toplevel):
                 lista_widgets= []
 
                 for i, dic in enumerate(lista_modulosNPM, 1):
                         msg_estado.config(text=f"Cargando info del modulo {dic["nombre"]}")
                         if not dic["versiones"]:
-                            dic["versiones"] = await async_Obtenerversiones_paqueteNPM(dic["nombre"].lower(), npm_path)
+                            versionesPaquetes = Ejecutar_comando([npm_path, "show", dic["nombre"].lower(), "versions", "--depth=0"])
+                            if isinstance(versionesPaquetes, subprocess.CalledProcessError):
+                                messagebox.showerror("Error", f"Error al obtener versiones de {dic['nombre']}: {versionesPaquetes}")
+                                if modulos.winfo_exists():
+                                    lista_widgets.clear()
+                                    break
+                            dic["versiones"] = list(ast.literal_eval(f"{versionesPaquetes.stdout.strip()}"))
                         
                         if not dic["usar"]:
                             dic["usar"] = tk.BooleanVar(value=False)
@@ -197,17 +228,14 @@ class ConfigurarEntornoNode(tk.Tk):
             ttk.Separator(modulos, orient="horizontal").grid(row=1, column=0, columnspan=len(encabezado_tabla), sticky="ew")
             
             # Añadir una barra de progreso
-            progress_bar = ttk.Progressbar(modulos, orient='horizontal', mode='determinate', length=280)
+            progress_bar = ttk.Progressbar(modulos, orient='horizontal', mode='determinate', length=280, style="TProgressbar")
             progress_bar.grid(row=2, column=0, columnspan=len(encabezado_tabla), padx=5, pady=10)
             msg_estado = ttk.Label(modulos)
             msg_estado.grid(row=3, column=0, columnspan=len(encabezado_tabla), padx=5, pady=2)
             
             self._centrar_ventana(modulos)
             
-            def run_async_task():
-                asyncio.run(update_modulos_ui(lista_modulosNPM, self._npm_path, msg_estado, progress_bar, modulos))
-            
-            threading.Thread(target=run_async_task).start()
+            threading.Thread(target=update_modulos_ui, args=(lista_modulosNPM, self._npm_path, msg_estado, progress_bar, modulos)).start()
         
         self.lbl_titulo.config(text="Configurar Entorno Node", font=("Arial", 20, "bold"))
         self.lbl_titulo.grid(row=0, column=0, columnspan=3)
@@ -226,19 +254,7 @@ class ConfigurarEntornoNode(tk.Tk):
         
         self.lbl_versionNPM.grid(row=0 , column=2)
         
-        threading.Thread(target=GetNPMVersionInfo).start()        
-        
-        style = ttk.Style()
-        style.configure("Custom.TCheckbutton",
-                        font=("Arial", 10),
-                        foreground="grey",
-                        relief="raised",
-                        padding=5,
-                        )
-        style.map("Custom.TCheckbutton",
-                  foreground=[('active', 'black'), ('disabled', 'darkgrey')],
-                  background=[('active', 'lightgrey')],
-                  relief=[('pressed', 'sunken')])
+        threading.Thread(target=cargarinfo_versionNPM).start()        
         
         self._lbl_ruta.grid(row=2, column=0, sticky="s")
         self.entry_ruta.grid(row=3, column=0, columnspan=2, sticky="ew", padx=4, pady=5)
@@ -381,6 +397,21 @@ class ConfigurarEntornoNode(tk.Tk):
         total_pasos = conteo_tareas()
         pasos_completados = 0
         
+        if self._crearRuta.get():
+            try:
+                actualizar_progreso("Creando ruta")
+                self._crear_ruta()
+            except NotADirectoryError as de:
+                actualizar_progreso("Error en la ruta", fill=True)
+                self.lock_unlock_widgets(estado="normal")
+                messagebox.showerror("Ruta invalida", f"Error en la ruta: {de}")
+                return
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al crear la ruta: {e}")
+                self.lock_unlock_widgets(estado="normal")
+                actualizar_progreso("Error al crear la ruta", fill=True)
+                return
+        
         if self._eliminarContenido.get():
             if messagebox.askyesno("Advertencia", f"Se eliminara todo el contenido de la carteta actual\n {self.entry_ruta.get()},\n ¿Desea contunuar?"):
                 try:
@@ -401,39 +432,17 @@ class ConfigurarEntornoNode(tk.Tk):
             try:
                 actualizar_progreso("Inicializando proyecto Node")
                 # Ejecutar `npm init -y` para inicializar el proyecto
-                subprocess.run(
-                    [self._npm_path, "init", "-y"],
-                    cwd=self.entry_ruta.get(),
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-                    )
-                return int(0)            
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {e}")
-                self.lock_unlock_widgets(estado="normal")
-                try:
-                    self._borrar_contenido_ruta()
-                except:
-                    pass
-                actualizar_progreso("Error al inicializar el proyecto Node", fill=True)
-                return int(-1)
-            except NotADirectoryError as de:
-                if self._crearRuta.get():
-                    actualizar_progreso("Creando ruta")
-                    self._crear_ruta()
-                    Iniciar_npm()
-                    return int(0)
-                else:
-                    actualizar_progreso("Error en la ruta", fill=True)
+                estado = Ejecutar_comando([self._npm_path, "init", "-y"], self.entry_ruta.get())
+                if isinstance(estado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {estado}")
                     self.lock_unlock_widgets(estado="normal")
                     try:
                         self._borrar_contenido_ruta()
                     except:
                         pass
-                    messagebox.showerror("Ruta invalida", f"Error en la ruta: {de}")
+                    actualizar_progreso("Error al inicializar el proyecto Node", fill=True)
                     return int(-1)
+                return int(0)
             except Exception as ex:
                 messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {ex}")
                 self.lock_unlock_widgets(estado="normal")
@@ -447,36 +456,29 @@ class ConfigurarEntornoNode(tk.Tk):
         if Iniciar_npm() == 0:
             for modulo in lista_modulosNPM:
                 if modulo["usar"] is not None and modulo["usar"].get():
-                    try:
-                        actualizar_progreso(f"Instalando {modulo['nombre']}-{modulo["version"].get()} {'globalmente' if modulo['global'].get() else ''}")
+                    actualizar_progreso(f"Instalando {modulo['nombre']}-{modulo["version"].get()} {'globalmente' if modulo['global'].get() else ''}")
                         
-                        # Construir los argumentos del comando
-                        comando = [
-                            self._npm_path,
-                            "i",
-                            f"{modulo['nombre'].lower()}@{modulo['version'].get()}",
-                        ]
-                        
-                        # Añadir el argumento global si está seleccionado
-                        if modulo['global'].get():
-                            comando.append("-g")
-                        
-                        # Añadir cualquier argumento adicional
-                        argumento_adicional = modulo["argumento"].get()
-                        if argumento_adicional:
-                            comando.append(argumento_adicional)
-                        
-                        # Ejecutar el comando
-                        subprocess.run(
-                            comando,
-                            cwd=self.entry_ruta.get(),
-                            check=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-                        )
-                    except subprocess.CalledProcessError as e:
-                        messagebox.showerror("Error", f"Error instalando {modulo['nombre']}: {e}")
+                    # Construir los argumentos del comando
+                    comando = [
+                        self._npm_path,
+                        "i",
+                        f"{modulo['nombre'].lower()}@{modulo['version'].get()}",
+                    ]
+                    
+                    # Añadir el argumento global si está seleccionado
+                    if modulo['global'].get():
+                        comando.append("-g")
+                    
+                    # Añadir cualquier argumento adicional
+                    argumento_adicional = modulo["argumento"].get()
+                    if argumento_adicional:
+                        comando.append(argumento_adicional)
+                    
+                    # Ejecutar el comando
+                    estado = Ejecutar_comando(comando, self.entry_ruta.get())
+                    
+                    if isinstance(estado, subprocess.CalledProcessError):
+                        messagebox.showerror("Error", f"Error instalando {modulo['nombre']}: {estado}")
                         if self._pararEnFallo.get():
                             self.lock_unlock_widgets(estado="normal")
                             if self._eliminarDatos.get():
@@ -486,7 +488,7 @@ class ConfigurarEntornoNode(tk.Tk):
                                     pass
                             actualizar_progreso(f"Error al instalar {modulo['nombre']}", fill=True)
                             return
-
+                        
             for dic in self._checkVars:
                 dic = dict(dic)
                 for clave, var in dic.items():
@@ -548,92 +550,34 @@ class ConfigurarEntornoNode(tk.Tk):
     def Iniciar(self):
         self.mainloop()
 
-def Verificar_version():
-    try:
-        version = subprocess.run(
-            ["node", "-v"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW  # Evita que se abra una ventana de consola
-            )
-        return version.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+def Verificar_version(de:str):
+    comando = [de, "-v"]
+    estado = Ejecutar_comando(comando)
+    if isinstance(estado, subprocess.CalledProcessError):
         return None
+    return estado.stdout.strip()
 
 def obtener_version_paquete_npm(ruta_a_npm: str, paquete: str | None = None):
-    comando = [
-        ruta_a_npm,
-        "list",
-    ]
+    comando = [ruta_a_npm,"list"]
     if paquete:
         comando.append(paquete)
     
-    comando.append("--depth=0")
-    try:
-        resultado = subprocess.run(
-            comando,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0  # Evita abrir la consola en Windows
-        )
-        # Analiza la salida para encontrar la versión del paquete
-        lineas = resultado.stdout.splitlines()
-        for linea in lineas:
-            ce = linea.find(' ')
-            if ce != -1:
-                paqueteB = linea[ce+1:]
-            else:
-                paqueteB = linea
-            
-            if '@' in paqueteB:
-                # La línea contiene el paquete y su versión, por ejemplo: "├── paquete@1.2.3"
-                version = paqueteB.split('@')[1].strip()
-                return version
+    comando.append("--depth=0") # Solo mostrar los paquetes de primer nivel
+    resultado = Ejecutar_comando(comando)
+    if isinstance(resultado, subprocess.CalledProcessError):
         return None
-    except subprocess.CalledProcessError as e:
-        return None
-
-def Verificar_version_NPM(paquete:str):
-    try:
-        version = subprocess.run(
-            [paquete, "-v"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
-        )
-        return version.stdout.strip()
-    except subprocess.CalledProcessError:
-        return None
-
-async def async_Verificar_version_NPM(ruta_npm:str):
-    loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, Verificar_version_NPM, ruta_npm)
-    return result
-
-def Obtenerversiones_paqueteNPM(nombre_paquete:str, ruta_a_npm:str):
-    try:
-        versiones = subprocess.run(
-            [ruta_a_npm, "show", nombre_paquete, "versions"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
-        )
-        return list(ast.literal_eval(f"{versiones.stdout.strip()}"))
-    except subprocess.CalledProcessError:
-        return []
-
-async def async_Obtenerversiones_paqueteNPM(nombre_paquete: str, ruta_a_npm: str):
-    loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, Obtenerversiones_paqueteNPM, nombre_paquete, ruta_a_npm)
-    return result
+    lineas = resultado.stdout.splitlines()
+    for linea in lineas:
+        ce = linea.find(' ')
+        if ce != -1:
+            paqueteB = linea[ce+1:]
+        else:
+            paqueteB = linea
+        
+        if '@' in paqueteB:
+            version = paqueteB.split('@')[1].strip()
+            return version
+    return None
 
 def Obtener_ruta_de(elemento_ejecutable:str):
     try:
@@ -660,6 +604,25 @@ def lista_archivos_directorios(directorio_buscar:str):
         else:
             lista_directorios.append(elemento)
     return lista_archivos, lista_directorios
+
+def dividir_lista(lista, n):
+    for i in range(0, len(lista), n):
+        yield lista[i:i + n]
+
+def Ejecutar_comando(comando:List[str], directorio:str = os.getcwd()):
+    try:
+        resultado = subprocess.run(
+            comando,
+            check=True,
+            cwd=directorio,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
+            )
+        return resultado
+    except subprocess.CalledProcessError as e:
+        return e
 
 if __name__ == "__main__":
     app = ConfigurarEntornoNode()

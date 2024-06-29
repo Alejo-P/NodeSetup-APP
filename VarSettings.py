@@ -66,6 +66,14 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
+        "nombre": "Dotenv",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None    
+    },
+    {
+        "usar": None,
         "nombre": "Express",
         "argumento": None,
         "version": None,
@@ -98,7 +106,7 @@ lista_modulosNPM = [
     },
     {
         "usar": None,
-        "nombre": "jsonwebtoken",
+        "nombre": "Jsonwebtoken",
         "argumento": None,
         "version": None,
         "versiones": None,
@@ -124,6 +132,14 @@ lista_modulosNPM = [
         "usar": None,
         "nombre": "MySQL2",
         "argumento": None, 
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
+        "nombre": "Nodemailer",
+        "argumento": None,
         "version": None,
         "versiones": None,
         "global": None
