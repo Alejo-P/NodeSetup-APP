@@ -10,15 +10,15 @@ import time
 import ast
 from PIL import Image, ImageTk
 from typing import List, Literal
-from Actions import doNothing, writeLog
+from Actions import doNothing, getVersionOf, writeLog, getPathOf, runCommand
 from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
 from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(tk.Tk):
     def __init__(self):
-        self._version = Verificar_version("node")
-        self._veri_code = Obtener_ruta_de("code")
-        self._npm_path = Obtener_ruta_de("npm")
+        self._version = getVersionOf("node")
+        self._veri_code = getPathOf("code")
+        self._npm_path = getPathOf("npm")
         self._referencias = {}
         self._lista_widgets= []
         self._version_NPM = None
@@ -65,7 +65,6 @@ class ConfigurarEntornoNode(tk.Tk):
         self._checkVars = []
         
         self._idAfterBar = "Temporal"
-        self._idAfterBar2 = None
         self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:")
         self.lbl_titulo = ttk.Label(self)
         self.lbl_versionApp = ttk.Label(self.frameInfo)
@@ -107,14 +106,14 @@ class ConfigurarEntornoNode(tk.Tk):
         def cargarinfo_versionNPM():
             self.lbl_versionNPM.config(text="Version de NPM: Cargando...")
             
-            versionNPM = Ejecutar_comando([self._npm_path, "-v"])
+            versionNPM = runCommand([self._npm_path, "-v"])
             if isinstance(versionNPM, subprocess.CalledProcessError):
                 messagebox.showerror("Error", f"Error al obtener la version de NPM: {versionNPM}")
                 self.lbl_versionNPM.config(text="Version de NPM: Error")
             else:
                 self.lbl_versionNPM.config(text=f"Version de NPM: {versionNPM.stdout.strip()}")
             
-            versiones_paquetesNPM = Ejecutar_comando([self._npm_path, "show", "npm", "versions", "--depth=0"])
+            versiones_paquetesNPM = runCommand([self._npm_path, "show", "npm", "versions", "--depth=0"])
             lista_versionesNPM = list(ast.literal_eval(f"{versiones_paquetesNPM.stdout.strip()}"))
             
             if versionNPM.stdout.strip() < lista_versionesNPM[-1]:
@@ -129,11 +128,11 @@ class ConfigurarEntornoNode(tk.Tk):
                     dic["argumento"].set("")
                     dic["version"].set(dic["versiones"][-1] if dic["versiones"] else "Ocurrio un Error")
             
-            def update_modulos_ui(msg_estado, progress_bar, modulos):
+            def update_modulos_ui(msg_estado, progress_bar, modulos: tk.Toplevel):
                 def CargarInfoModulos(listaModulos):
                     for dic in listaModulos:
                         if not dic["versiones"]:
-                            versionesPaquetes = Ejecutar_comando([self._npm_path, "show", dic["nombre"].lower(), "versions", "--depth=0"])
+                            versionesPaquetes = runCommand([self._npm_path, "show", dic["nombre"].lower(), "versions", "--depth=0"])
                             if isinstance(versionesPaquetes, subprocess.CalledProcessError):
                                 writeLog("ERROR", f"Error al obtener versiones de {dic['nombre']}: {versionesPaquetes}", CargarInfoModulos.__name__)
                                 return
@@ -149,42 +148,46 @@ class ConfigurarEntornoNode(tk.Tk):
                             dic["version"] = tk.StringVar(value=dic["versiones"][-1] if dic["versiones"] else "Ocurrió un error")
 
                 def CrearWidgets(listaModulos):
-                    for dic in listaModulos:
-                        check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], style="Custom.TCheckbutton")
-                        label_nombre = ttk.Label(modulos, text=dic["nombre"])
-                        entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"])
-                        combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"])
-                        check_global = ttk.Checkbutton(modulos, variable=dic["global"], style="Custom.TCheckbutton")
+                    if not self._lista_widgets:
+                        for dic in listaModulos:
+                            check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], style="Custom.TCheckbutton")
+                            label_nombre = ttk.Label(modulos, text=dic["nombre"])
+                            entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"])
+                            combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"])
+                            check_global = ttk.Checkbutton(modulos, variable=dic["global"], style="Custom.TCheckbutton")
 
-                        self._lista_widgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
+                            self._lista_widgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
 
                 def mostrar_widgets():
-                    for i, widget_list in enumerate(self._lista_widgets, 2):
-                        for j, widget in enumerate(widget_list):
-                            print(widget)
-                            if isinstance(widget, (ttk.Checkbutton, ttk.Combobox)):
-                                widget.grid(row=i, column=j % len(encabezado_tabla), padx=5, pady=2)
-                            elif isinstance(widget, ttk.Label):
-                                widget.grid(row=i, column=j % len(encabezado_tabla), padx=5, pady=2, sticky="w")
+                    try:
+                        for i, widget_list in enumerate(self._lista_widgets, 2):
+                            for j, widget in enumerate(widget_list):
+                                if isinstance(widget, (ttk.Checkbutton, ttk.Combobox)):
+                                    widget.grid(row=i, column=j % len(encabezado_tabla), padx=5, pady=2)
+                                elif isinstance(widget, ttk.Label):
+                                    widget.grid(row=i, column=j % len(encabezado_tabla), padx=5, pady=2, sticky="w")
 
-                    valor = len(self._lista_widgets) + 2  # Calcular la posición del botón Restablecer
-                    frame_botones = ttk.Frame(modulos, width=100)
-                    frame_botones.grid(row=valor, column=0, columnspan=len(encabezado_tabla), pady=5, sticky="nsew")
+                        valor = len(self._lista_widgets) + 2  # Calcular la posición del botón Restablecer
+                        frame_botones = ttk.Frame(modulos, width=100)
+                        frame_botones.grid(row=valor, column=0, columnspan=len(encabezado_tabla), pady=5, sticky="nsew")
 
-                    frame_botones.grid_columnconfigure(0, weight=1)
-                    frame_botones.grid_columnconfigure(1, weight=1)
+                        frame_botones.grid_columnconfigure(0, weight=1)
+                        frame_botones.grid_columnconfigure(1, weight=1)
 
-                    ttk.Button(frame_botones, text="Guardar", command=lambda: Cerrar_ventana()).grid(row=0, column=0, padx=10, sticky="nsew")
-                    ttk.Button(frame_botones, text="Restablecer", command=restablecer_seleccion).grid(row=0, column=1, padx=10, sticky="nsew")
+                        ttk.Button(frame_botones, text="Guardar", command=lambda: Cerrar_ventana()).grid(row=0, column=0, padx=10, sticky="nsew")
+                        ttk.Button(frame_botones, text="Restablecer", command=restablecer_seleccion).grid(row=0, column=1, padx=10, sticky="nsew")
 
-                    self._centrar_ventana(modulos, True)
-                
+                        self._centrar_ventana(modulos, True)
+                    except tk.TclError as e:
+                        print(f"Error al mostrar widgets: {e}")
+
                 def iniciar_carga():
                     n_listas = 6
                     progress_bar.start()
                     msg_estado.config(text="Cargando módulos de NPM... No cierre la ventana!")
 
-                    if not lista_modulosNPM:
+                    if not self._lista_widgets:
+                        modulos.protocol("WM_DELETE_WINDOW", lambda: doNothing())
                         for sublistas in dividir_lista(lista_modulosNPM, n_listas):
                             hilo = threading.Thread(target=CargarInfoModulos, args=(sublistas,))
                             Registro_hilos.append(hilo)
@@ -199,55 +202,57 @@ class ConfigurarEntornoNode(tk.Tk):
                             progress_bar.stop()
                             progress_bar.grid_forget()
                             msg_estado.grid_forget()
-                            
+
                         Registro_hilos.clear()
+
                     CrearWidgets(lista_modulosNPM)
                     self._centrar_ventana(modulos)
-                    modulos.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
 
                     # Mostrar los widgets en la interfaz
-                    mostrar_widgets()
+                    modulos.after(0, mostrar_widgets)  # Programar mostrar_widgets en el hilo principal
+
+                    modulos.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
 
                 # Llama a iniciar_carga para empezar el proceso
                 iniciar_carga()
-            
+
             def Cerrar_ventana():
-                for widget in modulos.winfo_children():
-                    widget.destroy()
-                
-                self.cerrar_ventana(modulos)
-            
-            modulos = tk.Toplevel(self)
-            modulos.title("Escoje los modulos a instalar")
-            modulos.resizable(0, 0) #type:ignore
-            modulos.transient(self)
-            
-            encabezado_tabla = [
-                "Seleccionar",
-                "Nombre del modulo",
-                "Argumento",
-                "Versión",
-                "Inst. Global"
-            ]
-            
-            for i, texto in enumerate(encabezado_tabla):
-                ttk.Label(modulos, text=texto).grid(row=0, column=i, padx=5, pady=2)
-            
-            # Añadir un separador horizontal a la ventana
-            ttk.Separator(modulos, orient="horizontal").grid(row=1, column=0, columnspan=len(encabezado_tabla), sticky="ew")
-            
-            # Añadir una barra de progreso
-            progress_bar = ttk.Progressbar(modulos, orient='horizontal', mode='indeterminate', length=280, style="TProgressbar")
-            progress_bar.grid(row=2, column=0, columnspan=len(encabezado_tabla), padx=5, pady=10)
-            msg_estado = ttk.Label(modulos)
-            msg_estado.grid(row=3, column=0, columnspan=len(encabezado_tabla), padx=5, pady=2)
-            
-            self._centrar_ventana(modulos)
-            
-            # Llama a la función para cargar y actualizar los módulos
-            threading.Thread(target=update_modulos_ui, args=(msg_estado, progress_bar, modulos)).start()
-            
-            #threading.Thread(target=update_modulos_ui, args=(lista_modulosNPM, self._npm_path, msg_estado, progress_bar, modulos)).start()
+                self.modulos.withdraw() #type:ignore  # Ocultar la ventana en lugar de destruirla
+                # Puedes realizar otras acciones al cerrar la ventana si lo necesitas
+
+            if not hasattr(self, "modulos") or not self.modulos.winfo_exists(): # type: ignore
+                self.modulos = tk.Toplevel(self) # type: ignore
+                self.modulos.title("Escoje los módulos a instalar") # type: ignore
+                self.modulos.resizable(0, 0) # type:ignore
+                self.modulos.transient(self) # type: ignore
+
+                encabezado_tabla = [
+                    "Seleccionar",
+                    "Nombre del módulo",
+                    "Argumento",
+                    "Versión",
+                    "Inst. Global"
+                ]
+
+                for i, texto in enumerate(encabezado_tabla):
+                    ttk.Label(self.modulos, text=texto).grid(row=0, column=i, padx=5, pady=2) # type: ignore
+
+                # Añadir un separador horizontal a la ventana
+                ttk.Separator(self.modulos, orient="horizontal").grid(row=1, column=0, columnspan=len(encabezado_tabla), sticky="ew") # type: ignore
+
+                # Añadir una barra de progreso
+                progress_bar = ttk.Progressbar(self.modulos, orient='horizontal', mode='indeterminate', length=280, style="TProgressbar") # type: ignore
+                msg_estado = ttk.Label(self.modulos) # type: ignore
+
+                progress_bar.grid(row=2, column=0, columnspan=len(encabezado_tabla), padx=5, pady=10)
+                msg_estado.grid(row=3, column=0, columnspan=len(encabezado_tabla), padx=5, pady=2)
+
+                self._centrar_ventana(self.modulos) # type: ignore
+
+                # Llama a la función para cargar y actualizar los módulos
+                threading.Thread(target=update_modulos_ui, args=(msg_estado, progress_bar, self.modulos)).start() # type: ignore
+            else:
+                self.modulos.deiconify() # type: ignore  # Mostrar la ventana si ya existe y está oculta
         
         self.lbl_titulo.config(text="Configurar Entorno Node", font=("Arial", 20, "bold"))
         self.lbl_titulo.grid(row=0, column=0, columnspan=3)
@@ -444,7 +449,7 @@ class ConfigurarEntornoNode(tk.Tk):
             try:
                 actualizar_progreso("Inicializando proyecto Node")
                 # Ejecutar `npm init -y` para inicializar el proyecto
-                estado = Ejecutar_comando([self._npm_path, "init", "-y"], self.entry_ruta.get())
+                estado = runCommand([self._npm_path, "init", "-y"], self.entry_ruta.get())
                 if isinstance(estado, subprocess.CalledProcessError):
                     messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {estado}")
                     self.lock_unlock_widgets(estado="normal")
@@ -487,7 +492,7 @@ class ConfigurarEntornoNode(tk.Tk):
                         comando.append(argumento_adicional)
                     
                     # Ejecutar el comando
-                    estado = Ejecutar_comando(comando, self.entry_ruta.get())
+                    estado = runCommand(comando, self.entry_ruta.get())
                     
                     if isinstance(estado, subprocess.CalledProcessError):
                         messagebox.showerror("Error", f"Error instalando {modulo['nombre']}: {estado}")
@@ -562,50 +567,6 @@ class ConfigurarEntornoNode(tk.Tk):
     def Iniciar(self):
         self.mainloop()
 
-def Verificar_version(de:str):
-    comando = [de, "-v"]
-    estado = Ejecutar_comando(comando)
-    if isinstance(estado, subprocess.CalledProcessError):
-        return None
-    return estado.stdout.strip()
-
-def obtener_version_paquete_npm(ruta_a_npm: str, paquete: str | None = None):
-    comando = [ruta_a_npm,"list"]
-    if paquete:
-        comando.append(paquete)
-    
-    comando.append("--depth=0") # Solo mostrar los paquetes de primer nivel
-    resultado = Ejecutar_comando(comando)
-    if isinstance(resultado, subprocess.CalledProcessError):
-        return None
-    lineas = resultado.stdout.splitlines()
-    for linea in lineas:
-        ce = linea.find(' ')
-        if ce != -1:
-            paqueteB = linea[ce+1:]
-        else:
-            paqueteB = linea
-        
-        if '@' in paqueteB:
-            version = paqueteB.split('@')[1].strip()
-            return version
-    return None
-
-def Obtener_ruta_de(elemento_ejecutable:str):
-    try:
-        resultado = subprocess.run(
-            ["where", elemento_ejecutable],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
-            )
-        ruta_code = resultado.stdout.strip().split('\n')[1]
-        return ruta_code
-    except subprocess.CalledProcessError:
-        return ""
-
 def lista_archivos_directorios(directorio_buscar:str):
     contenido_directorio = os.listdir(directorio_buscar)
     lista_archivos = []
@@ -620,21 +581,6 @@ def lista_archivos_directorios(directorio_buscar:str):
 def dividir_lista(lista, n):
     for i in range(0, len(lista), n):
         yield lista[i:i + n]
-
-def Ejecutar_comando(comando:List[str], directorio:str = os.getcwd()):
-    try:
-        resultado = subprocess.run(
-            comando,
-            check=True,
-            cwd=directorio,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
-            )
-        return resultado
-    except subprocess.CalledProcessError as e:
-        return e
 
 if __name__ == "__main__":
     app = ConfigurarEntornoNode()
