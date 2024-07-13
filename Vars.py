@@ -1,3 +1,5 @@
+import os
+
 listaArgumentos = [
     "",
     "-S",
@@ -169,3 +171,8 @@ lista_modulosNPM = [
         "global": None  
     }
 ]
+
+Registro_hilos = []
+
+ruta = os.getcwd()
+    

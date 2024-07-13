@@ -10,11 +10,11 @@ import time
 import ast
 from PIL import Image, ImageTk
 from typing import List, Literal
-from VarSettings import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM
+from Actions import doNothing, writeLog
+from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
 from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(tk.Tk):
-    
     def __init__(self):
         self._version = Verificar_version("node")
         self._veri_code = Obtener_ruta_de("code")
@@ -41,8 +41,6 @@ class ConfigurarEntornoNode(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
         
         style = ttk.Style(self)
-        style.theme_use('clam')
-        self.configure(bg="lightgray")
        
         # Personalizar la barra de progreso
         style.configure("TProgressbar",
@@ -124,20 +122,6 @@ class ConfigurarEntornoNode(tk.Tk):
             self.update_idletasks()
         
         def ventana_seleccionModulos():
-            def incrementar_progreso(progreso:ttk.Progressbar, incremento:int | float, objetivo:int | float, delay:int=30):
-                if self._idAfterBar2:
-                    if progreso['value'] < objetivo:
-                        progreso['value'] += incremento
-                        self._idAfterBar2 = modulos.after(delay, incrementar_progreso, progreso, incremento, objetivo, delay)
-                    else:
-                        progreso['value'] = objetivo
-            
-            def actualizar_progreso_subbarra(progreso:ttk.Progressbar ,pasos_completados:int | float):
-                objetivo = pasos_completados / (len(lista_modulosNPM)-1) * 100
-                incremento = 1
-                incrementar_progreso(progreso, incremento, objetivo, 80)
-                self.update_idletasks()
-            
             def restablecer_seleccion():
                 for dic in lista_modulosNPM:
                     dic["usar"].set(False)
@@ -145,19 +129,16 @@ class ConfigurarEntornoNode(tk.Tk):
                     dic["argumento"].set("")
                     dic["version"].set(dic["versiones"][-1] if dic["versiones"] else "Ocurrio un Error")
             
-            def update_modulos_ui(lista_modulosNPM, npm_path, msg_estado, progress_bar, modulos:tk.Toplevel):
-                def CargarWidgets(listaModulos, result_queue):
-                    for i, dic in enumerate(listaModulos, 1):
-                        # Usar un callback para actualizar el estado de la GUI en el hilo principal
-                        result_queue.put(f"Cargando info del modulo {dic['nombre']}")
-                        print(f"Cargando info del modulo {dic['nombre']}")
+            def update_modulos_ui(msg_estado, progress_bar, modulos):
+                def CargarInfoModulos(listaModulos):
+                    for dic in listaModulos:
                         if not dic["versiones"]:
-                            versionesPaquetes = Ejecutar_comando([npm_path, "show", dic["nombre"].lower(), "versions", "--depth=0"])
+                            versionesPaquetes = Ejecutar_comando([self._npm_path, "show", dic["nombre"].lower(), "versions", "--depth=0"])
                             if isinstance(versionesPaquetes, subprocess.CalledProcessError):
-                                result_queue.put(f"Error al obtener versiones de {dic['nombre']}: {versionesPaquetes}")
+                                writeLog("ERROR", f"Error al obtener versiones de {dic['nombre']}: {versionesPaquetes}", CargarInfoModulos.__name__)
                                 return
                             dic["versiones"] = list(ast.literal_eval(f"{versionesPaquetes.stdout.strip()}"))
-                        
+
                         if not dic["usar"]:
                             dic["usar"] = tk.BooleanVar(value=False)
                         if not dic["global"]:
@@ -165,99 +146,81 @@ class ConfigurarEntornoNode(tk.Tk):
                         if not dic["argumento"]:
                             dic["argumento"] = tk.StringVar(value=listaArgumentos[0])
                         if not dic["version"]:
-                            dic["version"] = tk.StringVar(value=dic["versiones"][-1] if dic["versiones"] else "Ocurrio un Error")
-                        
-                        if modulos.winfo_exists():
-                            self._lista_widgets.append([ttk.Checkbutton(modulos, variable=dic["usar"]),
-                                                        ttk.Label(modulos, text=dic["nombre"]),
-                                                        ttk.Combobox(modulos, textvariable=dic["argumento"], values=tuple(listaArgumentos), state="readonly"),
-                                                        ttk.Combobox(modulos, textvariable=dic["version"], values=dic["versiones"], state="readonly"),
-                                                        ttk.Checkbutton(modulos, variable=dic["global"])])
-                        else:
-                            self._lista_widgets.clear()
-                            return
-                        
-                        # Actualizar la barra de progreso
-                        if self._idAfterBar2:
-                            actualizar_progreso_subbarra(progress_bar, i)
-                        
-                        print(f"Modulo {dic['nombre']} cargado")
-                    result_queue.put("done")
-                
-                def procesar_resultados(result_queue, done_event):
-                    while not done_event.is_set() or not result_queue.empty():
-                        try:
-                            result = result_queue.get(timeout=0.1)
-                        except queue.Empty:
-                            continue
-                        if result == "done":
-                            print("Todos los hilos han terminado su ejecución.")
-                        else:
-                            msg_estado.config(text=result)
-                            print(result)
+                            dic["version"] = tk.StringVar(value=dic["versiones"][-1] if dic["versiones"] else "Ocurrió un error")
+
+                def CrearWidgets(listaModulos):
+                    for dic in listaModulos:
+                        check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], style="Custom.TCheckbutton")
+                        label_nombre = ttk.Label(modulos, text=dic["nombre"])
+                        entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"])
+                        combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"])
+                        check_global = ttk.Checkbutton(modulos, variable=dic["global"], style="Custom.TCheckbutton")
+
+                        self._lista_widgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
+
+                def mostrar_widgets():
+                    for i, widget_list in enumerate(self._lista_widgets, 2):
+                        for j, widget in enumerate(widget_list):
+                            print(widget)
+                            if isinstance(widget, (ttk.Checkbutton, ttk.Combobox)):
+                                widget.grid(row=i, column=j % len(encabezado_tabla), padx=5, pady=2)
+                            elif isinstance(widget, ttk.Label):
+                                widget.grid(row=i, column=j % len(encabezado_tabla), padx=5, pady=2, sticky="w")
+
+                    valor = len(self._lista_widgets) + 2  # Calcular la posición del botón Restablecer
+                    frame_botones = ttk.Frame(modulos, width=100)
+                    frame_botones.grid(row=valor, column=0, columnspan=len(encabezado_tabla), pady=5, sticky="nsew")
+
+                    frame_botones.grid_columnconfigure(0, weight=1)
+                    frame_botones.grid_columnconfigure(1, weight=1)
+
+                    ttk.Button(frame_botones, text="Guardar", command=lambda: Cerrar_ventana()).grid(row=0, column=0, padx=10, sticky="nsew")
+                    ttk.Button(frame_botones, text="Restablecer", command=restablecer_seleccion).grid(row=0, column=1, padx=10, sticky="nsew")
+
+                    self._centrar_ventana(modulos, True)
                 
                 def iniciar_carga():
-                    result_queue = queue.Queue()
-                    done_event = threading.Event()
-                    n_listas = 1
-                    hilos = []
+                    n_listas = 6
+                    progress_bar.start()
+                    msg_estado.config(text="Cargando módulos de NPM... No cierre la ventana!")
 
-                    if not self._lista_widgets:
+                    if not lista_modulosNPM:
                         for sublistas in dividir_lista(lista_modulosNPM, n_listas):
-                            print("Sublistas:", sublistas)
-                            hilo = threading.Thread(target=CargarWidgets, args=(sublistas, result_queue, done_event))
-                            hilos.append(hilo)
+                            hilo = threading.Thread(target=CargarInfoModulos, args=(sublistas,))
+                            Registro_hilos.append(hilo)
+
+                        for hilo in Registro_hilos:
                             hilo.start()
-                        
-                        print("Hilos iniciados:", hilos)
-                        
-                        # Lanzar un hilo para procesar los resultados sin bloquear el hilo principal
-                        threading.Thread(target=procesar_resultados, args=(result_queue, done_event)).start()
+
+                        for hilo in Registro_hilos:
+                            hilo.join()
+
+                        if progress_bar.winfo_exists() and msg_estado.winfo_exists():
+                            progress_bar.stop()
+                            progress_bar.grid_forget()
+                            msg_estado.grid_forget()
+                            
+                        Registro_hilos.clear()
+                    CrearWidgets(lista_modulosNPM)
+                    self._centrar_ventana(modulos)
+                    modulos.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
+
+                    # Mostrar los widgets en la interfaz
+                    mostrar_widgets()
 
                 # Llama a iniciar_carga para empezar el proceso
                 iniciar_carga()
-                
-                if progress_bar.winfo_exists() and msg_estado.winfo_exists():
-                    # Ocultar la barra y el mensaje de estado cuando termine
-                    progress_bar.grid_forget()
-                    msg_estado.grid_forget()
-                
-                valor = 0
-                
-                for i, widget_list in enumerate(self._lista_widgets, 2):
-                    for j, widget in enumerate(widget_list):
-                        if isinstance(widget, (ttk.Checkbutton, ttk.Entry, ttk.Combobox)):
-                            widget.grid(row=i, column=j%len(encabezado_tabla), padx=5, pady=2)
-                        elif isinstance(widget, ttk.Label):
-                            widget.grid(row=i, column=j%len(encabezado_tabla), padx=5, pady=2, sticky="w")
-                    valor = i
-                
-                if modulos.winfo_exists():
-                    frame_botones = ttk.Frame(modulos, width=100)
-                    frame_botones.grid(row=valor+1, column=0, columnspan=len(encabezado_tabla), pady=5, sticky="nsew")
-                    
-                    frame_botones.grid_columnconfigure(0, weight=1)
-                    frame_botones.grid_columnconfigure(1, weight=1)
-                        
-                    ttk.Button(frame_botones, text="Guardar", command=lambda: self.cerrar_ventana(modulos)).grid(row=0, column=0, padx=10, sticky="nsew")
-                    ttk.Button(frame_botones, text="Restablecer", command=restablecer_seleccion).grid(row=0, column=1, padx=10, sticky="nsew")
-                    
-                    self._centrar_ventana(modulos, True)
-                del msg_estado
             
             def Cerrar_ventana():
-                if self._idAfterBar2:
-                    modulos.after_cancel(self._idAfterBar2)
-                    self._idAfterBar2 = None
+                for widget in modulos.winfo_children():
+                    widget.destroy()
                 
                 self.cerrar_ventana(modulos)
             
             modulos = tk.Toplevel(self)
             modulos.title("Escoje los modulos a instalar")
             modulos.resizable(0, 0) #type:ignore
-            modulos.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
             modulos.transient(self)
-            self._idAfterBar2 = "temporal"
             
             encabezado_tabla = [
                 "Seleccionar",
@@ -274,14 +237,15 @@ class ConfigurarEntornoNode(tk.Tk):
             ttk.Separator(modulos, orient="horizontal").grid(row=1, column=0, columnspan=len(encabezado_tabla), sticky="ew")
             
             # Añadir una barra de progreso
-            progress_bar = ttk.Progressbar(modulos, orient='horizontal', mode='determinate', length=280, style="TProgressbar")
+            progress_bar = ttk.Progressbar(modulos, orient='horizontal', mode='indeterminate', length=280, style="TProgressbar")
             progress_bar.grid(row=2, column=0, columnspan=len(encabezado_tabla), padx=5, pady=10)
             msg_estado = ttk.Label(modulos)
             msg_estado.grid(row=3, column=0, columnspan=len(encabezado_tabla), padx=5, pady=2)
             
             self._centrar_ventana(modulos)
             
-            update_modulos_ui(lista_modulosNPM, self._npm_path, msg_estado, progress_bar, modulos)
+            # Llama a la función para cargar y actualizar los módulos
+            threading.Thread(target=update_modulos_ui, args=(msg_estado, progress_bar, modulos)).start()
             
             #threading.Thread(target=update_modulos_ui, args=(lista_modulosNPM, self._npm_path, msg_estado, progress_bar, modulos)).start()
         
