@@ -22,7 +22,7 @@
             <td>
                 <ul>
                     <li>
-                        Se añadio un visor de registros el cuál muestra el comando utilizado para cada tarea de instalacion de modulos NPM por parte del programa (se actualizá cada 1 segundo).
+                        Se añadió un visor de registros el cuál muestra el comando utilizado para cada tarea de instalación de modulos NPM por parte del programa (se actualizá cada 1 segundo).
                     </li>
                 </ul>
             </td>
@@ -50,7 +50,7 @@
                         Se modificó el apartado <strong>Información</strong> en la pantalla de la aplicacion, para incluir la versión de la aplicación.
                     </li>
                     <li>
-                        Se agergarón 7 paquetes adicionales para su instalación (Cors , Cloudinary, Express-fileupload, fs-extra, jsonwebtoken, MySQL y Sequelize)
+                        Se agregarón 7 paquetes adicionales para su instalación (Cors , Cloudinary, Express-fileupload, fs-extra, jsonwebtoken, MySQL y Sequelize)
                     </li>
                     <li>
                         Se modificó el widget para la entrada de argumentos a una lista desplegable con las opciones que se pueden seleccionar.
@@ -73,7 +73,7 @@
                         Se agergarón 6 paquetes adicionales para su instalación a parte de Express (Mongoose , Nodemon, Morgan, Json-server, Uuid y Bcrypt)
                     </li>
                     <li>    
-                        Se elimino la opción <strong>Continuar sin confirmación</strong> y se añadierón 2 opciones adicionales <strong>Eliminar todo el contenido de la carpeta</strong> (Si existe la carpeta indicada, eliminará todo lo que se encuentre en ella) y <strong>Eliminar contenido tras un fallo</strong> (Si ocurre un fallo en la instalación de un paquete, se eliminará todo el contenido de la carpeta indicada)
+                        Se eliminó la opción <strong>Continuar sin confirmación</strong> y se añadierón 2 opciones adicionales <strong>Eliminar todo el contenido de la carpeta</strong> (Si existe la carpeta indicada, eliminará todo lo que se encuentre en ella) y <strong>Eliminar contenido tras un fallo</strong> (Si ocurre un fallo en la instalación de un paquete, se eliminará todo el contenido de la carpeta indicada)
                     </li>
                 </ul>
             </td>
