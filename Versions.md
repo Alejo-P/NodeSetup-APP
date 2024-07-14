@@ -11,8 +11,8 @@
     <thead>
         <tr>
             <th>Versión</th>
-            <th>Fecha</th>
-            <th>Cambios</th>
+            <th>Fecha modificación</th>
+            <th>Cambios realizados</th>
         </tr>
     </thead>
     <tbody>
@@ -22,7 +22,7 @@
             <td>
                 <ul>
                     <li>
-                        Se añadio un visor de registros el cual muestra el comando utilizado para cada tarea de instaacion de modulos NPM por parte del programa (se actializa cada 1 segundo).
+                        Se añadio un visor de registros el cuál muestra el comando utilizado para cada tarea de instalacion de modulos NPM por parte del programa (se actualizá cada 1 segundo).
                     </li>
                 </ul>
             </td>
@@ -33,10 +33,10 @@
             <td>
                 <ul>
                     <li>
-                        Se optimizo el tiempo de carga de cada una de las versiones de paquetes de NPM.
+                        Se optimizó el tiempo de carga de cada una de las versiones de paquetes de NPM.
                     </li>
                     <li>
-                        Se agregaron 2 paquetes adicionales para su instalacion (Nodemailer y Axios) 
+                        Se agregarón 2 paquetes adicionales para su instalación (Nodemailer y Axios) 
                     </li>
                 </ul>
             </td>
@@ -47,13 +47,13 @@
             <td>
                 <ul>
                     <li>
-                        Se modifico el apartado <strong>Información</strong> en la pantalla de la aplicacion, para incluir la version de la aplicacion.
+                        Se modificó el apartado <strong>Información</strong> en la pantalla de la aplicacion, para incluir la versión de la aplicación.
                     </li>
                     <li>
-                        Se agergaron 7 paquetes adicionales para su instalacion (Cors , Cloudinary, Express-fileupload, fs-extra, jsonwebtoken, MySQL y Sequelize)
+                        Se agergarón 7 paquetes adicionales para su instalación (Cors , Cloudinary, Express-fileupload, fs-extra, jsonwebtoken, MySQL y Sequelize)
                     </li>
                     <li>
-                        Se modifico el widget parala entrada de algumentos a una lista delplegable con las opciones a seleccionar.
+                        Se modificó el widget para la entrada de argumentos a una lista desplegable con las opciones que se pueden seleccionar.
                     </li>
                 </ul>
             </td>
@@ -64,16 +64,16 @@
             <td>
                 <ul>
                     <li>    
-                        Se añadio en el apartado <strong>Información</strong> en la pantalla de la aplicacion, la version de Node.js y NPM que se esta utilizando. (Si la aplicacion detecta una actualizacion de NPM se mostrara un mensaje en la pantalla de la aplicacion)
+                        Se añadió en el apartado <strong>Información</strong> en la pantalla de la aplicación, la versión de Node.js y NPM que se esta utilizando. (Si la aplicación detecta una actualización de NPM se mostrará un mensaje en la pantalla de la aplicacion)
                     </li>
                     <li>
-                        Se añadio un boton el cual abre una ventana que permite seleccionar los modulos que se desea instalar en la ruta seleccionada.
+                        Se añadió un botón el cual abre una ventana que permite seleccionar los modulos que se desea instalar en la ruta seleccionada.
                     </li>
                     <li>
-                        Se agergaron 6 paquetes adicionales para su instalacion a parte de Express (Mongoose , Nodemon, Morgan, Json-server, Uuid y Bcrypt)
+                        Se agergarón 6 paquetes adicionales para su instalación a parte de Express (Mongoose , Nodemon, Morgan, Json-server, Uuid y Bcrypt)
                     </li>
                     <li>    
-                        Se elimino la opcion <strong>Continuar sin confirmación</strong> y se añadieron 2 opciones adicionales <strong>Eliminar todo el contenidos de la carpeta</strong> (Si existe la carpeta indicada, eliminara todo lo que se encuentre en ella) y <strong>Eliminar contenido tras un fallo</strong> (Si ocurre un fallo en la instalacion de un paquete, se eliminara todo el contenido de la carpeta indicada)
+                        Se elimino la opción <strong>Continuar sin confirmación</strong> y se añadierón 2 opciones adicionales <strong>Eliminar todo el contenido de la carpeta</strong> (Si existe la carpeta indicada, eliminará todo lo que se encuentre en ella) y <strong>Eliminar contenido tras un fallo</strong> (Si ocurre un fallo en la instalación de un paquete, se eliminará todo el contenido de la carpeta indicada)
                     </li>
                 </ul>
             </td>
