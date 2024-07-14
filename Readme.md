@@ -1,8 +1,4 @@
-<h1>NodeSetup-APP</h1>
-
-<div align="center">
-    <img src="https://img.shields.io/badge/Version-1.2.1-blue.svg" alt="Version de la app">
-</div>
+<h1 align="center">NodeSetup-APP</h1>
 
 <h2>Herramientas utilizadas</h2>
 
