@@ -1,7 +1,7 @@
 import os
 import subprocess
-from typing import List, Literal
-from Vars import ruta
+from typing import Any, List, Literal
+from Vars import ruta, Registro_eventos
 
 class ActionsForNPM:
     def __init__(self):
@@ -49,18 +49,82 @@ class ActionsForNPM:
                 return version
         return None
 
-def writeLog(typeLog:Literal["INFO", "ERROR"], message:str, inFunction:str):
-    with open(f"{ruta}/logs.txt", "a") as file:
-        file.write(f"{typeLog} - {message} - {inFunction}\n")
-    return True
+def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
+    """Regsitar un evento (detalles de un comando) ejecutado por el programa.
 
-def showLog(typeLog:Literal["INFO", "ERROR"]):
-    with open(f"{ruta}/logs.txt", "r") as file:
-        logs = file.readlines()
-        for log in logs:
-            if typeLog in log:
-                print(log)
-    return True
+    Args:
+        tipoEvento (Literal['INFO', 'ERROR']): _Tipo del evento que se va a registrar_
+        evento (dict[str, Any]): _Diccionario con los datalles del evento como comando ejecutado, resultados, etc._ 
+    """
+    
+    Registro_eventos.append({
+        "Tipo": tipoEvento,
+        "Evento": evento
+    })
+
+def getEvents():
+    """Obtiene todos los eventos registrados en el programa.
+
+    Returns:
+        [List[dict[str, Any]]]: _Lista de eventos registrados_
+    """
+    copia_eventos = []
+    dicEvento = {
+        "Tipo": None,
+        "Comando": None,
+        "Salida": None,
+        "Error": None,
+        "CodigoRetorno": 0,
+        "Funcion": None
+    }
+    for evento in Registro_eventos:
+        # Extraer los datos del evento
+        dicEvento["Tipo"] = evento["Tipo"]
+        dicEvento["Comando"] = evento["Evento"]["Comando"]
+        dicEvento["Funcion"] = evento["Evento"]["Funcion"]
+        
+        respuesta = evento["Evento"]["Resultado"] # Obtener el resultado del evento (resultado de la ejecucion del comando)
+        if isinstance(respuesta, subprocess.CompletedProcess): # Verificar si el resultado es de tipo CompletedProcess
+            dicEvento["Salida"] = respuesta.stdout
+            dicEvento["Error"] = respuesta.stderr
+            dicEvento["CodigoRetorno"] = respuesta.returncode
+        
+        elif isinstance(respuesta, subprocess.CalledProcessError): # Verificar si el resultado es de tipo CalledProcessError
+            dicEvento["Salida"] = respuesta.output
+            dicEvento["Error"] = respuesta.stderr
+            dicEvento["CodigoRetorno"] = respuesta.returncode
+        
+        copia_eventos.append(dicEvento.copy()) # Agregar una copia del evento a la lista de eventos
+    
+    return copia_eventos # Devolver la lista de eventos
+
+def writeLog(typeLog:Literal["INFO", "ERROR"], message:str, inFunction:str):
+    """Escribe un mensaje en el archivo de registro de eventos.
+
+    Args:
+        typeLog (Literal["INFO", "ERROR"]): _Tipo de log que se va a registrar_
+        message (str): _Mensaje que se va a registrar_
+        inFunction (str): _Funcion en la que se registro el evento_
+    """
+    try:
+        with open(ruta, "a") as archivo:
+            archivo.write(f"{typeLog} - {message} - {inFunction}\n")
+    except Exception as e:
+        print("Error al escribir el log:", e)
+
+def showLogInConsole(typeLog:Literal["INFO", "ERROR"]):
+    """Muestra los eventos registrados en el archivo de registros.
+
+    Args:
+        typeLog (Literal["INFO", "ERROR"]): _Tipo de log que se va a mostrar_
+    """
+    try:
+        with open(ruta, "r") as archivo:
+            for linea in archivo:
+                if typeLog in linea:
+                    print(linea)
+    except Exception as e:
+        print("Error al mostrar el log:", e)
 
 def doNothing():
     """Esta función no ejecuta ninguna accion.

@@ -44,6 +44,14 @@ archivos = [
 lista_modulosNPM = [
     {
         "usar": None,
+        "nombre": "Axios",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
         "nombre": "Bcrypt",
         "argumento": None,
         "version": None,
@@ -174,5 +182,6 @@ lista_modulosNPM = [
 
 Registro_hilos = []
 
+Registro_eventos = []
+
 ruta = os.getcwd()
-    

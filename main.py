@@ -1,16 +1,14 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
-import queue
 import shutil
 import threading
-from concurrent.futures import ThreadPoolExecutor,as_completed
 import subprocess
 import time
 import ast
-from PIL import Image, ImageTk
-from typing import List, Literal
-from Actions import doNothing, getVersionOf, writeLog, getPathOf, runCommand
+from tkinter.scrolledtext import ScrolledText
+from typing import Literal
+from Actions import doNothing, getEvents, getVersionOf, setEvent, writeLog, getPathOf, runCommand
 from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
 from version import __version__ as appVersion
 
@@ -99,6 +97,12 @@ class ConfigurarEntornoNode(tk.Tk):
         self.frm_progreso.grid_columnconfigure(0, weight=1)
         self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate', style="TProgressbar")
         
+        self.completado = tk.BooleanVar(value=False)
+        
+        self.frm_estadoEv = ttk.LabelFrame(self, text="Registro de eventos", width=100)
+        self.textArea = ScrolledText(self.frm_estadoEv, wrap=tk.WORD, width=50, height=15, font=('Arial', 8))
+        self.textArea.pack(expand=True, fill=tk.BOTH)
+        
         self.crear_widgets()
         self._centrar_ventana()
     
@@ -152,8 +156,8 @@ class ConfigurarEntornoNode(tk.Tk):
                         for dic in listaModulos:
                             check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], style="Custom.TCheckbutton")
                             label_nombre = ttk.Label(modulos, text=dic["nombre"])
-                            entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"])
-                            combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"])
+                            entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"], state="readonly")
+                            combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"], state="readonly")
                             check_global = ttk.Checkbutton(modulos, variable=dic["global"], style="Custom.TCheckbutton")
 
                             self._lista_widgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
@@ -410,7 +414,7 @@ class ConfigurarEntornoNode(tk.Tk):
             return
         
         self.lock_unlock_widgets(estado="disabled")
-        
+        self.completado.set(False)
         total_pasos = conteo_tareas()
         pasos_completados = 0
         
@@ -441,15 +445,26 @@ class ConfigurarEntornoNode(tk.Tk):
                     return
             else:
                 self.lock_unlock_widgets(estado="normal")
+                actualizar_progreso("Operacion cancelada", fill=True)
+                self.completado.set(True)
                 return
         
         self.progreso['value'] = 0
-        
+        self.frm_estadoEv.grid(row=1, rowspan=11, column=4, columnspan=2, padx=5, sticky="nsew")
+        self._centrar_ventana(restablecer_tamaño=True)
         def Iniciar_npm():
             try:
                 actualizar_progreso("Inicializando proyecto Node")
                 # Ejecutar `npm init -y` para inicializar el proyecto
                 estado = runCommand([self._npm_path, "init", "-y"], self.entry_ruta.get())
+                setEvent(
+                    "INFO",
+                    {
+                        "Comando": " ".join([self._npm_path, "init", "-y"]),
+                        "Resultado": estado,
+                        "Funcion": Iniciar_npm.__name__
+                    }
+                )
                 if isinstance(estado, subprocess.CalledProcessError):
                     messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {estado}")
                     self.lock_unlock_widgets(estado="normal")
@@ -459,6 +474,7 @@ class ConfigurarEntornoNode(tk.Tk):
                         pass
                     actualizar_progreso("Error al inicializar el proyecto Node", fill=True)
                     return int(-1)
+                
                 return int(0)
             except Exception as ex:
                 messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {ex}")
@@ -468,8 +484,11 @@ class ConfigurarEntornoNode(tk.Tk):
                 except:
                     pass
                 actualizar_progreso("Error al inicializar el proyecto Node", fill=True)
+                self.completado.set(True)
                 return int(-1)
-                
+        
+        threading.Thread(target=ActualizarScrolledText, args=(self.textArea, self, self.completado)).start()
+              
         if Iniciar_npm() == 0:
             for modulo in lista_modulosNPM:
                 if modulo["usar"] is not None and modulo["usar"].get():
@@ -493,7 +512,14 @@ class ConfigurarEntornoNode(tk.Tk):
                     
                     # Ejecutar el comando
                     estado = runCommand(comando, self.entry_ruta.get())
-                    
+                    setEvent(
+                        "INFO",
+                        {
+                            "Comando": " ".join(comando),
+                            "Resultado": estado,
+                            "Funcion": " ".join(comando)
+                        }
+                    )
                     if isinstance(estado, subprocess.CalledProcessError):
                         messagebox.showerror("Error", f"Error instalando {modulo['nombre']}: {estado}")
                         if self._pararEnFallo.get():
@@ -504,8 +530,9 @@ class ConfigurarEntornoNode(tk.Tk):
                                 except:
                                     pass
                             actualizar_progreso(f"Error al instalar {modulo['nombre']}", fill=True)
+                            self.completado.set(True)
                             return
-                        
+                       
             for dic in self._checkVars:
                 dic = dict(dic)
                 for clave, var in dic.items():
@@ -531,11 +558,14 @@ class ConfigurarEntornoNode(tk.Tk):
                     if archivo == ".gitignore":
                         file.write("node_modules\n")
                         file.write(".env")
-                    pass
             
             self.lock_unlock_widgets(estado="normal")
             actualizar_progreso("Completado", True)
             messagebox.showinfo("Informacion", "Proyecto creado con éxito")
+            self.completado.set(True)
+            time.sleep(1)
+            self.frm_estadoEv.grid_forget()
+            self._centrar_ventana(restablecer_tamaño=True)
             del total_pasos, pasos_completados
 
     def _crear_ruta(self):
@@ -577,6 +607,29 @@ def lista_archivos_directorios(directorio_buscar:str):
         else:
             lista_directorios.append(elemento)
     return lista_archivos, lista_directorios
+
+def ActualizarScrolledText(textArea:ScrolledText, ventana:tk.Tk, completado:tk.BooleanVar):
+    if not completado.get():
+        textArea.delete(1.0, tk.END)
+        try:
+            for evento in getEvents():
+                textArea.insert(tk.END, "_"*25)
+                textArea.insert(tk.END, f"""
+\nCMD: {evento["Comando"]}
+SALIDA: {str(evento["Salida"]).strip() if evento["Salida"] else str(evento["Error"]).strip()}
+CODIGO: {evento["CodigoRetorno"]}
+FUNCION: {evento["Funcion"]}\n""")
+                textArea.insert(tk.END, "_"*25)
+                textArea.see(tk.END)
+        except Exception as e:
+            print("Error al actualizar el texto:", e)
+        
+        ventana.after(1000, ActualizarScrolledText, textArea, ventana, completado)
+    else:
+        textArea.delete(1.0, tk.END)
+        textArea.insert(tk.END, "Tareas finalizadas")
+        textArea.see(tk.END)
+        return
 
 def dividir_lista(lista, n):
     for i in range(0, len(lista), n):
