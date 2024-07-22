@@ -7,16 +7,29 @@ import subprocess
 import time
 import ast
 from tkinter.scrolledtext import ScrolledText
+from turtle import st
 from typing import Literal
-from Actions import doNothing, getEvents, getVersionOf, setEvent, writeLog, getPathOf, runCommand
+from Actions import (
+    doNothing,
+    preventCloseWindow,
+    getEvents,
+    getVersionOf,
+    setEvent,
+    writeLog,
+    getPathOf,
+    runCommand,
+    loadImageTk
+)
 from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
 from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(tk.Tk):
     def __init__(self):
         self._version = getVersionOf("node")
+        self._versionGit = getVersionOf("git")
         self._veri_code = getPathOf("code")
         self._npm_path = getPathOf("npm")
+        self._git_path = getPathOf("git")
         self._referencias = {}
         self._lista_widgets= []
         self._version_NPM = None
@@ -24,19 +37,12 @@ class ConfigurarEntornoNode(tk.Tk):
         if self._version is None:
             messagebox.showerror("Error", "Node.js no está instalado en el sistema")
             quit()
-            
-        super().__init__()
         
-        def Cerrar_ventana():
-            if self._idAfterBar:
-                self.after_cancel(self._idAfterBar)
-                self._idAfterBar = None
-            
-            self.cerrar_ventana()
+        super().__init__()
 
         self.title("NodeSetup")
         self.resizable(0, 0)  # type: ignore
-        self.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
+        self.protocol("WM_DELETE_WINDOW", lambda: preventCloseWindow("Accion no permitida", "No puede cerrar esta ventana, hay tareas que requieren usarla", "WARNING"))
         
         style = ttk.Style(self)
        
@@ -61,6 +67,9 @@ class ConfigurarEntornoNode(tk.Tk):
                   relief=[('pressed', 'sunken')])
         
         self._checkVars = []
+        self._imagenes = {}
+        self._ruta = tk.StringVar()
+        self._cambiarDirectorio = tk.BooleanVar(value=False)
         
         self._idAfterBar = "Temporal"
         self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:")
@@ -69,13 +78,18 @@ class ConfigurarEntornoNode(tk.Tk):
         self.lbl_version = ttk.Label(self.frameInfo)
         self.lbl_versionNPM = ttk.Label(self.frameInfo)
         self._lbl_ruta = ttk.Label(self, text="Ruta", width=50)
-        self.entry_ruta = ttk.Entry(self)
+        self.entry_ruta = ttk.Entry(self, textvariable=self._ruta, width=50)
         self.entry_ruta.bind(
             "<Return>",
             lambda event: self.iniciar_creacion_proyecto()
         )
         self.boton_ruta = ttk.Button(self, text="Explorar", command=self.abrir_ruta, width=50)
         self.frm_check = ttk.Labelframe(self, width=50, text="Opciones")
+        self.labelGit = ttk.Label(self.frm_check, cursor="hand2")
+        self.labelGit.bind(
+            "<Button-1>",
+            lambda event: self._ventanaOpcionesGit()
+        )
         self.sec_botones = ttk.Frame(self)
         self.btn_crear = ttk.Button(self.sec_botones, text="Crear", command=self.iniciar_creacion_proyecto)
         self.btn_salir = ttk.Button(self.sec_botones, text="Salir", command=self.cerrar_ventana)
@@ -103,9 +117,81 @@ class ConfigurarEntornoNode(tk.Tk):
         self.textArea = ScrolledText(self.frm_estadoEv, wrap=tk.WORD, width=50, height=15, font=('Arial', 8))
         self.textArea.pack(expand=True, fill=tk.BOTH)
         
+        self.repoURL = tk.StringVar()
+        
+        
+        self._almacenar_imagenes()
         self.crear_widgets()
-        self._centrar_ventana()
     
+    def _almacenar_imagenes(self):
+        # Cargar la imagen y guardarla en el diccionario
+        self._imagenes["Git"] = loadImageTk("assets/gitIcon.png", 25, 25)
+    
+    def mostrar_imagenes(self):
+        try:
+            self.labelGit.config(image=self._imagenes["Git"], text="Git", compound=tk.LEFT)
+        except Exception as e:
+            print(f"Error al cargar las imagenes: {e}")
+    
+    def _ventanaOpcionesGit(self):
+        def cerrarVentana():
+            ventana.withdraw()
+        ventana = tk.Toplevel(self)
+        ventana.title("Opciones de Git")
+        ventana.resizable(0, 0) # type: ignore
+        ventana.transient(self)
+        
+        def ValidarEntry():
+            if not self._ruta.get() or not self.repoURL.get():
+                btnInicio.config(state="disabled")
+            else:
+                btnInicio.config(state="normal")
+        
+        def iniciarClonacion():
+            if not self.repoURL.get():
+                messagebox.showwarning("Advertencia", "Debe ingresar una URL valida")
+                return
+            
+            resultado = runCommand([self._git_path, "clone", self.repoURL.get()], self._ruta.get())
+            if isinstance(resultado, subprocess.CalledProcessError):
+                messagebox.showerror("Error", f"Error al clonar el repositorio: {resultado}")
+                return
+            
+            messagebox.showinfo("Información", "Repositorio clonado con éxito")
+            print(resultado.stdout, resultado.stderr)
+            if self._cambiarDirectorio.get():
+                try:
+                    temRuta = self._ruta.get()
+                    self._ruta.set(f"{temRuta}/{self.repoURL.get().split('/')[-1].replace('.git', '')}")
+                except Exception as e:
+                    print(e)
+              
+        
+        frame_version = ttk.LabelFrame(ventana, text="Información de Git")
+        ttk.Label(frame_version, text="Version de Git:").grid(row=0, column=0)
+        ttk.Label(frame_version, text=self._versionGit if self._versionGit else "").grid(row=0, column=1)
+        frame_version.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
+        ttk.Label(ventana, text="URL repositorio").grid(row=1, column=0, columnspan=2)
+        e1 = ttk.Entry(ventana, width=50, textvariable=self.repoURL)
+        e1.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+        ttk.Label(ventana, text="Ruta para la clonación").grid(row=3, column=0, columnspan=2)
+        e2 = ttk.Entry(ventana, width=50, textvariable=self._ruta)
+        e2.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+        
+        btnInicio = ttk.Button(ventana, text="Clonar", command=lambda: iniciarClonacion())
+        btnInicio.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+        
+        ttk.Checkbutton(ventana, text="Cambiar automaticamente al nuevo directorio", variable=self._cambiarDirectorio).grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+        
+        e1.bind("<KeyRelease>", lambda event: ValidarEntry())
+        e2.bind("<KeyRelease>", lambda event: ValidarEntry())
+        
+        ValidarEntry()
+        
+        self._centrar_ventana(ventana)
+        #! TODO: Añadir más opciones de Git
+        
     def crear_widgets(self):
         def cargarinfo_versionNPM():
             self.lbl_versionNPM.config(text="Version de NPM: Cargando...")
@@ -123,6 +209,7 @@ class ConfigurarEntornoNode(tk.Tk):
             if versionNPM.stdout.strip() < lista_versionesNPM[-1]:
                 messagebox.showinfo("Debe actualizar NPM", f"Se encontro una nueva version de NPM:\nTiene la version: {versionNPM.stdout.strip()}\nSe encontro la version: {lista_versionesNPM[-1]}")
             self.update_idletasks()
+            self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
         
         def ventana_seleccionModulos():
             def restablecer_seleccion():
@@ -296,7 +383,12 @@ class ConfigurarEntornoNode(tk.Tk):
         
         ttk.Button(self.frm_check, text="Instalar modulos", command=ventana_seleccionModulos).grid(column=0, row=0, sticky="nsew")
         
-        for i, item in enumerate(opciones, 1):
+        start = 1
+        if self._versionGit:
+            self.labelGit.grid(column=0, row=start)
+            start +=1
+        
+        for i, item in enumerate(opciones, start):
             check_var = tk.BooleanVar(value=False)
             self._checkVars.append({item: check_var})
             if item == "Abrir en VS Code\nal finalizar":
@@ -588,10 +680,15 @@ class ConfigurarEntornoNode(tk.Tk):
     
     def cerrar_ventana(self, ventana:tk.Tk | tk.Toplevel | None = None):
         if not ventana:
+            if self._idAfterBar:
+                self.after_cancel(self._idAfterBar)
+                self._idAfterBar = None
+
             ventana = self
         
         for item in ventana.winfo_children():
             item.destroy()
+        
         ventana.destroy()
 
     def Iniciar(self):
@@ -637,4 +734,6 @@ def dividir_lista(lista, n):
 
 if __name__ == "__main__":
     app = ConfigurarEntornoNode()
+    app.mostrar_imagenes()
+    app._centrar_ventana()
     app.Iniciar()

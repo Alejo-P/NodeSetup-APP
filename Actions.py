@@ -1,53 +1,9 @@
 import os
+from PIL import Image, ImageTk
+from tkinter import messagebox as mssg
 import subprocess
 from typing import Any, List, Literal
 from Vars import ruta, Registro_eventos
-
-class ActionsForNPM:
-    def __init__(self):
-        self._prefijo = getPathOf("npm")
-        self._modulos = []
-    
-    def getVersionOf(self):
-        resultado = runCommand([self._prefijo, "-v"])
-        
-        if isinstance(resultado, subprocess.CalledProcessError):
-            return None
-        
-        return resultado.stdout.strip()
-    
-    def getModulos(self, global_:bool = False):
-        comando = [self._prefijo, "list"]
-        if global_:
-            comando.append("-g")
-        resultado = runCommand(comando)
-        return resultado.stdout.strip()
-    
-    def getInfoPackage(self, nombre:str):
-        resultado = runCommand([self._prefijo, "info", nombre])
-        return resultado.stdout.strip()
-    
-    def getVersionsOfPackage(self, nombre:str):
-        comando = [self._prefijo,"list", nombre]
-        
-        comando.append("--depth=0") # Solo mostrar los paquetes de primer nivel
-        resultado = runCommand(comando)
-        
-        if isinstance(resultado, subprocess.CalledProcessError):
-            return None
-        
-        lineas = resultado.stdout.splitlines()
-        for linea in lineas:
-            ce = linea.find(' ')
-            if ce != -1:
-                paqueteB = linea[ce+1:]
-            else:
-                paqueteB = linea
-            
-            if '@' in paqueteB:
-                version = paqueteB.split('@')[1].strip()
-                return version
-        return None
 
 def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
     """Regsitar un evento (detalles de un comando) ejecutado por el programa.
@@ -131,6 +87,16 @@ def doNothing():
     """
     pass
 
+def preventCloseWindow(titulo:str, mensaje:str, tipo:Literal["INFO", "WARNING", "ERROR"]):
+    """Evita que la ventana se cierre y muestra un mensaje.
+    """
+    if tipo == "INFO":
+        mssg.showinfo(titulo, mensaje)
+    elif tipo == "WARNING":
+        mssg.showwarning(titulo, mensaje)
+    elif tipo == "ERROR":
+        mssg.showerror(titulo, mensaje)
+
 def runCommand(comando:List[str], directorio:str = os.getcwd()):
     """Ejecuta un comando en la terminal y devuelve el resultado de la ejecucion.
 
@@ -169,7 +135,7 @@ def getPathOf(elemento_ejecutable:str):
     if isinstance(resultado, subprocess.CalledProcessError):
         return ""
     
-    return resultado.stdout.strip().split('\n')[1]
+    return resultado.stdout.strip().split('\n')[-1]
 
 def getVersionOf(elemento_ejecutable:str):
     """Obtiene la version de un elemento ejecutable en el sistema.
@@ -186,3 +152,23 @@ def getVersionOf(elemento_ejecutable:str):
         return None
     
     return resultado.stdout.strip()
+
+def loadImageTk(path:str, width:int = 50, height:int = 50):
+    """Carga una imagen en memoria.
+
+    Args:
+        path (str): _Ruta de la imagen a cargar_}
+        width (int, optional): _Ancho de la imagen_. Defaults to 50.
+        height (int, optional): _Alto de la imagen_. Defaults to 50.
+        name (str, optional): _Nombre de la imagen_. Defaults to "".
+
+    Returns:
+        _PhotoImage_: _Imagen en formato Tkinter_
+    """
+    try:
+        imagen = Image.open(path).resize((width, height))
+        imagenTk = ImageTk.PhotoImage(imagen)
+        return imagenTk
+    except Exception as e:
+        print("Error al cargar la imagen:", e)
+        return None
