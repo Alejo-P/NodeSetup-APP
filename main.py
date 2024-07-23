@@ -135,11 +135,13 @@ class ConfigurarEntornoNode(tk.Tk):
     
     def _ventanaOpcionesGit(self):
         def cerrarVentana():
-            ventana.withdraw()
+            ventana.destroy()
+        
         ventana = tk.Toplevel(self)
         ventana.title("Opciones de Git")
         ventana.resizable(0, 0) # type: ignore
         ventana.transient(self)
+        ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
         
         def ValidarEntry():
             if not self._ruta.get() or not self.repoURL.get():
@@ -152,20 +154,37 @@ class ConfigurarEntornoNode(tk.Tk):
                 messagebox.showwarning("Advertencia", "Debe ingresar una URL valida")
                 return
             
+            ventana.protocol("WM_DELETE_WINDOW", doNothing)
+            frame_progreso.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            self._centrar_ventana(ventana, True)
+            barraProgreso.start()
+            e1.configure(state="disabled")
+            e2.configure(state="disabled")
+            nombre_repo = self.repoURL.get().split('/')[-1].replace('.git', '')
             resultado = runCommand([self._git_path, "clone", self.repoURL.get()], self._ruta.get())
             if isinstance(resultado, subprocess.CalledProcessError):
                 messagebox.showerror("Error", f"Error al clonar el repositorio: {resultado}")
+                e1.configure(state="normal")
+                e2.configure(state="normal")
                 return
             
-            messagebox.showinfo("Información", "Repositorio clonado con éxito")
-            print(resultado.stdout, resultado.stderr)
             if self._cambiarDirectorio.get():
                 try:
                     temRuta = self._ruta.get()
-                    self._ruta.set(f"{temRuta}/{self.repoURL.get().split('/')[-1].replace('.git', '')}")
+                    self._ruta.set(f"{temRuta}/{nombre_repo}")
                 except Exception as e:
                     print(e)
-              
+            
+            e1.configure(state="normal")
+            e2.configure(state="normal")
+            barraProgreso.stop()
+            frame_progreso.grid_forget()
+            ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
+            self._centrar_ventana(ventana, True)
+            messagebox.showinfo("Información", "Repositorio clonado con éxito")
+        
+        def Comenzar():
+            threading.Thread(target=iniciarClonacion).start()
         
         frame_version = ttk.LabelFrame(ventana, text="Información de Git")
         ttk.Label(frame_version, text="Version de Git:").grid(row=0, column=0)
@@ -179,10 +198,15 @@ class ConfigurarEntornoNode(tk.Tk):
         e2 = ttk.Entry(ventana, width=50, textvariable=self._ruta)
         e2.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
         
-        btnInicio = ttk.Button(ventana, text="Clonar", command=lambda: iniciarClonacion())
+        btnInicio = ttk.Button(ventana, text="Clonar", command=lambda: Comenzar(), state="disabled")
         btnInicio.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
         
         ttk.Checkbutton(ventana, text="Cambiar automaticamente al nuevo directorio", variable=self._cambiarDirectorio).grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+        
+        frame_progreso = ttk.LabelFrame(ventana, text="Progreso")
+        frame_progreso.columnconfigure(0, weight=1)
+        barraProgreso = ttk.Progressbar(frame_progreso, orient='horizontal', mode='indeterminate', length=100)
+        barraProgreso.grid(row=0, column=0, padx=5, pady=5)
         
         e1.bind("<KeyRelease>", lambda event: ValidarEntry())
         e2.bind("<KeyRelease>", lambda event: ValidarEntry())
@@ -190,7 +214,6 @@ class ConfigurarEntornoNode(tk.Tk):
         ValidarEntry()
         
         self._centrar_ventana(ventana)
-        #! TODO: Añadir más opciones de Git
         
     def crear_widgets(self):
         def cargarinfo_versionNPM():
