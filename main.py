@@ -135,41 +135,66 @@ class ConfigurarEntornoNode(tk.Tk):
     
     def _ventanaOpcionesGit(self):
         def cerrarVentana():
+            nonlocal entries
             self._ruta.trace_remove("write", callbackName)
             ventana.destroy()
+            del entries
         
         ventana = tk.Toplevel(self)
         ventana.title("Opciones de Git")
         ventana.resizable(0, 0) # type: ignore
         ventana.transient(self)
         ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
+        entries = {
+            "RepoURL": False,
+            "Ruta": False
+        }
+        
+        def _updateButton():
+            if all(entries.values()):
+                btnInicio.config(state="normal")
+            else:
+                btnInicio.config(state="disabled")
         
         def ValidarEntry():
-            if not self._ruta.get() or not self.repoURL.get():
-                btnInicio.config(state="disabled")
+            nonlocal entries
+            if self.repoURL.get():
+                entries["RepoURL"] = True
             else:
-                btnInicio.config(state="normal")
+                entries["RepoURL"] = False
+            
+            _updateButton()
         
         def ValidarRuta():
+            nonlocal entries
             btnInicio.config(state="disabled")
             if not self._ruta.get():
                 mensajeRuta.config(text="Debe seleccionar una ruta", foreground="red")
-                return
-            
-            if not os.path.exists(self._ruta.get()):
-                mensajeRuta.config(text="La ruta no existe", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
                 return
             
             if not os.path.isdir(self._ruta.get()):
                 mensajeRuta.config(text="La ruta no es un directorio", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
                 return
             
+            if not os.path.exists(self._ruta.get()):
+                mensajeRuta.config(text="La ruta no existe", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
+                return
+                            
             if not os.access(self._ruta.get(), os.W_OK):
                 mensajeRuta.config(text="No tiene permisos para escribir en la ruta", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
                 return
-            
-            mensajeRuta.config(text="No hay problemas", foreground="green")
-            btnInicio.config(state="normal")
+                
+            mensajeRuta.config(text="Ruta valida", foreground="green")
+            entries["Ruta"] = True
+            _updateButton()
         
         def iniciarClonacion():
             if not self.repoURL.get():
@@ -236,7 +261,6 @@ class ConfigurarEntornoNode(tk.Tk):
         barraProgreso.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         
         e1.bind("<KeyRelease>", lambda event: ValidarEntry())
-        e2.bind("<KeyRelease>", lambda event: ValidarEntry())
         
         callbackName = self._ruta.trace_add("write", lambda *args: ValidarRuta())
         
