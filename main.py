@@ -135,6 +135,7 @@ class ConfigurarEntornoNode(tk.Tk):
     
     def _ventanaOpcionesGit(self):
         def cerrarVentana():
+            self._ruta.trace_remove("write", callbackName)
             ventana.destroy()
         
         ventana = tk.Toplevel(self)
@@ -149,15 +150,37 @@ class ConfigurarEntornoNode(tk.Tk):
             else:
                 btnInicio.config(state="normal")
         
+        def ValidarRuta():
+            btnInicio.config(state="disabled")
+            if not self._ruta.get():
+                mensajeRuta.config(text="Debe seleccionar una ruta", foreground="red")
+                return
+            
+            if not os.path.exists(self._ruta.get()):
+                mensajeRuta.config(text="La ruta no existe", foreground="red")
+                return
+            
+            if not os.path.isdir(self._ruta.get()):
+                mensajeRuta.config(text="La ruta no es un directorio", foreground="red")
+                return
+            
+            if not os.access(self._ruta.get(), os.W_OK):
+                mensajeRuta.config(text="No tiene permisos para escribir en la ruta", foreground="red")
+                return
+            
+            mensajeRuta.config(text="No hay problemas", foreground="green")
+            btnInicio.config(state="normal")
+        
         def iniciarClonacion():
             if not self.repoURL.get():
                 messagebox.showwarning("Advertencia", "Debe ingresar una URL valida")
                 return
             
             ventana.protocol("WM_DELETE_WINDOW", doNothing)
-            frame_progreso.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            frame_progreso.grid(row=8, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             self._centrar_ventana(ventana, True)
             barraProgreso.start()
+            btnInicio.config(state="disabled")
             e1.configure(state="disabled")
             e2.configure(state="disabled")
             nombre_repo = self.repoURL.get().split('/')[-1].replace('.git', '')
@@ -179,6 +202,7 @@ class ConfigurarEntornoNode(tk.Tk):
             e2.configure(state="normal")
             barraProgreso.stop()
             frame_progreso.grid_forget()
+            btnInicio.config(state="normal")
             ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
             self._centrar_ventana(ventana, True)
             messagebox.showinfo("Información", "Repositorio clonado con éxito")
@@ -198,20 +222,26 @@ class ConfigurarEntornoNode(tk.Tk):
         e2 = ttk.Entry(ventana, width=50, textvariable=self._ruta)
         e2.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
         
-        btnInicio = ttk.Button(ventana, text="Clonar", command=lambda: Comenzar(), state="disabled")
-        btnInicio.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+        mensajeRuta = ttk.Label(ventana) 
+        mensajeRuta.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
         
-        ttk.Checkbutton(ventana, text="Cambiar automaticamente al nuevo directorio", variable=self._cambiarDirectorio).grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+        btnInicio = ttk.Button(ventana, text="Clonar", command=lambda: Comenzar(), state="disabled")
+        btnInicio.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+        
+        ttk.Checkbutton(ventana, text="Cambiar automaticamente al nuevo directorio", variable=self._cambiarDirectorio).grid(row=7, column=0, columnspan=2, padx=5, pady=5)
         
         frame_progreso = ttk.LabelFrame(ventana, text="Progreso")
         frame_progreso.columnconfigure(0, weight=1)
         barraProgreso = ttk.Progressbar(frame_progreso, orient='horizontal', mode='indeterminate', length=100)
-        barraProgreso.grid(row=0, column=0, padx=5, pady=5)
+        barraProgreso.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         
         e1.bind("<KeyRelease>", lambda event: ValidarEntry())
         e2.bind("<KeyRelease>", lambda event: ValidarEntry())
         
+        callbackName = self._ruta.trace_add("write", lambda *args: ValidarRuta())
+        
         ValidarEntry()
+        ValidarRuta()
         
         self._centrar_ventana(ventana)
         
