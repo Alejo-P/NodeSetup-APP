@@ -248,9 +248,16 @@ class ConfigurarEntornoNode(tk.Tk):
                 combo.config(state="disabled")
         
         def insertarPlaceHolder(event):
+            estadoEntry = ecommit["state"]
+            if estadoEntry == "disabled":
+                ecommit.config(state="normal")
+                
             if not mensajeCommit.get():
                 ecommit.config(foreground="gray")
                 mensajeCommit.set("Ingrese un mensaje de confirmación ...")
+            
+            if estadoEntry == "disabled":
+                ecommit.config(state="disabled")
                 
         def limpiarPlaceHolder(event):
             if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
@@ -354,6 +361,7 @@ class ConfigurarEntornoNode(tk.Tk):
         ValidarEntry()
         ValidarRuta()
         ValidarRepoGit()
+        insertarPlaceHolder(None)
         
         self._centrar_ventana(ventana)
         
