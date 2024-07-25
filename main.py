@@ -247,6 +247,16 @@ class ConfigurarEntornoNode(tk.Tk):
                 ecommit.config(state="disabled")
                 combo.config(state="disabled")
         
+        def insertarPlaceHolder(event):
+            if not mensajeCommit.get():
+                ecommit.config(foreground="gray")
+                mensajeCommit.set("Ingrese un mensaje de confirmación ...")
+                
+        def limpiarPlaceHolder(event):
+            if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
+                ecommit.config(foreground="black")
+                mensajeCommit.set("")
+        
         def CambiarPestaña(event):
             nonlocal callbackName, callbackName2
             try:
@@ -274,6 +284,7 @@ class ConfigurarEntornoNode(tk.Tk):
         frame_version.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
         notebook = ttk.Notebook(ventana)
+        mensajeCommit = tk.StringVar()
         
         frameClonacion = ttk.Frame(notebook)
         frameClonacion.grid_columnconfigure(0, weight=1)
@@ -298,8 +309,6 @@ class ConfigurarEntornoNode(tk.Tk):
         barraProgreso = ttk.Progressbar(frame_progreso, orient='horizontal', mode='indeterminate', length=100)
         barraProgreso.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         
-        e1.bind("<KeyRelease>", lambda event: ValidarEntry())
-        
         frameConfirmacion = ttk.Frame(notebook)
         frameConfirmacion.grid_columnconfigure(0, weight=1)
         
@@ -311,7 +320,7 @@ class ConfigurarEntornoNode(tk.Tk):
         mensajeRepo.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
         
         ttk.Label(frameConfirmacion, text="Mensaje de confirmacion").grid(row=3, column=0, columnspan=2)
-        ecommit = ttk.Entry(frameConfirmacion, width=50)
+        ecommit = ttk.Entry(frameConfirmacion, textvariable=mensajeCommit, width=50)
         ecommit.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
         
         opciones = ["Confirmar", "Confirmar y enviar"]
@@ -332,10 +341,15 @@ class ConfigurarEntornoNode(tk.Tk):
         
         notebook.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
+        e1.bind("<KeyRelease>", lambda event: ValidarEntry())
+        
         notebook.bind("<<NotebookTabChanged>>", CambiarPestaña)
         
         callbackName = self._ruta.trace_add("write", lambda *args: ValidarRuta())
         callbackName2 = self._ruta.trace_add("write", lambda *args: ValidarRepoGit())
+        
+        ecommit.bind("<FocusIn>", limpiarPlaceHolder)
+        ecommit.bind("<FocusOut>", insertarPlaceHolder)
         
         ValidarEntry()
         ValidarRuta()
