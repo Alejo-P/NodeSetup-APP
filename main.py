@@ -1,3 +1,4 @@
+from operator import call
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
@@ -135,20 +136,15 @@ class ConfigurarEntornoNode(tk.Tk):
     
     def _ventanaOpcionesGit(self):
         def cerrarVentana():
-            nonlocal entries
-            self._ruta.trace_remove("write", callbackName)
+            nonlocal entries, callbackName, callbackName2
+            if callbackName:
+                self._ruta.trace_remove("write", callbackName)
+            
+            if callbackName2:
+                self._ruta.trace_remove("write", callbackName2)
+            
             ventana.destroy()
-            del entries
-        
-        ventana = tk.Toplevel(self)
-        ventana.title("Opciones de Git")
-        ventana.resizable(0, 0) # type: ignore
-        ventana.transient(self)
-        ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
-        entries = {
-            "RepoURL": False,
-            "Ruta": False
-        }
+            del entries, callbackName, callbackName2
         
         def _updateButton():
             if all(entries.values()):
@@ -232,40 +228,119 @@ class ConfigurarEntornoNode(tk.Tk):
             self._centrar_ventana(ventana, True)
             messagebox.showinfo("Información", "Repositorio clonado con éxito")
         
+        def ValidarRepoGit():
+            if os.path.isdir(self._ruta.get()):
+                rutacarpetaGIT = os.path.join(self._ruta.get(), ".git")
+                if not os.path.isdir(rutacarpetaGIT):
+                    mensajeRepo.config(text="No se encontro un repositorio Git", foreground="orange")
+                    botonOK.config(state="disabled")
+                    ecommit.config(state="disabled")
+                    combo.config(state="disabled")
+                    return
+                
+                mensajeRepo.config(text="Repositorio Git encontrado", foreground="green")
+                botonOK.config(state="normal")
+                ecommit.config(state="normal")
+                combo.config(state="readonly")
+            else:
+                mensajeRepo.config(text="La ruta no es un directorio", foreground="red")
+                botonOK.config(state="disabled")
+                ecommit.config(state="disabled")
+                combo.config(state="disabled")
+        
+        def CambiarPestaña(event):
+            nonlocal callbackName, callbackName2
+            try:
+                indice = notebook.index(notebook.select())
+                notebook.select(indice)
+            except Exception as e:
+                print(e)
+        
         def Comenzar():
             threading.Thread(target=iniciarClonacion).start()
+        
+        ventana = tk.Toplevel(self)
+        ventana.title("Opciones de Git")
+        ventana.resizable(0, 0) # type: ignore
+        ventana.transient(self)
+        ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
+        entries = {
+            "RepoURL": False,
+            "Ruta": False
+        }
         
         frame_version = ttk.LabelFrame(ventana, text="Información de Git")
         ttk.Label(frame_version, text="Version de Git:").grid(row=0, column=0)
         ttk.Label(frame_version, text=self._versionGit if self._versionGit else "").grid(row=0, column=1)
         frame_version.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
-        ttk.Label(ventana, text="URL repositorio").grid(row=1, column=0, columnspan=2)
-        e1 = ttk.Entry(ventana, width=50, textvariable=self.repoURL)
+        notebook = ttk.Notebook(ventana)
+        
+        frameClonacion = ttk.Frame(notebook)
+        frameClonacion.grid_columnconfigure(0, weight=1)
+        
+        ttk.Label(frameClonacion, text="URL repositorio").grid(row=1, column=0, columnspan=2)
+        e1 = ttk.Entry(frameClonacion, width=50, textvariable=self.repoURL)
         e1.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
-        ttk.Label(ventana, text="Ruta para la clonación").grid(row=3, column=0, columnspan=2)
-        e2 = ttk.Entry(ventana, width=50, textvariable=self._ruta)
+        ttk.Label(frameClonacion, text="Ruta para la clonación").grid(row=3, column=0, columnspan=2)
+        e2 = ttk.Entry(frameClonacion, width=50, textvariable=self._ruta)
         e2.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
         
-        mensajeRuta = ttk.Label(ventana) 
+        mensajeRuta = ttk.Label(frameClonacion) 
         mensajeRuta.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
         
-        btnInicio = ttk.Button(ventana, text="Clonar", command=lambda: Comenzar(), state="disabled")
+        btnInicio = ttk.Button(frameClonacion, text="Clonar", command=lambda: Comenzar(), state="disabled")
         btnInicio.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
         
-        ttk.Checkbutton(ventana, text="Cambiar automaticamente al nuevo directorio", variable=self._cambiarDirectorio).grid(row=7, column=0, columnspan=2, padx=5, pady=5)
+        ttk.Checkbutton(frameClonacion, text="Cambiar automaticamente al nuevo directorio", variable=self._cambiarDirectorio).grid(row=7, column=0, columnspan=2, padx=5, pady=5)
         
-        frame_progreso = ttk.LabelFrame(ventana, text="Progreso")
+        frame_progreso = ttk.LabelFrame(frameClonacion, text="Progreso")
         frame_progreso.columnconfigure(0, weight=1)
         barraProgreso = ttk.Progressbar(frame_progreso, orient='horizontal', mode='indeterminate', length=100)
         barraProgreso.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         
         e1.bind("<KeyRelease>", lambda event: ValidarEntry())
         
+        frameConfirmacion = ttk.Frame(notebook)
+        frameConfirmacion.grid_columnconfigure(0, weight=1)
+        
+        ttk.Label(frameConfirmacion, text="Ruta del repositorio").grid(row=0, column=0, columnspan=2)
+        eruta = ttk.Entry(frameConfirmacion, width=50, textvariable=self._ruta)
+        eruta.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
+        
+        mensajeRepo = ttk.Label(frameConfirmacion)
+        mensajeRepo.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+        
+        ttk.Label(frameConfirmacion, text="Mensaje de confirmacion").grid(row=3, column=0, columnspan=2)
+        ecommit = ttk.Entry(frameConfirmacion, width=50)
+        ecommit.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+        
+        opciones = ["Confirmar", "Confirmar y enviar"]
+        ttk.Label(frameConfirmacion, text="Opciones").grid(row=5, column=0)
+        combo = ttk.Combobox(frameConfirmacion, values=opciones, state="readonly")
+        combo.current(0)
+        combo.grid(row=5, column=1, padx=5, pady=5)
+        
+        #TODO: Agregar funcionalidad a los botones y continuar con la implementación
+        #! Falta agregar la funcionalidad a los botones
+        #! Continuar con la funcion de realizar commits y push
+        
+        botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: doNothing())
+        botonOK.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+        
+        notebook.add(frameClonacion, text="Clonar repositorio")
+        notebook.add(frameConfirmacion, text="Confirmar cambios")
+        
+        notebook.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
+        notebook.bind("<<NotebookTabChanged>>", CambiarPestaña)
+        
         callbackName = self._ruta.trace_add("write", lambda *args: ValidarRuta())
+        callbackName2 = self._ruta.trace_add("write", lambda *args: ValidarRepoGit())
         
         ValidarEntry()
         ValidarRuta()
+        ValidarRepoGit()
         
         self._centrar_ventana(ventana)
         
