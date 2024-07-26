@@ -1,4 +1,5 @@
 import os
+from webbrowser import get
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 import subprocess
@@ -172,3 +173,25 @@ def loadImageTk(path:str, width:int = 50, height:int = 50):
     except Exception as e:
         print("Error al cargar la imagen:", e)
         return None
+
+def getGitBranches(ruta:str):
+    """Obtiene las ramas de un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+    
+    Returns:
+        _Dict[str, bool]: _Diccionario con las ramas del repositorio y si estan activas o no_
+    """
+    resultado = runCommand([getPathOf("git"), "branch"], ruta)
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return {"No hay ramas": True}
+    
+    return {rama.replace("*","").strip():rama.startswith("*") for rama in resultado.stdout.strip().split('\n')}
+
+if __name__ == "__main__":
+    ramas = getGitBranches(os.getcwd())
+    
+    ramas_activas = [rama for rama, activa in ramas.items() if activa]
+    print("Ramas activas:", ramas_activas)

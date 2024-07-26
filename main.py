@@ -1,3 +1,4 @@
+from math import comb
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
@@ -18,7 +19,8 @@ from Actions import (
     writeLog,
     getPathOf,
     runCommand,
-    loadImageTk
+    loadImageTk,
+    getGitBranches
 )
 from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
 from version import __version__ as appVersion
@@ -272,6 +274,46 @@ class ConfigurarEntornoNode(tk.Tk):
             except Exception as e:
                 print(e)
         
+        def RealizarCommit():
+            if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
+                messagebox.showwarning("Advertencia", "Debe ingresar un mensaje de confirmación")
+                return
+            
+            if combo.get() == "Confirmar":
+                resultado = runCommand([self._git_path, "add", "."], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al agregar los cambios: {resultado}")
+                    return
+                
+                resultado = runCommand([self._git_path, "commit", "-m", mensajeCommit.get()], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al confirmar los cambios: {resultado}")
+                    return
+                
+                messagebox.showinfo("Información", "Cambios confirmados con éxito")
+            elif combo.get() == "Confirmar y enviar":
+                resultado = runCommand([self._git_path, "add", "."], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al agregar los cambios: {resultado}")
+                    return
+                
+                resultado = runCommand([self._git_path, "commit", "-m", mensajeCommit.get()], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al confirmar los cambios: {resultado}")
+                    return
+                
+                resultado = runCommand([self._git_path, "push"], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al enviar los cambios: {resultado}")
+                    return
+                
+                messagebox.showinfo("Información", "Cambios confirmados y enviados con éxito")
+        
+        def mostrarRamas():
+            ramas = getGitBranches(self._ruta.get())
+            comboRama["values"] = tuple(ramas.keys())
+            comboRama.current(tuple(ramas.values()).index(True))
+        
         def Comenzar():
             threading.Thread(target=iniciarClonacion).start()
         
@@ -330,8 +372,13 @@ class ConfigurarEntornoNode(tk.Tk):
         ecommit = ttk.Entry(frameConfirmacion, textvariable=mensajeCommit, width=50)
         ecommit.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
         
+        ttk.Label(frameConfirmacion, text="Rama:").grid(row=5, column=0)
+        comboRama = ttk.Combobox(frameConfirmacion, values=["No se encontraron ramas"], state="readonly")
+        comboRama.current(0)
+        comboRama.grid(row=5, column=1, padx=5, pady=5)
+        
         opciones = ["Confirmar", "Confirmar y enviar"]
-        ttk.Label(frameConfirmacion, text="Opciones").grid(row=5, column=0)
+        ttk.Label(frameConfirmacion, text="Acciones").grid(row=5, column=0)
         combo = ttk.Combobox(frameConfirmacion, values=opciones, state="readonly")
         combo.current(0)
         combo.grid(row=5, column=1, padx=5, pady=5)
@@ -340,7 +387,7 @@ class ConfigurarEntornoNode(tk.Tk):
         #! Falta agregar la funcionalidad a los botones
         #! Continuar con la funcion de realizar commits y push
         
-        botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: doNothing())
+        botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: RealizarCommit(), state="disabled")
         botonOK.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
         
         notebook.add(frameClonacion, text="Clonar repositorio")
