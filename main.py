@@ -237,17 +237,23 @@ class ConfigurarEntornoNode(tk.Tk):
                     botonOK.config(state="disabled")
                     ecommit.config(state="disabled")
                     combo.config(state="disabled")
+                    comboRama.config(state="disabled")
+                    mostrarRamas()
                     return
                 
                 mensajeRepo.config(text="Repositorio Git encontrado", foreground="green")
                 botonOK.config(state="normal")
                 ecommit.config(state="normal")
                 combo.config(state="readonly")
+                comboRama.config(state="readonly")
+                mostrarRamas()
             else:
                 mensajeRepo.config(text="La ruta no es un directorio", foreground="red")
                 botonOK.config(state="disabled")
                 ecommit.config(state="disabled")
                 combo.config(state="disabled")
+                comboRama.config(state="disabled")
+                mostrarRamas()
         
         def insertarPlaceHolder(event):
             estadoEntry = ecommit["state"]
@@ -310,9 +316,13 @@ class ConfigurarEntornoNode(tk.Tk):
                 messagebox.showinfo("Información", "Cambios confirmados y enviados con éxito")
         
         def mostrarRamas():
-            ramas = getGitBranches(self._ruta.get())
-            comboRama["values"] = tuple(ramas.keys())
-            comboRama.current(tuple(ramas.values()).index(True))
+            try:
+                ramas = getGitBranches(self._ruta.get())
+                comboRama["values"] = tuple(ramas.keys())
+                comboRama.current(tuple(ramas.values()).index(True))
+            except OSError:
+                comboRama["values"] = ("Directorio no valido",)
+                comboRama.current(0)
         
         def Comenzar():
             threading.Thread(target=iniciarClonacion).start()
@@ -373,22 +383,21 @@ class ConfigurarEntornoNode(tk.Tk):
         ecommit.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
         
         ttk.Label(frameConfirmacion, text="Rama:").grid(row=5, column=0)
-        comboRama = ttk.Combobox(frameConfirmacion, values=["No se encontraron ramas"], state="readonly")
-        comboRama.current(0)
+        comboRama = ttk.Combobox(frameConfirmacion, state="readonly")
         comboRama.grid(row=5, column=1, padx=5, pady=5)
         
         opciones = ["Confirmar", "Confirmar y enviar"]
-        ttk.Label(frameConfirmacion, text="Acciones").grid(row=5, column=0)
+        ttk.Label(frameConfirmacion, text="Acciones").grid(row=6, column=0)
         combo = ttk.Combobox(frameConfirmacion, values=opciones, state="readonly")
         combo.current(0)
-        combo.grid(row=5, column=1, padx=5, pady=5)
+        combo.grid(row=6, column=1, padx=5, pady=5)
         
         #TODO: Agregar funcionalidad a los botones y continuar con la implementación
         #! Falta agregar la funcionalidad a los botones
-        #! Continuar con la funcion de realizar commits y push
+        #! Continuar con la funcion de realizar commits y push y validar que se haga commit a la rama actual de trabajo
         
         botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: RealizarCommit(), state="disabled")
-        botonOK.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+        botonOK.grid(row=7, column=0, columnspan=2, padx=5, pady=5)
         
         notebook.add(frameClonacion, text="Clonar repositorio")
         notebook.add(frameConfirmacion, text="Confirmar cambios")
@@ -409,6 +418,7 @@ class ConfigurarEntornoNode(tk.Tk):
         ValidarRuta()
         ValidarRepoGit()
         insertarPlaceHolder(None)
+        mostrarRamas()
         
         self._centrar_ventana(ventana)
         
