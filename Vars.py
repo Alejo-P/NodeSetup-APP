@@ -1,4 +1,5 @@
 import os
+import queue
 
 listaArgumentos = [
     "",
@@ -185,3 +186,5 @@ Registro_hilos = []
 Registro_eventos = []
 
 ruta = os.getcwd()
+
+respuestas = queue.Queue()

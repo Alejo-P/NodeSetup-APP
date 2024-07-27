@@ -1,10 +1,9 @@
 import os
-from webbrowser import get
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 import subprocess
 from typing import Any, List, Literal
-from Vars import ruta, Registro_eventos
+from Vars import ruta, Registro_eventos, respuestas
 
 def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
     """Regsitar un evento (detalles de un comando) ejecutado por el programa.
@@ -189,6 +188,65 @@ def getGitBranches(ruta:str):
         return {"No hay ramas": True}
     
     return {rama.replace("*","").strip():rama.startswith("*") for rama in resultado.stdout.strip().split('\n')}
+
+def getCurrentBrach(ramas:dict[str, bool]):
+    """Obtiene la rama actual de un repositorio Git.
+
+    Args:
+        ramas (dict[str, bool]): _Diccionario con las ramas del repositorio y si estan activas o no_
+        
+    Returns:
+        _str_: _Nombre de la rama actual_
+    """
+    
+    for rama, estaActiva in ramas.items():
+        if estaActiva:
+            return rama
+        
+    return "No hay rama actual"
+
+def putInQueue(elemento:Any):
+    """Pone un elemento en la cola de ejecucion.
+
+    Args:
+        elemento (Any): _Elemento a poner en la cola_
+    """
+    
+    respuestas.put(elemento)
+    
+def getFromQueue(sinEspera:bool = False):
+    """Obtiene un elemento de la cola de ejecucion.
+
+    Args:
+        sinEspera (bool, optional): _Indica si se debe esperar a que haya un elemento en la cola o no_. Defaults to False.
+
+    Returns:
+        _Any_: _Elemento obtenido de la cola_
+    """
+    
+    if sinEspera:
+        return respuestas.get_nowait()
+    
+    return respuestas.get()
+    
+def isQueueEmpty():
+    """Verifica si la cola de ejecucion esta vacia.
+
+    Returns:
+        _bool_: _Indica si la cola esta vacia o no_
+    """
+    
+    return respuestas.empty()
+
+def clearQueue():
+    """Vacia la cola de ejecucion.
+    """
+    
+    while not respuestas.empty():
+        try:
+            respuestas.get_nowait()
+        except:
+            break
 
 if __name__ == "__main__":
     ramas = getGitBranches(os.getcwd())

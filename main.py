@@ -1,4 +1,5 @@
 from math import comb
+import queue
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
@@ -11,7 +12,9 @@ from tkinter.scrolledtext import ScrolledText
 from turtle import st
 from typing import Literal
 from Actions import (
+    clearQueue,
     doNothing,
+    getCurrentBrach,
     preventCloseWindow,
     getEvents,
     getVersionOf,
@@ -20,7 +23,9 @@ from Actions import (
     getPathOf,
     runCommand,
     loadImageTk,
-    getGitBranches
+    getGitBranches,
+    putInQueue,
+    getFromQueue
 )
 from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
 from version import __version__ as appVersion
@@ -120,7 +125,6 @@ class ConfigurarEntornoNode(tk.Tk):
         self.textArea.pack(expand=True, fill=tk.BOTH)
         
         self.repoURL = tk.StringVar()
-        
         
         self._almacenar_imagenes()
         self.crear_widgets()
@@ -230,15 +234,16 @@ class ConfigurarEntornoNode(tk.Tk):
             messagebox.showinfo("Información", "Repositorio clonado con éxito")
         
         def ValidarRepoGit():
-            if os.path.isdir(self._ruta.get()):
+            if self._ruta.get() and os.path.isdir(self._ruta.get()):
                 rutacarpetaGIT = os.path.join(self._ruta.get(), ".git")
                 if not os.path.isdir(rutacarpetaGIT):
                     mensajeRepo.config(text="No se encontro un repositorio Git", foreground="orange")
                     botonOK.config(state="disabled")
                     ecommit.config(state="disabled")
                     combo.config(state="disabled")
+                    comboRama["values"] = ("No se pudo extraer las ramas",)
+                    comboRama.current(0)
                     comboRama.config(state="disabled")
-                    mostrarRamas()
                     return
                 
                 mensajeRepo.config(text="Repositorio Git encontrado", foreground="green")
@@ -252,8 +257,9 @@ class ConfigurarEntornoNode(tk.Tk):
                 botonOK.config(state="disabled")
                 ecommit.config(state="disabled")
                 combo.config(state="disabled")
+                comboRama["values"] = ("Directorio no valido",)
+                comboRama.current(0)
                 comboRama.config(state="disabled")
-                mostrarRamas()
         
         def insertarPlaceHolder(event):
             estadoEntry = ecommit["state"]
@@ -281,8 +287,13 @@ class ConfigurarEntornoNode(tk.Tk):
                 print(e)
         
         def RealizarCommit():
+            nonlocal ramaActual
             if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
                 messagebox.showwarning("Advertencia", "Debe ingresar un mensaje de confirmación")
+                return
+            
+            if comboRama.get() != ramaActual:
+                messagebox.showwarning("Advertencia", "La rama de trabajo no es la rama actual del repositorio")
                 return
             
             if combo.get() == "Confirmar":
@@ -316,14 +327,28 @@ class ConfigurarEntornoNode(tk.Tk):
                 messagebox.showinfo("Información", "Cambios confirmados y enviados con éxito")
         
         def mostrarRamas():
-            try:
+            def _obtenerRamas():
+                nonlocal ramaActual
                 ramas = getGitBranches(self._ruta.get())
-                comboRama["values"] = tuple(ramas.keys())
-                comboRama.current(tuple(ramas.values()).index(True))
-            except OSError:
-                comboRama["values"] = ("Directorio no valido",)
-                comboRama.current(0)
-        
+                ramaActual = getCurrentBrach(ramas)
+                putInQueue(tuple(ramas.keys()))
+            
+            threading.Thread(target=_obtenerRamas).start()
+            ventana.after(100, _actualizarComboRamas)
+            comboRama["values"] = ("Obteniendo ramas...",)
+            comboRama.current(0)
+           
+        def _actualizarComboRamas():
+            try:
+                resultado = getFromQueue(True)
+                comboRama["values"] = resultado
+                comboRama.current(resultado.index(ramaActual))
+            except queue.Empty:
+                ventana.after(100, _actualizarComboRamas)
+                return
+            
+            clearQueue()
+         
         def Comenzar():
             threading.Thread(target=iniciarClonacion).start()
         
@@ -336,6 +361,7 @@ class ConfigurarEntornoNode(tk.Tk):
             "RepoURL": False,
             "Ruta": False
         }
+        ramaActual = ""
         
         frame_version = ttk.LabelFrame(ventana, text="Información de Git")
         ttk.Label(frame_version, text="Version de Git:").grid(row=0, column=0)
@@ -395,6 +421,7 @@ class ConfigurarEntornoNode(tk.Tk):
         #TODO: Agregar funcionalidad a los botones y continuar con la implementación
         #! Falta agregar la funcionalidad a los botones
         #! Continuar con la funcion de realizar commits y push y validar que se haga commit a la rama actual de trabajo
+        #! Añadir una funcionalidad para sugerencias y comentarios de la aplicación
         
         botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: RealizarCommit(), state="disabled")
         botonOK.grid(row=7, column=0, columnspan=2, padx=5, pady=5)
@@ -418,7 +445,6 @@ class ConfigurarEntornoNode(tk.Tk):
         ValidarRuta()
         ValidarRepoGit()
         insertarPlaceHolder(None)
-        mostrarRamas()
         
         self._centrar_ventana(ventana)
         
