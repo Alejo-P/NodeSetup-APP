@@ -2,7 +2,7 @@ import os
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 import subprocess
-from typing import Any, List, Literal
+from typing import Any, List, Literal, overload
 from Vars import ruta, Registro_eventos, respuestas
 
 def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
@@ -97,16 +97,46 @@ def preventCloseWindow(titulo:str, mensaje:str, tipo:Literal["INFO", "WARNING", 
     elif tipo == "ERROR":
         mssg.showerror(titulo, mensaje)
 
-def runCommand(comando:List[str], directorio:str = os.getcwd()):
+@overload
+def runCommand(comando:List[str], directorio:str = os.getcwd()) -> subprocess.CompletedProcess[str]:
+    pass
+
+@overload
+def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn:Literal["bytes"] = "bytes") -> subprocess.CompletedProcess[bytes]:
     """Ejecuta un comando en la terminal y devuelve el resultado de la ejecucion.
 
     Args:
         comando (List[str]): _Lista de comandos a ejecutar, por ejemplo ["python", "-m", "main.py"]_
         directorio (str, optional): _Ruta desde a cual se ejecutara el comando_. Defaults to os.getcwd().
+        retornarEn (Literal["bytes"], optional): _Indica si se debe retornar la salida en bytes o no_. Defaults to "text".
 
     Returns:
         [subprocess.CompletedProcess]: _Resultado de la ejecucion del comando_.
     """
+    pass
+
+def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn="text"):
+    if retornarEn == "text":
+        return handleRunCommandText(comando, directorio)
+    else:
+        return handleRunCommandBytes(comando, directorio)
+
+def handleRunCommandBytes(comando:List[str], directorio:str = os.getcwd()):
+    try:
+        resultado = subprocess.run(
+            comando,
+            check=True,
+            cwd=directorio,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=False,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
+            )
+        return resultado
+    except subprocess.CalledProcessError as e:
+        return e
+
+def handleRunCommandText(comando:List[str], directorio:str = os.getcwd()):
     try:
         resultado = subprocess.run(
             comando,
@@ -205,6 +235,44 @@ def getCurrentBrach(ramas:dict[str, bool]):
         
     return "No hay rama actual"
 
+def getBranchCommitsLog(ruta:str, rama:str = "*") -> List[dict[str, Any]]:
+    """Obtiene los commits de un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+        rama (str, optional): _Nombre de la rama del repositorio_. Defaults to "*".
+    
+    Returns:
+        _str_: _Log de commits del repositorio_
+    """
+    comando = [getPathOf("git"), "log", "--oneline", "--decorate"]
+    if rama != "*":
+        comando.extend(["--first-parent", rama])
+    else:
+        comando.append("--all")
+    resultado = runCommand(comando, ruta, "bytes")
+    listaDetalles:list[dict[str, Any]] = []
+    nombreRama = ""
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return [{"Error al recuperar el log de commits": resultado.stderr.decode("utf-8")}]
+    
+    for item in resultado.stdout.decode("utf-8").split("\n")[:-1]:
+        commit = item.replace("*", "").split(" ", 1)
+        
+        if commit[1].startswith("("):
+            indiceInicio = commit[1].find("(") + 1
+            indiceFin = commit[1].find(")")
+            if "origin/" in commit[1]:
+                nombreRama = commit[1][indiceInicio:indiceFin].split(",")[-1].strip()
+                commit[1] = commit[1][indiceFin+2:]
+        listaDetalles.append({
+            "id": commit[0],
+            "rama": nombreRama,
+            "mensaje": commit[1]
+        })
+    return listaDetalles
+
 def putInQueue(elemento:Any):
     """Pone un elemento en la cola de ejecucion.
 
@@ -249,7 +317,6 @@ def clearQueue():
             break
 
 if __name__ == "__main__":
-    ramas = getGitBranches(os.getcwd())
-    
-    ramas_activas = [rama for rama, activa in ramas.items() if activa]
-    print("Ramas activas:", ramas_activas)
+    logs = getBranchCommitsLog(os.getcwd())
+    for com in logs:
+        print(com)

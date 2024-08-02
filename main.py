@@ -293,8 +293,15 @@ class ConfigurarEntornoNode(tk.Tk):
                 return
             
             if comboRama.get() != ramaActual:
-                messagebox.showwarning("Advertencia", "La rama de trabajo no es la rama actual del repositorio")
-                return
+                seleccion = messagebox.askquestion("Advertencia", "La rama de trabajo no es la rama actual del repositorio, ¿Desea continuar?")
+                if seleccion == "no":
+                    return
+                
+                resultado = runCommand([self._git_path, "checkout", comboRama.get()], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al cambiar de rama: {resultado}")
+                    return
+                messagebox.showinfo("Información", "Rama cambiada con éxito")
             
             if combo.get() == "Confirmar":
                 resultado = runCommand([self._git_path, "add", "."], self._ruta.get())
@@ -341,8 +348,9 @@ class ConfigurarEntornoNode(tk.Tk):
         def _actualizarComboRamas():
             try:
                 resultado = getFromQueue(True)
-                comboRama["values"] = resultado
-                comboRama.current(resultado.index(ramaActual))
+                if comboRama["state"] != "disabled":
+                    comboRama["values"] = resultado
+                    comboRama.current(resultado.index(ramaActual))
             except queue.Empty:
                 ventana.after(100, _actualizarComboRamas)
                 return
@@ -421,10 +429,13 @@ class ConfigurarEntornoNode(tk.Tk):
         #TODO: Agregar funcionalidad a los botones y continuar con la implementación
         #! Falta agregar la funcionalidad a los botones
         #! Continuar con la funcion de realizar commits y push y validar que se haga commit a la rama actual de trabajo
-        #! Añadir una funcionalidad para sugerencias y comentarios de la aplicación
+        #? Añadir una funcionalidad para sugerencias y comentarios de la aplicación
         
         botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: RealizarCommit(), state="disabled")
         botonOK.grid(row=7, column=0, columnspan=2, padx=5, pady=5)
+        
+        frameLogs = ttk.Frame(notebook)
+        frameLogs.grid_columnconfigure(0, weight=1)
         
         notebook.add(frameClonacion, text="Clonar repositorio")
         notebook.add(frameConfirmacion, text="Confirmar cambios")
