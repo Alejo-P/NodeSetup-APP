@@ -235,37 +235,42 @@ def getCurrentBrach(ramas:dict[str, bool]):
         
     return "No hay rama actual"
 
-def getBranchCommitsLog(ruta:str, rama:str = "*") -> List[dict[str, Any]]:
+def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
     """Obtiene los commits de un repositorio Git.
 
     Args:
         ruta (str): _Ruta del repositorio Git_
-        rama (str, optional): _Nombre de la rama del repositorio_. Defaults to "*".
     
     Returns:
         _str_: _Log de commits del repositorio_
     """
-    comando = [getPathOf("git"), "log", "--oneline", "--decorate"]
-    if rama != "*":
-        comando.extend(["--first-parent", rama])
-    else:
-        comando.append("--all")
+    comando = [getPathOf("git"), "log", "--oneline", "--decorate", "--all"]
+    
     resultado = runCommand(comando, ruta, "bytes")
     listaDetalles:list[dict[str, Any]] = []
     nombreRama = ""
     
     if isinstance(resultado, subprocess.CalledProcessError):
-        return [{"Error al recuperar el log de commits": resultado.stderr.decode("utf-8")}]
+        return [{
+            "id": 0,
+            "rama": "Error",
+            "mensaje": resultado.stderr.decode("utf-8")
+        }]
     
     for item in resultado.stdout.decode("utf-8").split("\n")[:-1]:
-        commit = item.replace("*", "").split(" ", 1)
+        commit = item.split(" ", 1)
         
         if commit[1].startswith("("):
             indiceInicio = commit[1].find("(") + 1
             indiceFin = commit[1].find(")")
             if "origin/" in commit[1]:
-                nombreRama = commit[1][indiceInicio:indiceFin].split(",")[-1].strip()
+                nombreRama = commit[1][indiceInicio:indiceFin].split(",")[-1].strip().replace("origin/","")
                 commit[1] = commit[1][indiceFin+2:]
+            
+            if "HEAD -> " in commit[1]:
+                nombreRama = commit[1][indiceInicio:indiceFin].split(",")[-1].strip().replace("HEAD -> ","")
+                commit[1] = commit[1][indiceFin+2:]
+                
         listaDetalles.append({
             "id": commit[0],
             "rama": nombreRama,
