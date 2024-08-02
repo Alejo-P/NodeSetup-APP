@@ -1,4 +1,5 @@
 import os
+import queue
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 import subprocess
@@ -242,7 +243,7 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
         ruta (str): _Ruta del repositorio Git_
     
     Returns:
-        _str_: _Log de commits del repositorio_
+        _List[dict[str, Any]]_: _Lista de commits del repositorio_
     """
     comando = [getPathOf("git"), "log", "--oneline", "--decorate", "--all"]
     
@@ -252,7 +253,7 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
     
     if isinstance(resultado, subprocess.CalledProcessError):
         return [{
-            "id": 0,
+            "id": "0",
             "rama": "Error",
             "mensaje": resultado.stderr.decode("utf-8")
         }]
@@ -277,47 +278,23 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
             "mensaje": commit[1]
         })
     return listaDetalles
-
-def putInQueue(elemento:Any):
-    """Pone un elemento en la cola de ejecucion.
-
-    Args:
-        elemento (Any): _Elemento a poner en la cola_
-    """
     
-    respuestas.put(elemento)
-    
-def getFromQueue(sinEspera:bool = False):
-    """Obtiene un elemento de la cola de ejecucion.
-
-    Args:
-        sinEspera (bool, optional): _Indica si se debe esperar a que haya un elemento en la cola o no_. Defaults to False.
-
-    Returns:
-        _Any_: _Elemento obtenido de la cola_
-    """
-    
-    if sinEspera:
-        return respuestas.get_nowait()
-    
-    return respuestas.get()
-    
-def isQueueEmpty():
+def isQueueEmpty(cola:queue.Queue):
     """Verifica si la cola de ejecucion esta vacia.
 
     Returns:
         _bool_: _Indica si la cola esta vacia o no_
     """
     
-    return respuestas.empty()
+    return cola.empty()
 
-def clearQueue():
+def clearQueue(cola:queue.Queue):
     """Vacia la cola de ejecucion.
     """
     
-    while not respuestas.empty():
+    while not cola.empty():
         try:
-            respuestas.get_nowait()
+            cola.get_nowait()
         except:
             break
 

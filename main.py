@@ -14,6 +14,7 @@ from typing import Literal
 from Actions import (
     clearQueue,
     doNothing,
+    getBranchCommitsLog,
     getCurrentBrach,
     preventCloseWindow,
     getEvents,
@@ -23,11 +24,9 @@ from Actions import (
     getPathOf,
     runCommand,
     loadImageTk,
-    getGitBranches,
-    putInQueue,
-    getFromQueue
+    getGitBranches
 )
-from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
+from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits
 from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(tk.Tk):
@@ -238,28 +237,34 @@ class ConfigurarEntornoNode(tk.Tk):
                 rutacarpetaGIT = os.path.join(self._ruta.get(), ".git")
                 if not os.path.isdir(rutacarpetaGIT):
                     mensajeRepo.config(text="No se encontro un repositorio Git", foreground="orange")
+                    mensajeHistorial.config(text="No se encontro un repositorio Git", foreground="orange")
                     botonOK.config(state="disabled")
                     ecommit.config(state="disabled")
                     combo.config(state="disabled")
                     comboRama["values"] = ("No se pudo extraer las ramas",)
                     comboRama.current(0)
                     comboRama.config(state="disabled")
+                    _limpiarTabla()
                     return
                 
                 mensajeRepo.config(text="Repositorio Git encontrado", foreground="green")
+                mensajeHistorial.config(text="Repositorio Git encontrado", foreground="green")
                 botonOK.config(state="normal")
                 ecommit.config(state="normal")
                 combo.config(state="readonly")
                 comboRama.config(state="readonly")
                 mostrarRamas()
+                obtenerLogs()
             else:
                 mensajeRepo.config(text="La ruta no es un directorio", foreground="red")
+                mensajeHistorial.config(text="La ruta no es un directorio", foreground="red")
                 botonOK.config(state="disabled")
                 ecommit.config(state="disabled")
                 combo.config(state="disabled")
                 comboRama["values"] = ("Directorio no valido",)
                 comboRama.current(0)
                 comboRama.config(state="disabled")
+                _limpiarTabla()
         
         def insertarPlaceHolder(event):
             estadoEntry = ecommit["state"]
@@ -338,7 +343,7 @@ class ConfigurarEntornoNode(tk.Tk):
                 nonlocal ramaActual
                 ramas = getGitBranches(self._ruta.get())
                 ramaActual = getCurrentBrach(ramas)
-                putInQueue(tuple(ramas.keys()))
+                respuestas.put(tuple(ramas.keys()))
             
             threading.Thread(target=_obtenerRamas).start()
             ventana.after(100, _actualizarComboRamas)
@@ -347,16 +352,42 @@ class ConfigurarEntornoNode(tk.Tk):
            
         def _actualizarComboRamas():
             try:
-                resultado = getFromQueue(True)
+                resultado = respuestas.get_nowait()
                 if comboRama["state"] != "disabled":
                     comboRama["values"] = resultado
-                    comboRama.current(resultado.index(ramaActual))
+                    try:
+                        comboRama.current(resultado.index(ramaActual))
+                    except ValueError:
+                        comboRama.current(0)
             except queue.Empty:
                 ventana.after(100, _actualizarComboRamas)
                 return
             
-            clearQueue()
+            clearQueue(respuestas)
          
+        def obtenerLogs():
+            def _obtenerCommits():
+                logs = getBranchCommitsLog(self._ruta.get())
+                registro_commits.put(logs)
+            
+            threading.Thread(target=_obtenerCommits).start()
+            ventana.after(100, _actualizarTabla)
+        
+        def _actualizarTabla():
+            try:
+                resultado = registro_commits.get_nowait()
+                tablaCommits.delete(*tablaCommits.get_children())
+                for i, commit in enumerate(resultado, 1):
+                    tablaCommits.insert("", "end", text=f"#{i}", values=(commit["id"], commit["rama"], commit["mensaje"]))
+            except queue.Empty:
+                ventana.after(100, _actualizarTabla)
+                return
+            
+            clearQueue(registro_commits)
+        
+        def _limpiarTabla():
+            tablaCommits.delete(*tablaCommits.get_children())
+        
         def Comenzar():
             threading.Thread(target=iniciarClonacion).start()
         
@@ -381,6 +412,7 @@ class ConfigurarEntornoNode(tk.Tk):
         
         frameClonacion = ttk.Frame(notebook)
         frameClonacion.grid_columnconfigure(0, weight=1)
+        frameClonacion.grid_columnconfigure(1, weight=1)
         
         ttk.Label(frameClonacion, text="URL repositorio").grid(row=1, column=0, columnspan=2)
         e1 = ttk.Entry(frameClonacion, width=50, textvariable=self.repoURL)
@@ -404,6 +436,7 @@ class ConfigurarEntornoNode(tk.Tk):
         
         frameConfirmacion = ttk.Frame(notebook)
         frameConfirmacion.grid_columnconfigure(0, weight=1)
+        frameConfirmacion.grid_columnconfigure(1, weight=1)
         
         ttk.Label(frameConfirmacion, text="Ruta del repositorio").grid(row=0, column=0, columnspan=2)
         eruta = ttk.Entry(frameConfirmacion, width=50, textvariable=self._ruta)
@@ -426,19 +459,34 @@ class ConfigurarEntornoNode(tk.Tk):
         combo.current(0)
         combo.grid(row=6, column=1, padx=5, pady=5)
         
-        #TODO: Agregar funcionalidad a los botones y continuar con la implementación
-        #! Falta agregar la funcionalidad a los botones
-        #! Continuar con la funcion de realizar commits y push y validar que se haga commit a la rama actual de trabajo
-        #? Añadir una funcionalidad para sugerencias y comentarios de la aplicación
-        
         botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: RealizarCommit(), state="disabled")
         botonOK.grid(row=7, column=0, columnspan=2, padx=5, pady=5)
         
         frameLogs = ttk.Frame(notebook)
         frameLogs.grid_columnconfigure(0, weight=1)
+        ttk.Label(frameLogs, text="Ruta del repositorio").grid(row=0, column=0)
+        ttk.Entry(frameLogs, width=50, textvariable=self._ruta).grid(row=1, column=0, padx=5, pady=5)
+        
+        mensajeHistorial = ttk.Label(frameLogs)
+        mensajeHistorial.grid(row=2, column=0, padx=5, pady=5)
+        
+        tablaCommits = ttk.Treeview(frameLogs, show="headings", selectmode="browse")
+        tablaCommits["columns"] = ("Id", "Rama", "Mensaje")
+        tablaCommits.column("Id", anchor=tk.W, width=60)
+        tablaCommits.column("Rama", anchor=tk.W, width=80)
+        tablaCommits.column("Mensaje", anchor=tk.W, width=300)
+        tablaCommits.heading("Id", text="ID", anchor=tk.W)
+        tablaCommits.heading("Rama", text="Rama", anchor=tk.W)
+        tablaCommits.heading("Mensaje", text="Mensaje", anchor=tk.W)
+        tablaCommits.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+        
+        yScroll = ttk.Scrollbar(frameLogs, orient="vertical", command=tablaCommits.yview)
+        yScroll.grid(row=3, column=1, sticky="ns")
+        tablaCommits.configure(yscrollcommand=yScroll.set)
         
         notebook.add(frameClonacion, text="Clonar repositorio")
         notebook.add(frameConfirmacion, text="Confirmar cambios")
+        notebook.add(frameLogs, text="Registro de commits")
         
         notebook.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         

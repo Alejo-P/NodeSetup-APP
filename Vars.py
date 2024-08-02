@@ -188,3 +188,5 @@ Registro_eventos = []
 ruta = os.getcwd()
 
 respuestas = queue.Queue()
+
+registro_commits = queue.Queue()
