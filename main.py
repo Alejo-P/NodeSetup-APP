@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import filedialog
-from turtle import width
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
