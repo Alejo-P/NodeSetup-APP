@@ -1,15 +1,17 @@
-from math import comb
-import queue
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog
+from turtle import width
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import * # type: ignore
+from tkinter import messagebox
+from tkinter.scrolledtext import ScrolledText
+import queue
 import os
 import shutil
 import threading
 import subprocess
 import time
 import ast
-from tkinter.scrolledtext import ScrolledText
-from turtle import st
 from typing import Literal
 from Actions import (
     clearQueue,
@@ -29,7 +31,7 @@ from Actions import (
 from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits
 from version import __version__ as appVersion
 
-class ConfigurarEntornoNode(tk.Tk):
+class ConfigurarEntornoNode(ttk.Window):
     def __init__(self):
         self._version = getVersionOf("node")
         self._versionGit = getVersionOf("git")
@@ -44,33 +46,11 @@ class ConfigurarEntornoNode(tk.Tk):
             messagebox.showerror("Error", "Node.js no está instalado en el sistema")
             quit()
         
-        super().__init__()
-
+        super().__init__(themename="superhero")
+        
         self.title("NodeSetup")
         self.resizable(0, 0)  # type: ignore
         self.protocol("WM_DELETE_WINDOW", lambda: preventCloseWindow("Accion no permitida", "No puede cerrar esta ventana, hay tareas que requieren usarla", "WARNING"))
-        
-        style = ttk.Style(self)
-       
-        # Personalizar la barra de progreso
-        style.configure("TProgressbar",
-            troughcolor='#5A5A5A',  # Color del fondo del canal
-            background='#FA8C75',  # Color del progreso
-            bordercolor='#FA8C75',  # Color del borde
-            thickness=20,  # Grosor de la barra de progreso
-        )
-        
-        style.configure("Custom.TCheckbutton",
-                        font=("Arial", 10),
-                        foreground="grey",
-                        relief="raised",
-                        padding=5,
-                        )
-        
-        style.map("Custom.TCheckbutton",
-                  foreground=[('active', 'black'), ('disabled', 'gray')],
-                  background=[('active', 'lightgrey')],
-                  relief=[('pressed', 'sunken')])
         
         self._checkVars = []
         self._imagenes = {}
@@ -78,7 +58,7 @@ class ConfigurarEntornoNode(tk.Tk):
         self._cambiarDirectorio = tk.BooleanVar(value=False)
         
         self._idAfterBar = "Temporal"
-        self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:")
+        self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:", bootstyle=INFO) # type: ignore
         self.lbl_titulo = ttk.Label(self)
         self.lbl_versionApp = ttk.Label(self.frameInfo)
         self.lbl_version = ttk.Label(self.frameInfo)
@@ -89,30 +69,31 @@ class ConfigurarEntornoNode(tk.Tk):
             "<Return>",
             lambda event: self.iniciar_creacion_proyecto()
         )
-        self.boton_ruta = ttk.Button(self, text="Explorar", command=self.abrir_ruta, width=50)
-        self.frm_check = ttk.Labelframe(self, width=50, text="Opciones")
+        self.boton_ruta = ttk.Button(self, text="Explorar", command=self.abrir_ruta, bootstyle=(WARNING, OUTLINE), width=50) # type: ignore
+        self.frm_check = ttk.Labelframe(self, width=50, text="Opciones", bootstyle=PRIMARY) #type: ignore
+        self._botonModulos = ttk.Button(self.frm_check, text="Instalar modulos", bootstyle=SECONDARY) # type: ignore
         self.labelGit = ttk.Label(self.frm_check, cursor="hand2")
         self.labelGit.bind(
             "<Button-1>",
             lambda event: self._ventanaOpcionesGit()
         )
         self.sec_botones = ttk.Frame(self)
-        self.btn_crear = ttk.Button(self.sec_botones, text="Crear", command=self.iniciar_creacion_proyecto)
-        self.btn_salir = ttk.Button(self.sec_botones, text="Salir", command=self.cerrar_ventana)
+        self.btn_crear = ttk.Button(self.sec_botones, text="Crear", command=self.iniciar_creacion_proyecto, bootstyle=(PRIMARY, OUTLINE), width=10) # type: ignore
+        self.btn_salir = ttk.Button(self.sec_botones, text="Salir", command=self.cerrar_ventana, bootstyle=(DANGER, OUTLINE), width=10) # type: ignore
         
         self._crearRuta = tk.BooleanVar(value=True)
-        self._chk_Ruta = ttk.Checkbutton(self, text="Crear ruta si no existe", variable=self._crearRuta, style="Custom.TCheckbutton")
+        self._chk_Ruta = ttk.Checkbutton(self, text="Crear ruta si no existe", variable=self._crearRuta, bootstyle="success-round-toggle", padding=6) # type: ignore
         
         self._eliminarContenido = tk.BooleanVar(value=True)
-        self._chk_eliminarPrimero = ttk.Checkbutton(self, text="Eliminar todo el contenido de la carpeta", variable=self._eliminarContenido, style="Custom.TCheckbutton")
+        self._chk_eliminarPrimero = ttk.Checkbutton(self, text="Eliminar todo el contenido de la carpeta", variable=self._eliminarContenido, bootstyle="success-round-toggle", padding=6) # type: ignore
         
         self._eliminarDatos = tk.BooleanVar(value=False)
-        self._chk_eliminarEnFallo = ttk.Checkbutton(self, text="Eliminar contenido tras un fallo", variable=self._eliminarDatos, style="Custom.TCheckbutton")
+        self._chk_eliminarEnFallo = ttk.Checkbutton(self, text="Eliminar contenido tras un fallo", variable=self._eliminarDatos, bootstyle="success-round-toggle", padding=6) # type: ignore
         
         self._pararEnFallo = tk.BooleanVar(value=False)
-        self._chk_fallo = ttk.Checkbutton(self, text="Detener en caso de fallo", variable=self._pararEnFallo, style="Custom.TCheckbutton")
+        self._chk_fallo = ttk.Checkbutton(self, text="Detener en caso de fallo", variable=self._pararEnFallo, bootstyle="success-round-toggle", padding=6) # type: ignore
         
-        self.frm_progreso = ttk.Labelframe(self, text="Progreso:", width=100)
+        self.frm_progreso = ttk.Labelframe(self, text="Progreso:", width=100, bootstyle=PRIMARY) # type: ignore
         self.lbl_progreso = ttk.Label(self.frm_progreso, text="Descripcion: Ninguna tarea en ejecucion")
         self.frm_progreso.grid_columnconfigure(0, weight=1)
         self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate', style="TProgressbar")
@@ -298,7 +279,7 @@ class ConfigurarEntornoNode(tk.Tk):
                 return
             
             if comboRama.get() != ramaActual:
-                seleccion = messagebox.askquestion("Advertencia", "La rama de trabajo no es la rama actual del repositorio, ¿Desea continuar?")
+                seleccion = messagebox.askyesno("Advertencia", "La rama de trabajo no es la rama actual del repositorio, ¿Desea continuar?")
                 if seleccion == "no":
                     return
                 
@@ -407,7 +388,7 @@ class ConfigurarEntornoNode(tk.Tk):
         ttk.Label(frame_version, text=self._versionGit if self._versionGit else "").grid(row=0, column=1)
         frame_version.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
-        notebook = ttk.Notebook(ventana)
+        notebook = ttk.Notebook(ventana, bootstyle=SECONDARY) # type: ignore
         mensajeCommit = tk.StringVar()
         
         frameClonacion = ttk.Frame(notebook)
@@ -556,11 +537,11 @@ class ConfigurarEntornoNode(tk.Tk):
                 def CrearWidgets(listaModulos):
                     if not self._lista_widgets:
                         for dic in listaModulos:
-                            check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], style="Custom.TCheckbutton")
-                            label_nombre = ttk.Label(modulos, text=dic["nombre"])
-                            entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"], state="readonly")
-                            combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"], state="readonly")
-                            check_global = ttk.Checkbutton(modulos, variable=dic["global"], style="Custom.TCheckbutton")
+                            check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], bootstyle="success-round-toggle", padding=4) # type: ignore
+                            label_nombre = ttk.Label(modulos, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
+                            entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                            combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                            check_global = ttk.Checkbutton(modulos, variable=dic["global"], bootstyle="warning-round-toggle", padding=4) # type: ignore
 
                             self._lista_widgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
 
@@ -696,7 +677,8 @@ class ConfigurarEntornoNode(tk.Tk):
         
         self._opciones = [False for _ in range(len(opciones))]
         
-        ttk.Button(self.frm_check, text="Instalar modulos", command=ventana_seleccionModulos).grid(column=0, row=0, sticky="nsew")
+        self._botonModulos["command"] = ventana_seleccionModulos
+        self._botonModulos.grid(column=0, row=0, sticky="nsew", padx=5, pady=5)
         
         start = 1
         if self._versionGit:
