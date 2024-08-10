@@ -51,6 +51,7 @@ class ConfigurarEntornoNode(ttk.Window):
         self.resizable(0, 0)  # type: ignore
         self.protocol("WM_DELETE_WINDOW", lambda: preventCloseWindow("Accion no permitida", "No puede cerrar esta ventana, hay tareas que requieren usarla", "WARNING"))
         
+        
         self._checkVars = []
         self._imagenes = {}
         self._ruta = tk.StringVar()
@@ -117,6 +118,11 @@ class ConfigurarEntornoNode(ttk.Window):
             self.labelGit.config(image=self._imagenes["Git"], text="Git", compound=tk.LEFT)
         except Exception as e:
             print(f"Error al cargar las imagenes: {e}")
+    
+    def _menuContextual(self, event):
+        self._menu = tk.Menu(self, tearoff=0)
+        self._menu.add_command(label="Opciones de la aplicación")
+        self._menu.add_command(label="Configurar un servidor express", command=lambda: self.textArea.event_generate("<<Copy>>"))
     
     def _ventanaOpcionesGit(self):
         def cerrarVentana():

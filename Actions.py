@@ -1,5 +1,8 @@
+from collections.abc import Callable
 import os
 import queue
+import ttkbootstrap as ttk
+import tkinter as tk
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 import subprocess
@@ -297,8 +300,38 @@ def clearQueue(cola:queue.Queue):
             cola.get_nowait()
         except:
             break
+_NoCallback = lambda e: doNothing
+def promptUser(ventana:ttk.Window, mensaje:str, titulo:str, tipo:Literal["info", "warning", "error"], callback:Callable[[str], Any] = _NoCallback):
+    """Muestra un mensaje al usuario y espera una respuesta.
+    
+    Args:
+        ventana (ttk.Window): _Ventana principal_
+        mensaje (str): _Mensaje a mostrar_
+        titulo (str): _Titulo de la ventana_
+        tipo (Literal["info", "warning", "error"]): _Tipo de mensaje_
+        callback (Callable[[str], Any], optional): _Funcion a ejecutar despues de obtener la respuesta (esta funcion recibira la respuesta como parametro)_. Defaults to _NoCallback.
+        
+    Returns:
+        _str_: _Respuesta del usuario_
+    """
+    def returnInput():
+        res = inp.get()
+        _top.destroy()
+        callback(res)
+    
+    _top = ttk.Toplevel(master=ventana)
+    _top.title(titulo)
+    _top.resizable(False, False)
+    
+    ttk.Label(_top, text=mensaje, style=f"{tipo}.TLabel").pack(padx=10, pady=10)
+    inp = ttk.Entry(_top, style=f"{tipo}.TEntry")
+    inp.pack(padx=10, pady=10)
+    
+    ttk.Button(_top, text="Aceptar", style=f"{tipo}.TButton", command=returnInput).pack(padx=10, pady=10)
 
 if __name__ == "__main__":
-    logs = getBranchCommitsLog(os.getcwd())
-    for com in logs:
-        print(com)
+    def getAnswer(answer:str):
+        print(answer)
+    root = ttk.Window()
+    promptUser(root, "Ingrese su nombre", "Nombre", "info", getAnswer)
+    root.mainloop()
