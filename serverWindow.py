@@ -77,7 +77,8 @@ class ServerWindow(ttk.Window):
         self._frameOpciones.grid(row=0, column=1, columnspan=3, sticky='nsew')
         
         self._frameEditor = ttk.Frame(self)
-        self._areaTextoEditor = tk.Text(self._frameEditor)
+        self._areaTextoEditor = tk.Text(self._frameEditor, wrap='none')
+        self._areaTextoEditor["font"] = ("Consolas", 10)
         self._yScroll = ttk.Scrollbar(self._frameEditor, orient='vertical', command=self._areaTextoEditor.yview)
         self._xScroll = ttk.Scrollbar(self._frameEditor, orient='horizontal', command=self._areaTextoEditor.xview)
         self._areaTextoEditor.config(yscrollcommand=self._yScroll.set, xscrollcommand=self._xScroll.set)
