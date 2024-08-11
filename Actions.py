@@ -351,7 +351,7 @@ def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info",
             if not valor:
                 return False
             
-            if valor.find(".") != -1:
+            if valor.find(".") != -1 or valor.find("/") != -1 or valor.find("\\") != -1:
                 return False
         
         return True
