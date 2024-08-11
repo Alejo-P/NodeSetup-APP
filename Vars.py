@@ -213,3 +213,8 @@ keywordsJS = {
     "scope_declarations": ['var', 'let', 'const'],
     "others": ['delete', 'typeof', 'new']
 }
+
+keywordsHTML = {
+    "tags": ['html', 'head', 'body', 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'form', 'input', 'button', 'select', 'option', 'textarea', 'label', 'br', 'hr'],
+    "attributes": ['id', 'class', 'style', 'src', 'href', 'alt', 'title', 'width', 'height', 'colspan', 'rowspan', 'type', 'name', 'value', 'placeholder', 'required', 'disabled', 'readonly', 'checked', 'selected', 'multiple', 'for', 'action', 'method', 'enctype', 'target']
+}

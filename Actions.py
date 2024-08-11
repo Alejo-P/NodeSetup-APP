@@ -312,7 +312,7 @@ def centerWindow(ventana: Union[ttk.Toplevel, tk.Tk, ttk.Window]):
     ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
 _NoCallback = lambda e: doNothing
-def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info", "warning", "error"], esArchivo:bool = False, callback:Callable[[str], Any] = _NoCallback):
+def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info", "warning", "error"], esArchivo:bool = False, esCarpeta:bool = False, callback:Callable[[str], Any] = _NoCallback):
     """Muestra un mensaje al usuario y espera una respuesta.
     
     Args:
@@ -321,6 +321,7 @@ def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info",
         titulo (str): _Titulo de la ventana_
         tipo (Literal["info", "warning", "error"]): _Tipo de mensaje_
         esArchivo (bool, optional): _Indica si se espera una ruta de archivo como respuesta_. Defaults to False.
+        esCarpeta (bool, optional): _Indica si se espera una ruta de carpeta como respuesta_. Defaults to False.
         callback (Callable[[str], Any], optional): _Funcion a ejecutar despues de obtener la respuesta (esta funcion recibira la respuesta como parametro)_. Defaults to _NoCallback.
         
     Returns:
@@ -344,6 +345,16 @@ def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info",
             return
         
         botonOk.config(state="normal")
+    
+    def _validarEntrada(valor):
+        if esCarpeta or esArchivo:
+            if not valor:
+                return False
+            
+            if valor.find(".") != -1:
+                return False
+        
+        return True
         
     def returnInput():
         res = f"{_nomArch.get()}{_extArch.get()}" if esArchivo else _nomArch.get()
@@ -353,12 +364,13 @@ def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info",
     _top = ttk.Toplevel(master=ventana)
     _top.title(titulo)
     _top.resizable(False, False)
+    idValid = _top.register(_validarEntrada)
     
     _nomArch = ttk.StringVar()
     _extArch = ttk.StringVar()
     
     ttk.Label(_top, text=mensaje, style=f"{tipo}.TLabel").pack(padx=10, pady=10)
-    inp = ttk.Entry(_top, style=f"{tipo}.TEntry", textvariable=_nomArch)
+    inp = ttk.Entry(_top, style=f"{tipo}.TEntry", textvariable=_nomArch, validate="key", validatecommand=(idValid, "%P"))
     inp.pack(padx=10, pady=10, expand=True, fill="x")
     
     if esArchivo:
@@ -405,14 +417,23 @@ def configureSyntax(textArea:tk.Text):
     textArea.tag_configure("comment", foreground="green", font=(font[0], font[1], "italic"))
     textArea.tag_configure("string", foreground="orange", font=(font[0], font[1], "bold"))
 
-def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript"]="python"):
+def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript", "basic", "disabled"]="python"):
     """Aplica la sintaxis destacada a un area de texto.
 
     Args:
         textArea (tk.Text): _Area de texto a la que se le aplicara la sintaxis destacada_
         syntax (Literal[&quot;python&quot;, &quot;javascript&quot;], optional): _Tipo de sintaxis a aplicar_. Defaults to "python".
     """
-    keywords = keywordsPY if syntax == "python" else keywordsJS
+    
+    if syntax == "python":
+        keywords = keywordsPY
+    elif syntax == "javascript":
+        keywords = keywordsJS
+    elif syntax == "basic":
+        keywords = {}
+    else:
+        return
+        
     # Eliminar los resaltados actuales
     for tag in keywords.keys():
         textArea.tag_remove(tag, "1.0", tk.END)
@@ -441,7 +462,10 @@ def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript"]="python
     start_idx = "1.0"
     while True:
         # Buscar la posición inicial del comentario
-        start_idx = textArea.search(r'#.*', start_idx, stopindex=tk.END, regexp=True)
+        start_idx = textArea.search(
+            r'#.*' if syntax == "python" else r'//.*', 
+            start_idx, stopindex=tk.END, regexp=True
+        )
         
         if not start_idx:
             break
@@ -472,5 +496,5 @@ if __name__ == "__main__":
     def getAnswer(answer:str):
         print(answer)
     root = ttk.Window()
-    promptUser(root, "Ingrese su nombre", "Nombre", "info", False, getAnswer)
+    promptUser(root, "Ingrese su nombre", "Nombre", "info", False, True, getAnswer)
     root.mainloop()
