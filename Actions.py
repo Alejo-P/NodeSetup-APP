@@ -1,13 +1,10 @@
 from collections.abc import Callable
-import os
-import queue
+import os, queue, re, subprocess, tkinter as tk
 import ttkbootstrap as ttk
-import tkinter as tk
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
-import subprocess
-from typing import Any, List, Literal, overload
-from Vars import ruta, Registro_eventos, respuestas
+from typing import Any, List, Literal, overload, Union
+from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS
 
 def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
     """Regsitar un evento (detalles de un comando) ejecutado por el programa.
@@ -300,8 +297,22 @@ def clearQueue(cola:queue.Queue):
             cola.get_nowait()
         except:
             break
+
+def centerWindow(ventana: Union[ttk.Toplevel, tk.Tk, ttk.Window]):
+    """Centra una ventana en la pantalla.
+
+    Args:
+        ventana (Union[ttk.Toplevel, tk.Tk, ttk.Window]): _Ventana a centrar_
+    """
+    ventana.update_idletasks()
+    ancho = ventana.winfo_width()
+    alto = ventana.winfo_height()
+    x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
+    y = (ventana.winfo_screenheight() // 2) - (alto // 2)
+    ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
+
 _NoCallback = lambda e: doNothing
-def promptUser(ventana:ttk.Window, mensaje:str, titulo:str, tipo:Literal["info", "warning", "error"], callback:Callable[[str], Any] = _NoCallback):
+def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info", "warning", "error"], esArchivo:bool = False, callback:Callable[[str], Any] = _NoCallback):
     """Muestra un mensaje al usuario y espera una respuesta.
     
     Args:
@@ -309,13 +320,33 @@ def promptUser(ventana:ttk.Window, mensaje:str, titulo:str, tipo:Literal["info",
         mensaje (str): _Mensaje a mostrar_
         titulo (str): _Titulo de la ventana_
         tipo (Literal["info", "warning", "error"]): _Tipo de mensaje_
+        esArchivo (bool, optional): _Indica si se espera una ruta de archivo como respuesta_. Defaults to False.
         callback (Callable[[str], Any], optional): _Funcion a ejecutar despues de obtener la respuesta (esta funcion recibira la respuesta como parametro)_. Defaults to _NoCallback.
         
     Returns:
         _str_: _Respuesta del usuario_
     """
+    def _valueCombo():
+        if _extArch.get() == ".env":
+            _nomArch.set("")
+            inp.config(state="disabled")
+        else:
+            inp.config(state="normal")
+        _validInput()
+    
+    def _validInput():
+        if _extArch.get() == ".env":
+            botonOk.config(state="normal")
+            return
+        
+        if not _nomArch.get():
+            botonOk.config(state="disabled")
+            return
+        
+        botonOk.config(state="normal")
+        
     def returnInput():
-        res = inp.get()
+        res = f"{_nomArch.get()}{_extArch.get()}" if esArchivo else _nomArch.get()
         _top.destroy()
         callback(res)
     
@@ -323,15 +354,123 @@ def promptUser(ventana:ttk.Window, mensaje:str, titulo:str, tipo:Literal["info",
     _top.title(titulo)
     _top.resizable(False, False)
     
-    ttk.Label(_top, text=mensaje, style=f"{tipo}.TLabel").pack(padx=10, pady=10)
-    inp = ttk.Entry(_top, style=f"{tipo}.TEntry")
-    inp.pack(padx=10, pady=10)
+    _nomArch = ttk.StringVar()
+    _extArch = ttk.StringVar()
     
-    ttk.Button(_top, text="Aceptar", style=f"{tipo}.TButton", command=returnInput).pack(padx=10, pady=10)
+    ttk.Label(_top, text=mensaje, style=f"{tipo}.TLabel").pack(padx=10, pady=10)
+    inp = ttk.Entry(_top, style=f"{tipo}.TEntry", textvariable=_nomArch)
+    inp.pack(padx=10, pady=10, expand=True, fill="x")
+    
+    if esArchivo:
+        extArchivos = [".js", ".env", ".json", ".py", ".txt"]
+        _combo = ttk.Combobox(_top, values=tuple(extArchivos), style=f"{tipo}.TCombobox", textvariable=_extArch, state="readonly")
+        _combo.current(0)
+        _combo.pack(padx=10, pady=10, side="right", expand=True, fill="x")
+        _extArch.trace_add("write", lambda *args: _valueCombo())
+    
+    botonOk =ttk.Button(_top, text="Aceptar", style=f"{tipo}.TButton", command=returnInput)
+    botonOk.pack(padx=10, pady=10)
+    
+    _nomArch.trace_add("write", lambda *args: _validInput())
+    _validInput()
+    centerWindow(_top)
+
+def configureSyntax(textArea:tk.Text):
+    """Configura la sintaxis de un area de texto.
+
+    Args:
+        textArea (tk.Text): _Area de texto a configurar_
+    """
+    getFont = str(textArea.cget("font")) if textArea.cget("font") else str("Consolas 10") # Obtener la fuente actual del widget
+    getFont = getFont.replace(" ", ",") # Reemplazar los espacios por comas
+    getFont = getFont.split(",") # Convertir la fuente en una lista
+    
+    font = []
+    for element in getFont:
+        if element.isdigit():
+            font.append(int(element))  # Convertir los elementos numéricos a enteros y añadirlos a la lista
+        else:
+            font.append(element)  # Agregar los elementos no numéricos a la lista
+    
+    # Crear diferentes estilos
+    textArea.tag_configure("boolean_values", foreground="blue", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("control_flow", foreground="purple", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("logical_operators", foreground="orange", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("function_class_declarations", foreground="green", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("exception_handling", foreground="red", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("import_statements", foreground="brown", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("context_management", foreground="teal", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("scope_declarations", foreground="magenta", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("others", foreground="grey", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("comment", foreground="green", font=(font[0], font[1], "italic"))
+    textArea.tag_configure("string", foreground="orange", font=(font[0], font[1], "bold"))
+
+def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript"]="python"):
+    """Aplica la sintaxis destacada a un area de texto.
+
+    Args:
+        textArea (tk.Text): _Area de texto a la que se le aplicara la sintaxis destacada_
+        syntax (Literal[&quot;python&quot;, &quot;javascript&quot;], optional): _Tipo de sintaxis a aplicar_. Defaults to "python".
+    """
+    keywords = keywordsPY if syntax == "python" else keywordsJS
+    # Eliminar los resaltados actuales
+    for tag in keywords.keys():
+        textArea.tag_remove(tag, "1.0", tk.END)
+    textArea.tag_remove("comment", "1.0", tk.END)
+    textArea.tag_remove("string", "1.0", tk.END)
+    
+    # Recorrer cada tipo de keyword
+    for tag, words in keywords.items():
+        for word in words:
+            # Obtener todo el texto del widget
+            text_content = textArea.get("1.0", tk.END)
+
+            # Utilizar re.finditer() para buscar todas las ocurrencias de la palabra en el texto
+            for match in re.finditer(rf'\b{word}\b', text_content):
+                start_pos = match.start()  # Posición de inicio de la coincidencia
+                end_pos = match.end()  # Posición de final de la coincidencia
+                
+                # Convertir las posiciones a índices de Tkinter
+                start_idx = f"1.0 + {start_pos} chars"
+                end_idx = f"1.0 + {end_pos} chars"
+                
+                # Aplicar el tag correspondiente
+                textArea.tag_add(tag, start_idx, end_idx)
+
+    # Resaltar comentarios
+    start_idx = "1.0"
+    while True:
+        # Buscar la posición inicial del comentario
+        start_idx = textArea.search(r'#.*', start_idx, stopindex=tk.END, regexp=True)
+        
+        if not start_idx:
+            break
+        
+        # Obtener la posición final del comentario (final de la línea)
+        end_idx = textArea.index(f"{start_idx} lineend")
+        # Aplicar el tag "comment" para resaltar el comentario
+        textArea.tag_add("comment", start_idx, end_idx)
+        # Mover el índice de inicio hacia adelante para evitar bucle infinito
+        start_idx = textArea.index(f"{end_idx} + 1c")
+
+    # Ejemplo de aplicación de tags para resaltar cadenas de texto
+    text_content = textArea.get("1.0", tk.END)  # Obtener todo el texto del widget
+
+    # Usar re.finditer() para encontrar todas las cadenas de texto (entre comillas simples o dobles)
+    for match in re.finditer(r'"[^"\\]*(\\.[^"\\]*)*"|\'[^\'\\]*(\\.[^\'\\]*)*\'', text_content):
+        start_pos = match.start()  # Posición de inicio de la coincidencia
+        end_pos = match.end()  # Posición de final de la coincidencia
+
+        # Convertir las posiciones a índices que Tkinter pueda entender
+        start_idx = f"1.0 + {start_pos} chars"
+        end_idx = f"1.0 + {end_pos} chars"
+
+        # Aplicar el tag "string" al texto encontrado
+        textArea.tag_add("string", start_idx, end_idx)
 
 if __name__ == "__main__":
     def getAnswer(answer:str):
         print(answer)
     root = ttk.Window()
-    promptUser(root, "Ingrese su nombre", "Nombre", "info", getAnswer)
+    promptUser(root, "Ingrese su nombre", "Nombre", "info", False, getAnswer)
     root.mainloop()

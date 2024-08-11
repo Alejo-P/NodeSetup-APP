@@ -2,7 +2,7 @@ import ttkbootstrap as ttk
 import ttkbootstrap.constants as c
 import tkinter as tk
 from tkinter import messagebox, filedialog
-from Actions import promptUser
+from Actions import promptUser, configureSyntax, applySintax, centerWindow
 
 class ServerWindow(ttk.Window):
     def __init__(self):
@@ -35,7 +35,7 @@ class ServerWindow(ttk.Window):
         
         super().__init__(themename='superhero')
 
-        self.title('Configurar un servidor express')
+        self.title('Editor de código')
         self.resizable(False, False)
         
         self._frameTabla = ttk.Frame(self)
@@ -64,6 +64,7 @@ class ServerWindow(ttk.Window):
                 'Crear archivo', 
                 'Ingrese el nombre del archivo a crear',
                 'info', 
+                True,
                 crearArchivo
             ))
         self.botonCreararchivo.grid(row=0, column=0, sticky='nsew', padx=1)
@@ -77,7 +78,8 @@ class ServerWindow(ttk.Window):
         self._frameOpciones.grid(row=0, column=1, columnspan=3, sticky='nsew')
         
         self._frameEditor = ttk.Frame(self)
-        self._areaTextoEditor = tk.Text(self._frameEditor, wrap='none')
+        self._areaTextoEditor = tk.Text(self._frameEditor, wrap='none', undo=True, autoseparators=True)
+        self._areaTextoEditor["bg"] = "#282828"
         self._areaTextoEditor["font"] = ("Consolas", 10)
         self._yScroll = ttk.Scrollbar(self._frameEditor, orient='vertical', command=self._areaTextoEditor.yview)
         self._xScroll = ttk.Scrollbar(self._frameEditor, orient='horizontal', command=self._areaTextoEditor.xview)
@@ -86,6 +88,11 @@ class ServerWindow(ttk.Window):
         self._yScroll.grid(row=0, column=1, sticky='ns')
         self._xScroll.grid(row=1, column=0, sticky='ew')
         self._frameEditor.grid(row=1, rowspan=6, column=1, columnspan=3, sticky='nsew')
+        
+        configureSyntax(self._areaTextoEditor)
+        # Aplicar sintaxis destacada cuando se escribe o pega texto
+        self._areaTextoEditor.bind("<KeyRelease>", lambda event: applySintax(self._areaTextoEditor, "javascript"))
+        centerWindow(self)
     
     def iniciar(self):
         self.mainloop()

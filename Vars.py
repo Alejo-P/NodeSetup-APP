@@ -190,3 +190,26 @@ ruta = os.getcwd()
 respuestas = queue.Queue()
 
 registro_commits = queue.Queue()
+
+keywordsPY = {
+    "boolean_values": ['True', 'False', 'None'],
+    "control_flow": ['if', 'else', 'elif', 'for', 'while', 'break', 'continue', 'pass', 'return', 'yield'],
+    "logical_operators": ['and', 'or', 'not', 'is', 'in'],
+    "function_class_declarations": ['def', 'class', 'lambda'],
+    "exception_handling": ['try', 'except', 'raise', 'finally', 'assert'],
+    "import_statements": ['import', 'from', 'as'],
+    "context_management": ['with', 'async', 'await'],
+    "scope_declarations": ['global', 'nonlocal'],
+    "others": ['del', 'raise']
+}
+
+keywordsJS = {
+    "boolean_values": ['true', 'false', 'null'],
+    "control_flow": ['if', 'else', 'for', 'while', 'do', 'break', 'continue', 'return', 'switch', 'case'],
+    "logical_operators": ['&&', '||', '!', 'instanceof'],
+    "function_class_declarations": ['function', 'class', 'constructor'],
+    "exception_handling": ['try', 'catch', 'finally', 'throw'],
+    "import_statements": ['import', 'export', 'as', 'from'],
+    "scope_declarations": ['var', 'let', 'const'],
+    "others": ['delete', 'typeof', 'new']
+}
