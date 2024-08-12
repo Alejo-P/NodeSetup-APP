@@ -177,7 +177,7 @@ class ConfigurarEntornoNode(ttk.Window):
         
         def _iniciarVentana():
             self.protocol("WM_DELETE_WINDOW", doNothing)
-            self.lbl_progreso.config(text="Descripcion: Iniciando el editor de código")
+            self.lbl_progreso.config(text="Descripcion: Cargando archivos e iniciando el editor de código")
             self.progreso.config(value=0, maximum=100, mode="indeterminate", bootstyle="success") # type: ignore
             self.progreso.start()
             threading.Thread(target=_ventanaEditor).start()
