@@ -279,36 +279,33 @@ class ServerWindow:
                 seleccion = self._tablaArchivos.selection()
                 if not seleccion:
                     seleccion = self._tablaArchivos.get_children()
+                    self._tablaArchivos.selection_set(seleccion[0])
+                    self._tablaArchivos.focus(seleccion[0])
                 
                 # Verificar si el elemento seleccionado es un archivo
                 if self._tablaArchivos.item(seleccion[0], 'values')[0].find(".") != -1:
                     seleccion = (self._tablaArchivos.parent(seleccion[0]),)
                 
+                ruta_seleccion = _obtenerRutaArchivo('/').split("/")[:-1] if _obtenerRutaArchivo('/').find('.') != -1 else _obtenerRutaArchivo('/').split("/")
+                ruta_absoluta = self._ruta.split("\\")[:-1]
+                ruta_absoluta = '/'.join(ruta_absoluta)
+                
+                ruta_seleccion = '/'.join(ruta_seleccion)
+                directorio = os.path.join(ruta_absoluta, ruta_seleccion)
+                
+                if not ruta_seleccion:
+                    ruta_seleccion = self._ruta.split("\\")[-1]
+                
                 if nombreCarpeta:
-                    if nombreCarpeta.split('/')[-1] not in contenido:
-                        print(seleccion)
-                        item_id = self._tablaArchivos.insert(seleccion[0], 'end', values=(nombreCarpeta.split('/')[-1],))
-                        self._tablaArchivos.selection_set(item_id)
-                        self._tablaArchivos.focus(item_id)
-                        mostrarSeleccionArchivo()
+                    if os.path.exists(os.path.join(directorio, nombreCarpeta)):
+                        messagebox.showwarning('Error', 'La carpeta ya existe')
                         return
                     
-                    nomArch = nombreCarpeta.split('/')[-1]
-                    if messagebox.askyesno('Carpeta existente', f'La carpeta {nomArch} ya existe, ¿desea sobreescribirla?'):
-                        contenido[nomArch] = ''
-                        self._areaTextoEditor.delete('1.0', tk.END)
-                        self._areaTextoEditor.insert('1.0', contenido[nomArch])
-                        
-                        # Actualizar la tabla de archivos (borrar todo el contenido y volver a insertar)
-                        self._tablaArchivos.delete(*self._tablaArchivos.get_children())
-                        
-                        for archivo in contenido.keys():
-                            item_id = self._tablaArchivos.insert(seleccion[0], 'end', values=(archivo,))
-
-                        self._tablaArchivos.selection_set(item_id)
-                        self._tablaArchivos.focus(item_id)
-                        mostrarSeleccionArchivo()
-                        return
+                    os.mkdir(os.path.join(directorio, nombreCarpeta))
+                    item_id = self._tablaArchivos.insert(seleccion[0], 'end', values=(nombreCarpeta,))
+                    self._tablaArchivos.selection_set(item_id)
+                    self._tablaArchivos.focus(item_id)
+                    return
             
             promptUser(
                 self.root,
@@ -406,6 +403,6 @@ class ServerWindow:
         
 if __name__ == '__main__':
     app = ttk.Window(themename='superhero')
-    ventana = ServerWindow(app, "")
+    ventana = ServerWindow(app, os.getcwd())
     #ventana.iniciar()
     app.mainloop()

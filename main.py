@@ -131,23 +131,24 @@ class ConfigurarEntornoNode(ttk.Window):
         def _ventanaEditor():
             self.lock_unlock_widgets(estado="disabled")
             print(self._ruta_temporal)
-            respuesta = runCommand([self._npm_path, "init", "-y"], self._ruta_temporal)
-            if isinstance(respuesta, subprocess.CalledProcessError):
-                messagebox.showerror("Error", f"Error al crear el archivo package.json: {respuesta}")
-                self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
-                lista.put(False)
-                return
-            
-            respuesta = runCommand([self._npm_path, "install", "express"], self._ruta_temporal)
-            if isinstance(respuesta, subprocess.CalledProcessError):
-                messagebox.showerror("Error", f"Error al instalar el paquete express: {respuesta}")
-                self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
-                lista.put(False)
-                return
-            
-            os.mkdir(os.path.join(self._ruta_temporal, "src"))
-            with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
-                archivo.write("const express = require('express');\nconst app = express();\n\napp.get('/', (req, res) => {\n\tres.send('Hello World!');\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor en el puerto 3000');\n});")
+            if not os.listdir(self._ruta_temporal):
+                respuesta = runCommand([self._npm_path, "init", "-y"], self._ruta_temporal)
+                if isinstance(respuesta, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al crear el archivo package.json: {respuesta}")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                    lista.put(False)
+                    return
+                
+                respuesta = runCommand([self._npm_path, "install", "express"], self._ruta_temporal)
+                if isinstance(respuesta, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al instalar el paquete express: {respuesta}")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                    lista.put(False)
+                    return
+                
+                os.mkdir(os.path.join(self._ruta_temporal, "src"))
+                with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
+                    archivo.write("const express = require('express');\nconst app = express();\n\napp.get('/', (req, res) => {\n\tres.send('Hello World!');\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor en el puerto 3000');\n});")
             
             lista.put(True)
             
