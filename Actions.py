@@ -99,11 +99,20 @@ def preventCloseWindow(titulo:str, mensaje:str, tipo:Literal["INFO", "WARNING", 
         mssg.showerror(titulo, mensaje)
 
 @overload
-def runCommand(comando:List[str], directorio:str = os.getcwd()) -> subprocess.CompletedProcess[str]:
+def runCommand(comando:List[str], directorio:str = os.getcwd()) -> (subprocess.CompletedProcess[str] | subprocess.CalledProcessError):
+    """Ejecuta un comando en la terminal y devuelve el resultado de la ejecucion.
+
+    Args:
+        comando (List[str]): _Lista de comandos a ejecutar, por ejemplo ["python", "-m", "main.py"]_
+        directorio (str, optional): _Ruta desde a cual se ejecutara el comando_. Defaults to os.getcwd().
+        
+    Returns:
+        [subprocess.CompletedProcess]: _Resultado de la ejecucion del comando_.
+    """
     pass
 
 @overload
-def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn:Literal["bytes"] = "bytes") -> subprocess.CompletedProcess[bytes]:
+def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn:Literal["bytes"] = "bytes") -> (subprocess.CompletedProcess[bytes] | subprocess.CalledProcessError):
     """Ejecuta un comando en la terminal y devuelve el resultado de la ejecucion.
 
     Args:
@@ -312,7 +321,7 @@ def centerWindow(ventana: Union[ttk.Toplevel, tk.Tk, ttk.Window]):
     ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
 _NoCallback = lambda e: doNothing
-def promptUser(ventana:ttk.Window, titulo:str, mensaje:str, tipo:Literal["info", "warning", "error"], esArchivo:bool = False, esCarpeta:bool = False, callback:Callable[[str], Any] = _NoCallback):
+def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str, tipo:Literal["info", "warning", "error"], esArchivo:bool = False, esCarpeta:bool = False, callback:Callable[[str], Any] = _NoCallback):
     """Muestra un mensaje al usuario y espera una respuesta.
     
     Args:

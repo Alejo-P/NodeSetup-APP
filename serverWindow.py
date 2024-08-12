@@ -1,5 +1,4 @@
-from math import e
-from turtle import width
+import os
 from typing import Any
 import ttkbootstrap as ttk
 import ttkbootstrap.constants as c
@@ -7,8 +6,8 @@ import tkinter as tk
 from tkinter import messagebox, filedialog
 from Actions import promptUser, configureSyntax, applySintax, centerWindow
 
-class ServerWindow(ttk.Window):
-    def __init__(self):
+class ServerWindow:
+    def __init__(self, ventana:ttk.Window, ruta:str) -> None:
         def _aplicarSintaxis(nombreArchivo:str):
             if nombreArchivo.endswith('.js') or nombreArchivo.endswith('.json'):
                 tipoSintaxis = 'javascript'
@@ -28,24 +27,53 @@ class ServerWindow(ttk.Window):
             ruta = _obtenerRutaArchivo()
             self._varRuta.set(ruta)
         
+        def _actualizarTabla():
+            # Actualizar la tabla de archivos (borrar todo el contenido y volver a insertar)
+            self._tablaArchivos.delete(*self._tablaArchivos.get_children())
+
+            # Variable para mantener un seguimiento de los elementos ya insertados
+            elementos_insertados = {}
+
+            # Obtener las rutas de los archivos
+            archivos = contenido.keys()
+            item_id = ""
+
+            for archivo in archivos:
+                elementos = archivo.split('/')
+                item_id = ""
+                
+                # Recorrer cada parte de la ruta (ej. "Backend", "src", "database.js")
+                for i, elemento in enumerate(elementos):
+                    # Construir la ruta completa hasta este punto
+                    ruta_parcial = "/".join(elementos[:i + 1])
+
+                    # Solo insertar si esta ruta no ha sido insertada previamente
+                    if ruta_parcial not in elementos_insertados:
+                        item_id = self._tablaArchivos.insert(item_id, 'end', values=(elemento,), open=True)
+                        elementos_insertados[ruta_parcial] = item_id
+                    else:
+                        # Obtener el item_id del elemento ya insertado
+                        item_id = elementos_insertados[ruta_parcial]
+            return str(item_id)
+        
         def _obtenerRutaArchivo(concatenarPor=' > '):
             # Obtener el elemento seleccionado
-            selected_item = self._tablaArchivos.selection()
+            seleccion = self._tablaArchivos.selection()
             
-            if not selected_item:
+            if not seleccion:
                 return ""
             
             # Comenzar desde el elemento seleccionado
-            current_item = selected_item[0]
+            item_id = seleccion[0]
             ruta = []
             
-            while current_item:
+            while item_id:
                 # Obtener el nombre del elemento actual y agregarlo a la lista
-                item_text = self._tablaArchivos.item(current_item, 'values')[0]
-                ruta.append(item_text)
+                nombre = self._tablaArchivos.item(item_id, 'values')[0]
+                ruta.append(nombre)
                 
                 # Moverse al elemento padre
-                current_item = self._tablaArchivos.parent(current_item)
+                item_id = self._tablaArchivos.parent(item_id)
             
             # Invertir la lista para obtener el orden desde el elemento raíz al seleccionado
             ruta.reverse()
@@ -53,17 +81,35 @@ class ServerWindow(ttk.Window):
             # Concatenar los nombres en una cadena
             ruta_concatenada = concatenarPor.join(ruta)
             return ruta_concatenada
-                      
+        
+        def cargarArchivos():
+            archivos = []
+            directorioRaiz = self._ruta.split("\\")[-1]
+             # Recorre todos los directorios y archivos en el directorio base
+            for root, _ , files in os.walk(self._ruta):
+                for file in files:
+                    resto_cadena = os.path.join(root, file)
+                    indice_cadena = root.find(directorioRaiz)
+                    sub_rutas = resto_cadena[indice_cadena:]
+                    if ("node_modules" in sub_rutas) or ("package-lock.json" in sub_rutas):
+                        continue
+                    sub_rutas = sub_rutas.replace("\\", "/")
+                    
+                    with open(os.path.join(root, file), 'rb') as f:
+                        contenido[sub_rutas] = f.read().decode('utf-8')
+                    archivos.append(sub_rutas)
+            return archivos
+           
         def mostrarSeleccionArchivo():
             _actualizarEntradaRuta()
-            
             if self._varRuta.get().find('.') == -1:
                 self._botonGuardar.config(state='disabled')
                 self._botonEliminar.config(text='Eliminar carpeta')
             else:
                 self._botonGuardar.config(state='normal')
                 self._botonEliminar.config(text='Eliminar archivo')
-                
+            
+            print(cargarArchivos())
             ruta = _obtenerRutaArchivo("/")
             
             tipo = 'archivo' if '.' in ruta else 'carpeta'
@@ -83,8 +129,6 @@ class ServerWindow(ttk.Window):
                 self._areaTextoEditor.config(state='disabled')
                 self._botonEliminar.config(text='Eliminar carpeta')
                 self._areaTextoEditor.delete('1.0', tk.END)
-            
-            print(contenido, _obtenerRutaArchivo())
                 
             _aplicarSintaxis(ruta)
         
@@ -94,12 +138,18 @@ class ServerWindow(ttk.Window):
                 seleccion = self._tablaArchivos.selection()
                 if not seleccion:
                     seleccion = self._tablaArchivos.get_children()
+                    
+                print(
+                    self._tablaArchivos.get_children(),
+                    self._tablaArchivos.item(seleccion[0], 'values')[0],
+                    self._tablaArchivos.item(seleccion[0], 'values')[0].find(".")
+                )
+                if self._tablaArchivos.item(seleccion[0], 'values')[0].find(".") != -1:
+                    item_id = self._tablaArchivos.parent(item_id)
+                else:
+                    item_id = seleccion[0]
                 
-                if seleccion:
-                    if self._tablaArchivos.item(seleccion[0], 'values')[0].find(".") != -1:
-                        item_id = self._tablaArchivos.parent(item_id)
-                    else:
-                        item_id = seleccion[0]
+                print(seleccion, item_id)
                 
                 Id_ins = self._tablaArchivos.insert(item_id, 'end', values=(nombreArchivo,))
                 self._tablaArchivos.selection_set(Id_ins)
@@ -107,7 +157,7 @@ class ServerWindow(ttk.Window):
                 _actualizarEntradaRuta()
             
             promptUser(
-                self,
+                self.root,
                 'Crear archivo', 
                 'Ingrese el nombre del archivo a crear',
                 'info', 
@@ -148,22 +198,14 @@ class ServerWindow(ttk.Window):
                     self._areaTextoEditor.delete('1.0', tk.END)
                     self._areaTextoEditor.insert('1.0', contenido[ruta])
                     
-                    # Actualizar la tabla de archivos (borrar todo el contenido y volver a insertar)
-                    self._tablaArchivos.delete(*self._tablaArchivos.get_children())
+                    # Actualizar la tabla de archivos
+                    item_id = _actualizarTabla() 
                     
-                    archivos = contenido.keys()
-                    
-                    for archivo in archivos:
-                        elementos = archivo.split('/')
-                        item_id = ""
-                        for elemento in elementos:    
-                            item_id = self._tablaArchivos.insert(item_id, 'end', values=(elemento,))
-
                     self._tablaArchivos.selection_set(item_id)
                     self._tablaArchivos.focus(item_id)
                     mostrarSeleccionArchivo()
                     return 
-                
+         
         def eliminarArchivo():
             # Verificar si el elemento a eliminar no es la carpeta principal (el elemento padre de todos los archivos)
             if self._tablaArchivos.selection()[0] == self._tablaArchivos.get_children()[0]:
@@ -213,7 +255,7 @@ class ServerWindow(ttk.Window):
             if seleccion:
                 if self._tablaArchivos.item(seleccion, 'values')[0].find(".") != -1:
                     promptUser(
-                        self,
+                        self.root,
                         'Cambiar nombre de archivo', 
                         'Ingrese el nuevo nombre del archivo',
                         'info', 
@@ -223,7 +265,7 @@ class ServerWindow(ttk.Window):
                     )
                 else:
                     promptUser(
-                        self,
+                        self.root,
                         'Cambiar nombre de carpeta', 
                         'Ingrese el nuevo nombre de la carpeta',
                         'info', 
@@ -232,7 +274,6 @@ class ServerWindow(ttk.Window):
                         callback=_editar
                     )
                 
-        
         def crearCarpeta():
             def _crear(nombreCarpeta):
                 seleccion = self._tablaArchivos.selection()
@@ -270,7 +311,7 @@ class ServerWindow(ttk.Window):
                         return
             
             promptUser(
-                self,
+                self.root,
                 'Crear carpeta', 
                 'Ingrese el nombre de la carpeta a crear',
                 'info', 
@@ -279,36 +320,34 @@ class ServerWindow(ttk.Window):
                 callback=_crear
             )
         
-        super().__init__(themename='superhero')
+        self.root = ttk.Toplevel(master=ventana)
 
-        self.title('Editor de código')
-        self.resizable(False, False)
+        self.root.title('Editor de código')
+        self.root.resizable(False, False)
+        self.root.transient(ventana)
         
         contenido:dict[str, Any] = {}
+        self._ruta = ruta
         
-        self._frameTabla = ttk.Frame(self)
+        self._frameTabla = ttk.Frame(self.root)
         encabezadoTabla = ['Archivos']
         self._tablaArchivos = ttk.Treeview(self._frameTabla, columns=tuple(encabezadoTabla), show='tree headings', height=25, style='info.Treeview')
-        item_id = self._tablaArchivos.insert('', 'end', values=('Backend',), open=True)
-        item_id = self._tablaArchivos.insert(item_id, 'end', values=('src',), open=True)
-        item_id = self._tablaArchivos.insert(item_id, 'end', values=('index.js',))
         
         # Configurar la primera columna de la tabla
-        self._tablaArchivos.column('#0', width=60)
+        self._tablaArchivos.column('#0', width=40)
         self._tablaArchivos.heading('#0', text='Nivel')
         for encabezado in encabezadoTabla:
             self._tablaArchivos.heading(encabezado, text=encabezado)
             self._tablaArchivos.column(encabezado, width=150)
             
-        self._tablaArchivos.selection_set(item_id)
-        self._tablaArchivos.focus(item_id)
         self._tablaArchivos.bind('<<TreeviewSelect>>', lambda event: mostrarSeleccionArchivo())
         self._tablaArchivos.bind('<Double-Button-3>', lambda event: editarNombre())
         self._tablaArchivos.pack(expand=True, fill='both')
         self._frameTabla.grid(row=0, rowspan=7, column=0, sticky='nsew')
+        cargarArchivos()
+        _actualizarTabla()
         
-        
-        self._frameOpciones = ttk.Frame(self)
+        self._frameOpciones = ttk.Frame(self.root)
         
         self.botonCreararchivo = ttk.Button(self._frameOpciones, text='Crear archivo', style='info.TButton', command=crearArchivo)
         self.botonCreararchivo.grid(row=0, column=0, sticky='nsew', padx=1)
@@ -323,17 +362,17 @@ class ServerWindow(ttk.Window):
         
         self._frameOpciones.grid(row=0, column=1, columnspan=3, sticky='nsew')
         
-        self._frameRuta = ttk.Frame(self)
+        self._frameRuta = ttk.Frame(self.root)
         self._frameRuta.columnconfigure(1, weight=1)
         self._varRuta = tk.StringVar()
         self._labelRuta = ttk.Label(self._frameRuta, text='Ruta del archivo:', style='info.TLabel')
         self._labelRuta.grid(row=0, column=0, sticky='nsew')
-        self._entryRuta = ttk.Entry(self._frameRuta, textvariable=self._varRuta, state='readonly')
+        self._entryRuta = ttk.Entry(self._frameRuta, textvariable=self._varRuta, state='readonly', style='success.TEntry')
         self._entryRuta.grid(row=0, column=1, sticky='nsew')
         
         self._frameRuta.grid(row=7, column=0, columnspan=4, sticky='nsew', pady=5, padx=5)
         
-        self._frameEditor = ttk.Frame(self)
+        self._frameEditor = ttk.Frame(self.root)
         self._areaTextoEditor = tk.Text(self._frameEditor, wrap='none', undo=True, autoseparators=True)
         self._areaTextoEditor["bg"] = "#282828"
         self._areaTextoEditor["font"] = ("Consolas", 10)
@@ -360,11 +399,13 @@ class ServerWindow(ttk.Window):
                     'values'
                 )[0])
             )
-        centerWindow(self)
+        centerWindow(self.root)
     
     def iniciar(self):
-        self.mainloop()
+        self.root.mainloop()
         
 if __name__ == '__main__':
-    ventana = ServerWindow()
-    ventana.iniciar()
+    app = ttk.Window(themename='superhero')
+    ventana = ServerWindow(app, "")
+    #ventana.iniciar()
+    app.mainloop()

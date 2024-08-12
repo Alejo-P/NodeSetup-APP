@@ -1,16 +1,12 @@
+from pdb import run
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
-import queue
-import os
-import shutil
-import threading
-import subprocess
-import time
-import ast
+import queue, os, shutil, threading, subprocess
+import time, ast, tempfile
 from typing import Literal
 from Actions import (
     clearQueue,
@@ -28,6 +24,7 @@ from Actions import (
     getGitBranches
 )
 from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits
+from serverWindow import ServerWindow
 from version import __version__ as appVersion
 
 class ConfigurarEntornoNode(ttk.Window):
@@ -40,6 +37,7 @@ class ConfigurarEntornoNode(ttk.Window):
         self._referencias = {}
         self._lista_widgets= []
         self._version_NPM = None
+        self._ruta_temporal = tempfile.mkdtemp()
         
         if self._version is None:
             messagebox.showerror("Error", "Node.js no está instalado en el sistema")
@@ -79,7 +77,7 @@ class ConfigurarEntornoNode(ttk.Window):
         )
         self.sec_botones = ttk.Frame(self)
         self.btn_crear = ttk.Button(self.sec_botones, text="Crear", command=self.iniciar_creacion_proyecto, bootstyle=(PRIMARY, OUTLINE), width=10) # type: ignore
-        self.btn_salir = ttk.Button(self.sec_botones, text="Salir", command=self.cerrar_ventana, bootstyle=(DANGER, OUTLINE), width=10) # type: ignore
+        self.btn_salir = ttk.Button(self.sec_botones, text="Salir", command=lambda: preventCloseWindow("Accion no permitida", "No puede cerrar esta ventana, hay tareas que requieren usarla", "WARNING"), bootstyle=(DANGER, OUTLINE), width=10) # type: ignore
         
         self._crearRuta = tk.BooleanVar(value=True)
         self._chk_Ruta = ttk.Checkbutton(self, text="Crear ruta si no existe", variable=self._crearRuta, bootstyle="success-round-toggle", padding=6) # type: ignore
@@ -96,7 +94,7 @@ class ConfigurarEntornoNode(ttk.Window):
         self.frm_progreso = ttk.Labelframe(self, text="Progreso:", width=100, bootstyle=PRIMARY) # type: ignore
         self.lbl_progreso = ttk.Label(self.frm_progreso, text="Descripcion: Ninguna tarea en ejecucion")
         self.frm_progreso.grid_columnconfigure(0, weight=1)
-        self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate', style="TProgressbar")
+        self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate', maximum=100, bootstyle="success") # type: ignore
         
         self.completado = tk.BooleanVar(value=False)
         
@@ -108,6 +106,7 @@ class ConfigurarEntornoNode(ttk.Window):
         
         self._almacenar_imagenes()
         self.crear_widgets()
+        self._menuContextual(None)
     
     def _almacenar_imagenes(self):
         # Cargar la imagen y guardarla en el diccionario
@@ -120,9 +119,78 @@ class ConfigurarEntornoNode(ttk.Window):
             print(f"Error al cargar las imagenes: {e}")
     
     def _menuContextual(self, event):
+        def showMenu(event):
+            try:
+                self._menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                self._menu.grab_release()
+        
+        def hideMenu(event):
+            self._menu.unpost()
+        
+        def _ventanaEditor():
+            self.lock_unlock_widgets(estado="disabled")
+            print(self._ruta_temporal)
+            respuesta = runCommand([self._npm_path, "init", "-y"], self._ruta_temporal)
+            if isinstance(respuesta, subprocess.CalledProcessError):
+                messagebox.showerror("Error", f"Error al crear el archivo package.json: {respuesta}")
+                self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                lista.put(False)
+                return
+            
+            respuesta = runCommand([self._npm_path, "install", "express"], self._ruta_temporal)
+            if isinstance(respuesta, subprocess.CalledProcessError):
+                messagebox.showerror("Error", f"Error al instalar el paquete express: {respuesta}")
+                self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                lista.put(False)
+                return
+            
+            os.mkdir(os.path.join(self._ruta_temporal, "src"))
+            with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
+                archivo.write("const express = require('express');\nconst app = express();\n\napp.get('/', (req, res) => {\n\tres.send('Hello World!');\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor en el puerto 3000');\n});")
+            
+            lista.put(True)
+            
+        def _verificarCompletado():
+            try:
+                resultado = lista.get_nowait()
+                if resultado:
+                    self.lbl_progreso.config(text="Descripcion: Proyecto creado con éxito")
+                    self.progreso.stop()
+                    self.progreso.config(value=0, mode="determinate", maximum=100, bootstyle="success") # type: ignore
+                    self.lock_unlock_widgets(estado="normal")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                    srv = ServerWindow(self, self._ruta_temporal)
+                    srv.iniciar()
+                else:
+                    self.lbl_progreso.config(text="Descripcion: Error al crear el proyecto")
+                    self.progreso.stop()
+                    self.progreso.config(value=0, mode="determinate", maximum=100, bootstyle="success") # type: ignore
+                    self.lock_unlock_widgets(estado="normal")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+            except queue.Empty:
+                self.protocol("WM_DELETE_WINDOW", doNothing)
+                self.after(100, _verificarCompletado)
+                return
+                
+            clearQueue(lista)
+        
+        def _iniciarVentana():
+            self.protocol("WM_DELETE_WINDOW", doNothing)
+            self.lbl_progreso.config(text="Descripcion: Iniciando el editor de código")
+            self.progreso.config(value=0, maximum=100, mode="indeterminate", bootstyle="success") # type: ignore
+            self.progreso.start()
+            threading.Thread(target=_ventanaEditor).start()
+            self.after(100, _verificarCompletado)
+        
         self._menu = tk.Menu(self, tearoff=0)
-        self._menu.add_command(label="Opciones de la aplicación")
-        self._menu.add_command(label="Configurar un servidor express", command=lambda: self.textArea.event_generate("<<Copy>>"))
+        self._menu.add_command(label="Opciones de la aplicación", state="disabled")
+        self._menu.add_separator()
+        self._menu.add_command(label="Configurar un servidor express", command=lambda: _iniciarVentana())
+        lista = queue.Queue()
+        
+        self._menu.bind("<FocusOut>", hideMenu)
+        self.bind("<Button-3>", showMenu)
     
     def _ventanaOpcionesGit(self):
         def cerrarVentana():
@@ -511,6 +579,7 @@ class ConfigurarEntornoNode(ttk.Window):
                 messagebox.showinfo("Debe actualizar NPM", f"Se encontro una nueva version de NPM:\nTiene la version: {versionNPM.stdout.strip()}\nSe encontro la version: {lista_versionesNPM[-1]}")
             self.update_idletasks()
             self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+            self.btn_salir.config(command=lambda: self.cerrar_ventana())
         
         def ventana_seleccionModulos():
             def restablecer_seleccion():
@@ -992,6 +1061,10 @@ class ConfigurarEntornoNode(ttk.Window):
             item.destroy()
         
         ventana.destroy()
+        
+        # Eliminar la ruta temporal y todos los archivos y carpetas contenidos en la ruta
+        if os.path.exists(self._ruta_temporal):
+            shutil.rmtree(self._ruta_temporal)
 
     def Iniciar(self):
         self.mainloop()
