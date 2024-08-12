@@ -130,7 +130,6 @@ class ConfigurarEntornoNode(ttk.Window):
         
         def _ventanaEditor():
             self.lock_unlock_widgets(estado="disabled")
-            print(self._ruta_temporal)
             if not os.listdir(self._ruta_temporal):
                 respuesta = runCommand([self._npm_path, "init", "-y"], self._ruta_temporal)
                 if isinstance(respuesta, subprocess.CalledProcessError):

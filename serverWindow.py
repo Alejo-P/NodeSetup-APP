@@ -83,7 +83,7 @@ class ServerWindow:
             return ruta_concatenada
         
         def cargarArchivos():
-            archivos = []
+            nonlocal contenido
             directorioRaiz = self._ruta.split("\\")[-1]
              # Recorre todos los directorios y archivos en el directorio base
             for root, _ , files in os.walk(self._ruta):
@@ -97,8 +97,9 @@ class ServerWindow:
                     
                     with open(os.path.join(root, file), 'rb') as f:
                         contenido[sub_rutas] = f.read().decode('utf-8')
-                    archivos.append(sub_rutas)
-            return archivos
+            
+            # Ordenar los elementos del diccionario por la cantidad de '/'. Esto permite que los archivos se muestren antes que las carpetas
+            contenido = dict(sorted(contenido.items(), key=lambda x: x[0].count('/')))
            
         def mostrarSeleccionArchivo():
             _actualizarEntradaRuta()
@@ -109,7 +110,7 @@ class ServerWindow:
                 self._botonGuardar.config(state='normal')
                 self._botonEliminar.config(text='Eliminar archivo')
             
-            print(cargarArchivos())
+            
             ruta = _obtenerRutaArchivo("/")
             
             tipo = 'archivo' if '.' in ruta else 'carpeta'
@@ -138,23 +139,46 @@ class ServerWindow:
                 seleccion = self._tablaArchivos.selection()
                 if not seleccion:
                     seleccion = self._tablaArchivos.get_children()
+                    self._tablaArchivos.selection_set(seleccion[0])
+                    self._tablaArchivos.focus(seleccion[0])
+                
+                ruta_seleccion = _obtenerRutaArchivo('/').split("/")[:-1] if _obtenerRutaArchivo('/').find('.') != -1 else _obtenerRutaArchivo('/').split("/")
+                ruta_absoluta = self._ruta.split("\\")[:-1]
+                ruta_absoluta = '/'.join(ruta_absoluta)
+                ruta_seleccion = '/'.join(ruta_seleccion)
+                directorio = os.path.join(ruta_absoluta, ruta_seleccion)
+                archivo = os.path.join(directorio, nombreArchivo)
+                
+                if os.path.exists(archivo):
+                    messagebox.showwarning('Error', 'El archivo ya existe')
+                    return
+                
+                with open(archivo, 'w') as f:
+                    f.write('')
                     
-                print(
-                    self._tablaArchivos.get_children(),
-                    self._tablaArchivos.item(seleccion[0], 'values')[0],
-                    self._tablaArchivos.item(seleccion[0], 'values')[0].find(".")
-                )
-                if self._tablaArchivos.item(seleccion[0], 'values')[0].find(".") != -1:
-                    item_id = self._tablaArchivos.parent(item_id)
-                else:
-                    item_id = seleccion[0]
-                
-                print(seleccion, item_id)
-                
-                Id_ins = self._tablaArchivos.insert(item_id, 'end', values=(nombreArchivo,))
-                self._tablaArchivos.selection_set(Id_ins)
-                self._tablaArchivos.focus(Id_ins)
+                cargarArchivos()
+                item_id = _actualizarTabla()
+                self._tablaArchivos.selection_set(item_id)
+                self._tablaArchivos.focus(item_id)
                 _actualizarEntradaRuta()
+                
+                    
+                # print(
+                #     self._tablaArchivos.get_children(),
+                #     self._tablaArchivos.item(seleccion[0], 'values')[0],
+                #     self._tablaArchivos.item(seleccion[0], 'values')[0].find(".")
+                # )
+                # if self._tablaArchivos.item(seleccion[0], 'values')[0].find(".") != -1:
+                #     item_id = self._tablaArchivos.parent(item_id)
+                # else:
+                #     item_id = seleccion[0]
+                
+                # print(seleccion, item_id)
+                
+                # Id_ins = self._tablaArchivos.insert(item_id, 'end', values=(nombreArchivo,))
+                # self._tablaArchivos.selection_set(Id_ins)
+                # self._tablaArchivos.focus(Id_ins)
+                # _actualizarEntradaRuta()
             
             promptUser(
                 self.root,
@@ -325,6 +349,7 @@ class ServerWindow:
         
         contenido:dict[str, Any] = {}
         self._ruta = ruta
+        self._varRuta = tk.StringVar()
         
         self._frameTabla = ttk.Frame(self.root)
         encabezadoTabla = ['Archivos']
@@ -337,12 +362,19 @@ class ServerWindow:
             self._tablaArchivos.heading(encabezado, text=encabezado)
             self._tablaArchivos.column(encabezado, width=150)
             
+        #TODO: Modificar la funcionalidad de cragar un archivo
+        #TODO: Modificar la funcionalidad de guardar un archivo
+        #TODO: Modificar la funcionalidad de eliminar un archivo
+            
         self._tablaArchivos.bind('<<TreeviewSelect>>', lambda event: mostrarSeleccionArchivo())
         self._tablaArchivos.bind('<Double-Button-3>', lambda event: editarNombre())
         self._tablaArchivos.pack(expand=True, fill='both')
         self._frameTabla.grid(row=0, rowspan=7, column=0, sticky='nsew')
         cargarArchivos()
-        _actualizarTabla()
+        item_id = _actualizarTabla()
+        self._tablaArchivos.selection_set(item_id)
+        self._tablaArchivos.focus(item_id)
+        _actualizarEntradaRuta()
         
         self._frameOpciones = ttk.Frame(self.root)
         
@@ -361,7 +393,6 @@ class ServerWindow:
         
         self._frameRuta = ttk.Frame(self.root)
         self._frameRuta.columnconfigure(1, weight=1)
-        self._varRuta = tk.StringVar()
         self._labelRuta = ttk.Label(self._frameRuta, text='Ruta del archivo:', style='info.TLabel')
         self._labelRuta.grid(row=0, column=0, sticky='nsew')
         self._entryRuta = ttk.Entry(self._frameRuta, textvariable=self._varRuta, state='readonly', style='success.TEntry')
