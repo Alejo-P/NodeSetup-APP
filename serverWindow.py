@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Any
 import ttkbootstrap as ttk
 import ttkbootstrap.constants as c
@@ -93,10 +94,14 @@ class ServerWindow:
                     sub_rutas = resto_cadena[indice_cadena:]
                     if ("node_modules" in sub_rutas) or ("package-lock.json" in sub_rutas):
                         continue
+                    #TODO: Resolver el problema de que no lista carpetas sin archivos
                     sub_rutas = sub_rutas.replace("\\", "/")
+                    sub_carpetas = sub_rutas.split("/")[:-1]
+                    print(sub_carpetas)
                     
-                    with open(os.path.join(root, file), 'rb') as f:
-                        contenido[sub_rutas] = f.read().decode('utf-8')
+                    contenido[sub_rutas] = os.path.join(root, file)
+                
+                
             
             # Ordenar los elementos del diccionario por la cantidad de '/'. Esto permite que los archivos se muestren antes que las carpetas
             contenido = dict(sorted(contenido.items(), key=lambda x: x[0].count('/')))
@@ -122,7 +127,8 @@ class ServerWindow:
                 nombreArchivo = ruta
                 if nombreArchivo in contenido:
                     self._areaTextoEditor.delete('1.0', tk.END)
-                    self._areaTextoEditor.insert('1.0', contenido[nombreArchivo])
+                    with open(contenido[nombreArchivo], 'rb') as f: 
+                        self._areaTextoEditor.insert('1.0', f.read().decode('utf-8'))
                 else:
                     contenido[nombreArchivo] = ''
                     self._areaTextoEditor.delete('1.0', tk.END)
@@ -161,24 +167,6 @@ class ServerWindow:
                 self._tablaArchivos.selection_set(item_id)
                 self._tablaArchivos.focus(item_id)
                 _actualizarEntradaRuta()
-                
-                    
-                # print(
-                #     self._tablaArchivos.get_children(),
-                #     self._tablaArchivos.item(seleccion[0], 'values')[0],
-                #     self._tablaArchivos.item(seleccion[0], 'values')[0].find(".")
-                # )
-                # if self._tablaArchivos.item(seleccion[0], 'values')[0].find(".") != -1:
-                #     item_id = self._tablaArchivos.parent(item_id)
-                # else:
-                #     item_id = seleccion[0]
-                
-                # print(seleccion, item_id)
-                
-                # Id_ins = self._tablaArchivos.insert(item_id, 'end', values=(nombreArchivo,))
-                # self._tablaArchivos.selection_set(Id_ins)
-                # self._tablaArchivos.focus(Id_ins)
-                # _actualizarEntradaRuta()
             
             promptUser(
                 self.root,
@@ -192,44 +180,36 @@ class ServerWindow:
         
         def agregarArchivo():
             seleccion = self._tablaArchivos.selection()
-            ruta = _obtenerRutaArchivo('/').split('/')[:-1] if _obtenerRutaArchivo('/').find('.') != -1 else _obtenerRutaArchivo('/').split('/')
-            ruta = '/'.join(ruta)
+            
             if not seleccion:
                 seleccion = self._tablaArchivos.get_children()
-                return
+                self._tablaArchivos.selection_set(seleccion[0])
+                self._tablaArchivos.focus(seleccion[0])
+            
+            ruta_seleccion = _obtenerRutaArchivo('/').split("/")[:-1] if _obtenerRutaArchivo('/').find('.') != -1 else _obtenerRutaArchivo('/').split("/")
+            ruta_absoluta = self._ruta.split("\\")[:-1]
+            ruta_absoluta = '/'.join(ruta_absoluta)
+            ruta_seleccion = '/'.join(ruta_seleccion)
+            directorio = os.path.join(ruta_absoluta, ruta_seleccion)
             
             archivo = filedialog.askopenfilename()
             if archivo:
-                ruta += '/' + archivo.split('/')[-1]
-                item_id = seleccion[0]
-                if self._tablaArchivos.item(item_id, 'values')[0].find(".") != -1:
-                    item_id = self._tablaArchivos.parent(item_id)
+                directorio = os.path.join(directorio, archivo.split('/')[-1])
+                if os.path.exists(directorio):
+                    confirmacion = messagebox.askyesno('Archivo existente', 'El archivo ya existe, ¿desea sobreescribirlo?')
+                    if not confirmacion:
+                        return
                 
-                if ruta not in contenido:
-                    item_id = self._tablaArchivos.insert(item_id, 'end', values=(archivo.split('/')[-1],))
-                    self._tablaArchivos.selection_set(item_id)
-                    self._tablaArchivos.focus(item_id)
-                    
-                    ruta = _obtenerRutaArchivo('/')
-                    with open(archivo, 'r') as f:
-                        contenido[ruta] = f.read()
-                    mostrarSeleccionArchivo()
-                    return
+                with open(archivo, 'rb') as f:
+                    with open(directorio, 'wb') as f2:
+                        f2.write(f.read())
                 
-                if messagebox.askyesno('Archivo existente', f'El archivo {ruta.split("/")[-1]} ya existe, ¿desea sobreescribirlo?'):
-                    with open(archivo, 'r', encoding="utf-8") as f:
-                        contenido[ruta] = f.read()
-                    self._areaTextoEditor.delete('1.0', tk.END)
-                    self._areaTextoEditor.insert('1.0', contenido[ruta])
-                    
-                    # Actualizar la tabla de archivos
-                    item_id = _actualizarTabla() 
-                    
-                    self._tablaArchivos.selection_set(item_id)
-                    self._tablaArchivos.focus(item_id)
-                    mostrarSeleccionArchivo()
-                    return 
-         
+                cargarArchivos()
+                item_id = _actualizarTabla()
+                self._tablaArchivos.selection_set(item_id)
+                self._tablaArchivos.focus(item_id)
+                _actualizarEntradaRuta()
+                
         def eliminarArchivo():
             # Verificar si el elemento a eliminar no es la carpeta principal (el elemento padre de todos los archivos)
             if self._tablaArchivos.selection()[0] == self._tablaArchivos.get_children()[0]:
@@ -237,15 +217,35 @@ class ServerWindow:
                 return
             
             seleccion = self._tablaArchivos.selection()
-            ruta = _obtenerRutaArchivo('/')
-            if not ruta:
+            if not seleccion:
                 messagebox.showwarning('Error', 'No se ha seleccionado ningún archivo')
                 return
             
-            if messagebox.askyesno('Eliminar archivo', f'¿Está seguro de que desea eliminar la ubicacion \n {ruta}?'):
-                self._tablaArchivos.delete(seleccion[0])
-                contenido.pop(ruta)
-                self._areaTextoEditor.delete('1.0', tk.END)
+            ruta_seleccion = _obtenerRutaArchivo('/').split("/")
+            ruta_absoluta = self._ruta.split("\\")[:-1]
+            ruta_absoluta = '/'.join(ruta_absoluta)
+            ruta_seleccion = '/'.join(ruta_seleccion)
+            directorio = os.path.join(ruta_absoluta, ruta_seleccion)
+            
+            if messagebox.askyesno('Eliminar archivo', f'¿Está seguro de que desea eliminar la ubicacion \n {directorio}?'):
+                if os.path.exists(directorio):
+                    print(directorio)
+                    if os.path.isdir(directorio):
+                        if os.listdir(directorio):
+                            proceder = messagebox.askyesno('Eliminar carpeta', 'La carpeta no está vacía, ¿desea eliminarla junto con su contenido?')
+                            if proceder:
+                                shutil.rmtree(directorio)
+                        else:
+                            os.rmdir(directorio)
+                    else:
+                        os.remove(directorio)
+                    
+                    cargarArchivos()
+                    item_id = _actualizarTabla()
+                    self._tablaArchivos.selection_set(item_id)
+                    self._tablaArchivos.focus(item_id)
+                    _actualizarEntradaRuta()
+                    messagebox.showinfo('Eliminado', 'El archivo o carpeta ha sido eliminado correctamente')
         
         def guardarArchivo():
             try:
@@ -263,6 +263,11 @@ class ServerWindow:
                 seleccion = self._tablaArchivos.selection()
                 if not seleccion:
                     messagebox.showwarning('Error', 'No se ha seleccionado ningún archivo')
+                    return
+                
+                # Verificar si el elemento a eliminar no es la carpeta principal (el elemento padre de todos los archivos)
+                if seleccion[0] == self._tablaArchivos.get_children()[0]:
+                    messagebox.showwarning('Error', 'No se puede editar el nombre de la carpeta principal')
                     return
                 
                 if len(seleccion) == 1:
