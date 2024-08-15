@@ -1,10 +1,11 @@
+from cgitb import text
 from collections.abc import Callable
 import os, queue, re, subprocess, tkinter as tk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 from typing import Any, List, Literal, overload, Union
-from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS
+from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS, keywordsHTML, keywordsCSS
 
 def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
     """Regsitar un evento (detalles de un comando) ejecutado por el programa.
@@ -383,7 +384,7 @@ def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str,
     inp.pack(padx=10, pady=10, expand=True, fill="x")
     
     if esArchivo:
-        extArchivos = [".js", ".env", ".json", ".py", ".txt"]
+        extArchivos = [".js", ".env", ".json", ".py", ".html", ".css", ".txt"]
         _combo = ttk.Combobox(_top, values=tuple(extArchivos), style=f"{tipo}.TCombobox", textvariable=_extArch, state="readonly")
         _combo.current(0)
         _combo.pack(padx=10, pady=10, side="right", expand=True, fill="x")
@@ -414,19 +415,27 @@ def configureSyntax(textArea:tk.Text):
             font.append(element)  # Agregar los elementos no numéricos a la lista
     
     # Crear diferentes estilos
-    textArea.tag_configure("boolean_values", foreground="blue", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("control_flow", foreground="purple", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("logical_operators", foreground="orange", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("function_class_declarations", foreground="green", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("exception_handling", foreground="red", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("import_statements", foreground="brown", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("context_management", foreground="teal", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("scope_declarations", foreground="magenta", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("others", foreground="grey", font=(font[0], font[1], "bold"))
-    textArea.tag_configure("comment", foreground="green", font=(font[0], font[1], "italic"))
-    textArea.tag_configure("string", foreground="orange", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("tags", foreground="#5650FF", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("attributes", foreground="#68CE3E", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("selectors", foreground="#FF5656", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("properties", foreground="#FF56FF", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("values", foreground="#5650FF", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("boolean_values", foreground="#4B44FF", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("control_flow", foreground="#CE37F8", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("logical_operators", foreground="#FCFCFC", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("function_class_declarations", foreground="#CE37F8", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("exception_handling", foreground="#FCBC5C", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("import_statements", foreground="#CE37F8", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("context_management", foreground="#B598BD", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("scope_declarations", foreground="#875E93", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("others", foreground="#A8A4A4", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("comment", foreground="#A4FA81", font=(font[0], font[1], "italic"))
+    textArea.tag_configure("string", foreground="#DFC57B", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("error", foreground="#B72A2B", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("info", foreground="#7A77C2", font=(font[0], font[1], "bold"))
+    textArea.tag_configure("warning", foreground="#DCA858", font=(font[0], font[1], "bold"))
 
-def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript", "basic", "disabled"]="python"):
+def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript", "html", "css", "basic", "disabled"]="python"):
     """Aplica la sintaxis destacada a un area de texto.
 
     Args:
@@ -438,6 +447,10 @@ def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript", "basic"
         keywords = keywordsPY
     elif syntax == "javascript":
         keywords = keywordsJS
+    elif syntax == "html":
+        keywords = keywordsHTML
+    elif syntax == "css":
+        keywords = keywordsCSS
     elif syntax == "basic":
         keywords = {}
     else:
@@ -472,7 +485,7 @@ def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript", "basic"
     while True:
         # Buscar la posición inicial del comentario
         start_idx = textArea.search(
-            r'#.*' if syntax == "python" else r'//.*', 
+            r'#.*' if syntax == "python" else r'//.*' if syntax == "javascript" else r'<!--.*-->', 
             start_idx, stopindex=tk.END, regexp=True
         )
         

@@ -5,6 +5,7 @@ import ttkbootstrap as ttk
 import ttkbootstrap.constants as c
 import tkinter as tk
 from tkinter import messagebox, filedialog
+from Vars import lista_modulosNPM
 from Actions import promptUser, configureSyntax, applySintax, centerWindow
 
 class ServerWindow:
@@ -14,6 +15,10 @@ class ServerWindow:
                 tipoSintaxis = 'javascript'
             elif nombreArchivo.endswith('.py'):
                 tipoSintaxis = 'python'
+            elif nombreArchivo.endswith('.html') or nombreArchivo.endswith('.xml') or nombreArchivo.endswith('.xhtml'):
+                tipoSintaxis = 'html'
+            elif nombreArchivo.endswith('.css') or nombreArchivo.endswith('.scss') or nombreArchivo.endswith('.sass'):
+                tipoSintaxis = 'css'
             elif nombreArchivo.endswith('.env'):
                 tipoSintaxis = 'basic'
             else:
@@ -34,27 +39,24 @@ class ServerWindow:
 
             # Variable para mantener un seguimiento de los elementos ya insertados
             elementos_insertados = {}
-
-            # Obtener las rutas de los archivos
-            archivos = contenido.keys()
             item_id = ""
 
-            for archivo in archivos:
-                elementos = archivo.split('/')
+            # Obtener las rutas de los archivos y carpetas
+            for elemento in listaElementos:
+                rutas = elemento['rutaCorta'].split('/')
                 item_id = ""
-                
-                # Recorrer cada parte de la ruta (ej. "Backend", "src", "database.js")
-                for i, elemento in enumerate(elementos):
+                for i, ruta in enumerate(rutas):
                     # Construir la ruta completa hasta este punto
-                    ruta_parcial = "/".join(elementos[:i + 1])
+                    ruta_parcial = '/'.join(rutas[:i + 1])
 
                     # Solo insertar si esta ruta no ha sido insertada previamente
                     if ruta_parcial not in elementos_insertados:
-                        item_id = self._tablaArchivos.insert(item_id, 'end', values=(elemento,), open=True)
+                        item_id = self._tablaArchivos.insert(item_id, 'end', values=(ruta,), open=True)
                         elementos_insertados[ruta_parcial] = item_id
                     else:
                         # Obtener el item_id del elemento ya insertado
                         item_id = elementos_insertados[ruta_parcial]
+
             return str(item_id)
         
         def _obtenerRutaArchivo(concatenarPor=' > '):
@@ -84,27 +86,45 @@ class ServerWindow:
             return ruta_concatenada
         
         def cargarArchivos():
-            nonlocal contenido
+            listaElementos.clear()
             directorioRaiz = self._ruta.split("\\")[-1]
-             # Recorre todos los directorios y archivos en el directorio base
-            for root, _ , files in os.walk(self._ruta):
-                for file in files:
-                    resto_cadena = os.path.join(root, file)
-                    indice_cadena = root.find(directorioRaiz)
-                    sub_rutas = resto_cadena[indice_cadena:]
-                    if ("node_modules" in sub_rutas) or ("package-lock.json" in sub_rutas):
+
+            for root, dirs, files in os.walk(self._ruta):
+                # Calcular la ruta relativa manualmente
+                ruta_relativa = root.split(directorioRaiz)[-1].lstrip("\\")
+                if ruta_relativa:
+                    carpeta_padre = f"{directorioRaiz}/{ruta_relativa.replace('\\', '/')}"
+                else:
+                    carpeta_padre = directorioRaiz
+
+                # Listar carpetas
+                for dir in dirs:
+                    if "node_modules" in root or dir == "node_modules":
                         continue
-                    #TODO: Resolver el problema de que no lista carpetas sin archivos
-                    sub_rutas = sub_rutas.replace("\\", "/")
-                    sub_carpetas = sub_rutas.split("/")[:-1]
-                    print(sub_carpetas)
-                    
-                    contenido[sub_rutas] = os.path.join(root, file)
-                
-                
-            
-            # Ordenar los elementos del diccionario por la cantidad de '/'. Esto permite que los archivos se muestren antes que las carpetas
-            contenido = dict(sorted(contenido.items(), key=lambda x: x[0].count('/')))
+                    detalleElemento = {
+                        "nombre": dir,
+                        "rutaCorta": f"{carpeta_padre}/{dir}",
+                        "rutaCompleta": os.path.join(root, dir).replace("\\", "/"),
+                        "tipo": "carpeta",
+                        "carpetaPadre": carpeta_padre
+                    }
+                    listaElementos.append(detalleElemento)
+
+                # Listar archivos
+                for file in files:
+                    if "node_modules" in root or file == "package-lock.json":
+                        continue
+                    detalleElemento = {
+                        "nombre": file,
+                        "rutaCorta": f"{carpeta_padre}/{file}",
+                        "rutaCompleta": os.path.join(root, file).replace("\\", "/"),
+                        "tipo": "archivo",
+                        "carpetaPadre": carpeta_padre
+                    }
+                    listaElementos.append(detalleElemento)
+
+            # Ordenar los diccionarios del arreglo a traves de la cantidad de '/'. Esto permite que los archivos se muestren antes que las carpetas
+            listaElementos.sort(key=lambda x: x['rutaCorta'].count('/'))
            
         def mostrarSeleccionArchivo():
             _actualizarEntradaRuta()
@@ -117,26 +137,18 @@ class ServerWindow:
             
             
             ruta = _obtenerRutaArchivo("/")
+            contenidoArchivo = ""
             
-            tipo = 'archivo' if '.' in ruta else 'carpeta'
-            self._labelRuta.config(text=f'Ruta del {tipo}:')
+            for elemento in listaElementos:
+                if elemento['rutaCorta'] == ruta:
+                    if os.path.isfile(elemento['rutaCompleta']):
+                        with open(elemento['rutaCompleta'], 'r') as f:
+                            contenidoArchivo = f.read()
+                    break
             
-            if tipo == 'archivo':
-                self._botonEliminar.config(text='Eliminar archivo')
-                self._areaTextoEditor.config(state='normal')
-                nombreArchivo = ruta
-                if nombreArchivo in contenido:
-                    self._areaTextoEditor.delete('1.0', tk.END)
-                    with open(contenido[nombreArchivo], 'rb') as f: 
-                        self._areaTextoEditor.insert('1.0', f.read().decode('utf-8'))
-                else:
-                    contenido[nombreArchivo] = ''
-                    self._areaTextoEditor.delete('1.0', tk.END)
-            else:
-                self._areaTextoEditor.config(state='disabled')
-                self._botonEliminar.config(text='Eliminar carpeta')
-                self._areaTextoEditor.delete('1.0', tk.END)
-                
+            self._areaTextoEditor.delete('1.0', tk.END)
+            self._areaTextoEditor.insert('1.0', contenidoArchivo)
+            
             _aplicarSintaxis(ruta)
         
         def crearArchivo():
@@ -229,7 +241,6 @@ class ServerWindow:
             
             if messagebox.askyesno('Eliminar archivo', f'¿Está seguro de que desea eliminar la ubicacion \n {directorio}?'):
                 if os.path.exists(directorio):
-                    print(directorio)
                     if os.path.isdir(directorio):
                         if os.listdir(directorio):
                             proceder = messagebox.askyesno('Eliminar carpeta', 'La carpeta no está vacía, ¿desea eliminarla junto con su contenido?')
@@ -249,14 +260,20 @@ class ServerWindow:
         
         def guardarArchivo():
             try:
-                ruta = _obtenerRutaArchivo('/')
-                if ruta in contenido:
-                    contenido[ruta] = self._areaTextoEditor.get('1.0', tk.END)
+                ruta_seleccion = _obtenerRutaArchivo('/').split("/")
+                ruta_absoluta = self._ruta.split("\\")[:-1]
+                ruta_absoluta = '/'.join(ruta_absoluta)
+                ruta_seleccion = '/'.join(ruta_seleccion)
+                directorio = os.path.join(ruta_absoluta, ruta_seleccion)
+                
+                if os.path.exists(directorio) and os.path.isfile(directorio):
+                    with open(directorio, 'w') as f:
+                        f.write(self._areaTextoEditor.get('1.0', tk.END))
                     messagebox.showinfo('Guardado', 'El archivo ha sido guardado correctamente')
                 else:
-                    messagebox.showwarning('Error', 'No se ha seleccionado ningún archivo')
+                    messagebox.showwarning('Error', 'No se pudo guardar el archivo')
             except IndexError:
-                    messagebox.showwarning('Error', 'No se ha seleccionado ningún archivo')
+                    messagebox.showerror('Error', 'No se ha seleccionado ningún archivo')
         
         def editarNombre():
             def _editar(nuevoNombre):
@@ -271,14 +288,26 @@ class ServerWindow:
                     return
                 
                 if len(seleccion) == 1:
-                    ruta = _obtenerRutaArchivo('/')
-                    nombre = ruta.split('/')[:-1]
+                    ruta_seleccion = _obtenerRutaArchivo('/').split("/")
+                    ruta_absoluta = self._ruta.split("\\")[:-1]
+                    ruta_absoluta = '/'.join(ruta_absoluta)
+                    ruta_seleccion = '/'.join(ruta_seleccion)
+                    nombreActual = os.path.join(ruta_absoluta, ruta_seleccion)
+                    nombre = nombreActual.replace("\\","/").split('/')[:-1]
                     nombre.append(nuevoNombre.split('/')[-1])
                     nuevaRuta = '/'.join(nombre)
-                    if nuevoNombre:
-                        self._tablaArchivos.item(seleccion[0], values=(nuevoNombre.split('/')[-1],))
-                        contenido[nuevaRuta] = contenido.pop(ruta)
-                        _actualizarEntradaRuta()
+                    
+                    if os.path.exists(nuevaRuta):
+                        messagebox.showwarning('Error', 'El archivo o carpeta ya existe')
+                        return
+                    
+                    os.rename(nombreActual, nuevaRuta)
+                    cargarArchivos()
+                    item_id = _actualizarTabla()
+                    self._tablaArchivos.selection_set(item_id)
+                    self._tablaArchivos.focus(item_id)
+                    _actualizarEntradaRuta()
+                    messagebox.showinfo('Editado', 'El archivo o carpeta ha sido editado correctamente')
             
             seleccion = self._tablaArchivos.selection()[0] if self._tablaArchivos.selection() else ''
             if seleccion:
@@ -352,13 +381,19 @@ class ServerWindow:
         self.root.resizable(False, False)
         self.root.transient(ventana)
         
-        contenido:dict[str, Any] = {}
+        listaElementos:list[dict[str, Any]] = []
         self._ruta = ruta
         self._varRuta = tk.StringVar()
         
         self._frameTabla = ttk.Frame(self.root)
         encabezadoTabla = ['Archivos']
-        self._tablaArchivos = ttk.Treeview(self._frameTabla, columns=tuple(encabezadoTabla), show='tree headings', height=25, style='info.Treeview')
+        self._tablaArchivos = ttk.Treeview(
+            self._frameTabla, 
+            columns=tuple(encabezadoTabla), 
+            show='tree headings', 
+            height=25, 
+            style='info.Treeview'
+        )
         
         # Configurar la primera columna de la tabla
         self._tablaArchivos.column('#0', width=40)
@@ -366,10 +401,6 @@ class ServerWindow:
         for encabezado in encabezadoTabla:
             self._tablaArchivos.heading(encabezado, text=encabezado)
             self._tablaArchivos.column(encabezado, width=150)
-            
-        #TODO: Modificar la funcionalidad de cragar un archivo
-        #TODO: Modificar la funcionalidad de guardar un archivo
-        #TODO: Modificar la funcionalidad de eliminar un archivo
             
         self._tablaArchivos.bind('<<TreeviewSelect>>', lambda event: mostrarSeleccionArchivo())
         self._tablaArchivos.bind('<Double-Button-3>', lambda event: editarNombre())
@@ -436,9 +467,3 @@ class ServerWindow:
     
     def iniciar(self):
         self.root.mainloop()
-        
-if __name__ == '__main__':
-    app = ttk.Window(themename='superhero')
-    ventana = ServerWindow(app, os.getcwd())
-    #ventana.iniciar()
-    app.mainloop()

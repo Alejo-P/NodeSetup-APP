@@ -146,8 +146,26 @@ class ConfigurarEntornoNode(ttk.Window):
                     return
                 
                 os.mkdir(os.path.join(self._ruta_temporal, "src"))
+                os.mkdir(os.path.join(self._ruta_temporal, "public"))
+                os.mkdir(os.path.join(self._ruta_temporal, "views"))
+                    
+                with open(os.path.join(self._ruta_temporal, "views", "index.html"), "w") as archivo:
+                    archivo.write(
+                        "<!DOCTYPE html>\n<html>\n<head>\n\t<title>Document</title>\n</head>\n<body>\n\t<h1>¡Hola Mundo!</h1>\n</body>\n</html>"
+                    )
+                    
+                with open(os.path.join(self._ruta_temporal, "public", "styles.css"), "w") as archivo:
+                    archivo.write(
+                        "body {\n\tfont-family: Arial, sans-serif;\n\tbackground-color: #f0f0f0;\n}\n\nh1 {\n\tcolor: #333;\n\ttext-align: center;\n}"
+                    )
+                    
+                with open(os.path.join(self._ruta_temporal, "public", "scripts.js"), "w") as archivo:
+                    archivo.write("console.log('Hola Mundo!')")
+                
                 with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
-                    archivo.write("const express = require('express');\nconst app = express();\n\napp.get('/', (req, res) => {\n\tres.send('Hello World!');\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor en el puerto 3000');\n});")
+                    archivo.write(
+                        "const express = require('express');\nconst app = express();\n\napp.use(express.static('public'));\n\napp.get('/', (req, res) => {\n\tres.sendFile(__dirname + '/views/index.html');\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor iniciado en el puerto 3000');\n});"
+                    )
             
             lista.put(True)
             
