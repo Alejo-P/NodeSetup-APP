@@ -1,3 +1,4 @@
+import copy
 from pdb import run
 import tkinter as tk
 from tkinter import filedialog
@@ -601,7 +602,7 @@ class ConfigurarEntornoNode(ttk.Window):
         
         def ventana_seleccionModulos():
             def restablecer_seleccion():
-                for dic in lista_modulosNPM:
+                for dic in modulosNPM:
                     dic["usar"].set(False)
                     dic["global"].set(False)
                     dic["argumento"].set("")
@@ -667,7 +668,7 @@ class ConfigurarEntornoNode(ttk.Window):
 
                     if not self._lista_widgets:
                         modulos.protocol("WM_DELETE_WINDOW", lambda: doNothing())
-                        for sublistas in dividir_lista(lista_modulosNPM, n_listas):
+                        for sublistas in dividir_lista(modulosNPM, n_listas):
                             hilo = threading.Thread(target=CargarInfoModulos, args=(sublistas,))
                             Registro_hilos.append(hilo)
 
@@ -684,7 +685,7 @@ class ConfigurarEntornoNode(ttk.Window):
 
                         Registro_hilos.clear()
 
-                    CrearWidgets(lista_modulosNPM)
+                    CrearWidgets(modulosNPM)
                     self._centrar_ventana(modulos)
 
                     # Mostrar los widgets en la interfaz
@@ -749,6 +750,7 @@ class ConfigurarEntornoNode(ttk.Window):
             self.lbl_version.grid(row=0, column=1)
         
         self.lbl_versionNPM.grid(row=0 , column=2)
+        modulosNPM = copy.deepcopy(lista_modulosNPM)
         
         threading.Thread(target=cargarinfo_versionNPM).start()        
         

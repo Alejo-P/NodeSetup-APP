@@ -1,5 +1,4 @@
-import os
-import shutil
+import os, shutil, copy
 from typing import Any
 import ttkbootstrap as ttk
 import ttkbootstrap.constants as c
@@ -114,6 +113,7 @@ class ServerWindow:
                 for file in files:
                     if "node_modules" in root or file == "package-lock.json":
                         continue
+                    
                     detalleElemento = {
                         "nombre": file,
                         "rutaCorta": f"{carpeta_padre}/{file}",
@@ -375,6 +375,24 @@ class ServerWindow:
                 callback=_crear
             )
         
+        def obtenerModulosInstalados():
+            for elemento in listaElementos:
+                if elemento['nombre'] == 'package.json':
+                    with open(elemento['rutaCompleta'], 'r') as f:
+                        contenido = f.read()
+                        for modulo in modulosNPM:
+                            if contenido.find(modulo['nombre'].lower()) != -1:
+                                print(modulo['nombre'])
+                                modulo['usar'] = True
+                            else:
+                                modulo['usar'] = False
+        
+        def instalarModulo():
+            pass
+        
+        def EliminarModulo():
+            pass
+        
         self.root = ttk.Toplevel(master=ventana)
 
         self.root.title('Editor de código')
@@ -384,6 +402,8 @@ class ServerWindow:
         listaElementos:list[dict[str, Any]] = []
         self._ruta = ruta
         self._varRuta = tk.StringVar()
+        self._moduloSeleccionado = tk.StringVar()
+        modulosNPM = copy.deepcopy(lista_modulosNPM)
         
         self._frameTabla = ttk.Frame(self.root)
         encabezadoTabla = ['Archivos']
@@ -424,17 +444,7 @@ class ServerWindow:
         self._botonCrearcarpeta.grid(row=0, column=3, sticky='nsew', padx=1)
         self._botonGuardar = ttk.Button(self._frameOpciones, text='Guardar archivo', style='success.TButton', command=guardarArchivo)
         self._botonGuardar.grid(row=0, column=4, sticky='nsew', padx=1)
-        
         self._frameOpciones.grid(row=0, column=1, columnspan=3, sticky='nsew')
-        
-        self._frameRuta = ttk.Frame(self.root)
-        self._frameRuta.columnconfigure(1, weight=1)
-        self._labelRuta = ttk.Label(self._frameRuta, text='Ruta del archivo:', style='info.TLabel')
-        self._labelRuta.grid(row=0, column=0, sticky='nsew')
-        self._entryRuta = ttk.Entry(self._frameRuta, textvariable=self._varRuta, state='readonly', style='success.TEntry')
-        self._entryRuta.grid(row=0, column=1, sticky='nsew')
-        
-        self._frameRuta.grid(row=7, column=0, columnspan=4, sticky='nsew', pady=5, padx=5)
         
         self._frameEditor = ttk.Frame(self.root)
         self._areaTextoEditor = tk.Text(self._frameEditor, wrap='none', undo=True, autoseparators=True)
@@ -446,7 +456,48 @@ class ServerWindow:
         self._areaTextoEditor.grid(row=0, column=0, sticky='nsew')
         self._yScroll.grid(row=0, column=1, sticky='ns')
         self._xScroll.grid(row=1, column=0, sticky='ew')
-        self._frameEditor.grid(row=1, rowspan=6, column=1, columnspan=3, sticky='nsew')
+        self._frameEditor.grid(row=1, rowspan=6, column=1, columnspan=3, sticky='nsew', padx=2)
+        
+        self._frameRuta = ttk.Frame(self.root)
+        self._frameRuta.columnconfigure(1, weight=1)
+        self._labelRuta = ttk.Label(self._frameRuta, text='Ruta del archivo:', style='info.TLabel')
+        self._labelRuta.grid(row=0, column=0, sticky='nsew')
+        self._entryRuta = ttk.Entry(self._frameRuta, textvariable=self._varRuta, state='readonly', style='success.TEntry')
+        self._entryRuta.grid(row=0, column=1, sticky='nsew')
+        self._frameRuta.grid(row=7, column=0, columnspan=4, sticky='nsew', pady=5, padx=5)
+        
+        self._frameModulos = ttk.Frame(self.root, style='info.TLabelframe')
+        self._frameModulos.grid_rowconfigure(1, weight=1)
+        self._comboModulos = ttk.Combobox(self._frameModulos, textvariable=self._moduloSeleccionado, values=tuple([modulo['nombre'] for modulo in modulosNPM if not modulo["usar"]]), state='readonly', style='info.TCombobox')
+        self._moduloSeleccionado.set('Seleccionar módulo')
+        self._comboModulos.grid(row=0, column=0, sticky='nsew', padx=1)
+        self._botonInstalar = ttk.Button(self._frameModulos, text='Instalar', style='info.TButton', command=instalarModulo)
+        self._botonInstalar.grid(row=0, column=1, sticky='nsew', padx=1)
+        
+        encabezadoTablaModulos = ['Nombre', 'Versión']
+        self._tablaModulos = ttk.Treeview(
+            self._frameModulos,
+            columns=tuple(encabezadoTablaModulos),
+            show='headings',
+            height=5,
+            style='info.Treeview'
+        )
+        
+        # Configurar la primera columna de la tabla
+        for encabezado in encabezadoTablaModulos:
+            self._tablaModulos.heading(encabezado, text=encabezado)
+            self._tablaModulos.column(encabezado, width=80)
+        
+        obtenerModulosInstalados()
+        
+        #TODO: Agregar funcionalidad para instalar y eliminar módulos
+        #TODO: Mostrar los módulos instalados en la tabla
+        #TODO: Mostrar mas informacion en la pantalla de instalacion de modulos (Label Instalar modulos)
+        
+        self._tablaModulos.bind('<Double-Button-3>', lambda event: EliminarModulo())
+        self._tablaModulos.grid(row=1, column=0, columnspan=2, sticky='nsew', pady=5)
+        
+        self._frameModulos.grid(row=0, rowspan=8, column=4, columnspan=3, sticky='nsew', padx=2)
         
         configureSyntax(self._areaTextoEditor)
         self._areaTextoEditor.bind('<Control-s>', lambda event: guardarArchivo())
