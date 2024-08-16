@@ -24,7 +24,7 @@ from Actions import (
     loadImageTk,
     getGitBranches
 )
-from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits
+from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits, BASE_DIR
 from serverWindow import ServerWindow
 from version import __version__ as appVersion
 
@@ -111,7 +111,8 @@ class ConfigurarEntornoNode(ttk.Window):
     
     def _almacenar_imagenes(self):
         # Cargar la imagen y guardarla en el diccionario
-        self._imagenes["Git"] = loadImageTk("assets/gitIcon.png", 25, 25)
+        ruta_assets = os.path.join(BASE_DIR, "assets")
+        self._imagenes["Git"] = loadImageTk(os.path.join(ruta_assets, "gitIcon.png"), 25, 25)
     
     def mostrar_imagenes(self):
         try:
@@ -165,7 +166,7 @@ class ConfigurarEntornoNode(ttk.Window):
                 
                 with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
                     archivo.write(
-                        "const express = require('express');\nconst app = express();\n\napp.use(express.static('public'));\n\napp.get('/', (req, res) => {\n\tres.sendFile(__dirname + '/views/index.html');\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor iniciado en el puerto 3000');\n});"
+                        "const express = require('express')\nconst path = require('path');\nconst app = express();\n\napp.use(express.static('public'));\n\napp.get('/', (req, res) => {\n\tres.sendFile(path.join(__dirname, '..', 'views', 'index.html'));\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor iniciado en el puerto 3000');\n});"
                     )
             
             lista.put(True)

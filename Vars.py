@@ -1,5 +1,6 @@
-import os
+import os, sys
 import queue
+from pathlib import Path
 
 listaArgumentos = [
     "",
@@ -194,6 +195,8 @@ Registro_hilos = []
 Registro_eventos = []
 
 ruta = os.getcwd()
+
+BASE_DIR = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
 
 respuestas = queue.Queue()
 

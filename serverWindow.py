@@ -549,7 +549,7 @@ class ServerWindow:
             
         def _ejecutarServidor():
             def _ejecBackground():
-                resultado = subprocess.Popen([getPathOf("npm"), scriptEjecucion], cwd=self._ruta)
+                resultado = subprocess.Popen([getPathOf("npm"), "run", scriptEjecucion], cwd=self._ruta)
                 resultado.wait()
                 messagebox.showinfo('Servidor finalizado', 'El servidor ha finalizado su ejecución')
             
