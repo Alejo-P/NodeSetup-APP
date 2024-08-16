@@ -55,6 +55,7 @@ class ConfigurarEntornoNode(ttk.Window):
         self._imagenes = {}
         self._ruta = tk.StringVar()
         self._cambiarDirectorio = tk.BooleanVar(value=False)
+        self._modulosNPM = copy.deepcopy(lista_modulosNPM)
         
         self._idAfterBar = "Temporal"
         self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:", bootstyle=INFO) # type: ignore
@@ -610,7 +611,7 @@ class ConfigurarEntornoNode(ttk.Window):
         
         def ventana_seleccionModulos():
             def restablecer_seleccion():
-                for dic in modulosNPM:
+                for dic in self._modulosNPM:
                     dic["usar"].set(False)
                     dic["global"].set(False)
                     dic["argumento"].set("")
@@ -676,7 +677,7 @@ class ConfigurarEntornoNode(ttk.Window):
 
                     if not self._lista_widgets:
                         modulos.protocol("WM_DELETE_WINDOW", lambda: doNothing())
-                        for sublistas in dividir_lista(modulosNPM, n_listas):
+                        for sublistas in dividir_lista(self._modulosNPM, n_listas):
                             hilo = threading.Thread(target=CargarInfoModulos, args=(sublistas,))
                             Registro_hilos.append(hilo)
 
@@ -693,7 +694,7 @@ class ConfigurarEntornoNode(ttk.Window):
 
                         Registro_hilos.clear()
 
-                    CrearWidgets(modulosNPM)
+                    CrearWidgets(self._modulosNPM)
                     self._centrar_ventana(modulos)
 
                     # Mostrar los widgets en la interfaz
@@ -758,7 +759,7 @@ class ConfigurarEntornoNode(ttk.Window):
             self.lbl_version.grid(row=0, column=1)
         
         self.lbl_versionNPM.grid(row=0 , column=2)
-        modulosNPM = copy.deepcopy(lista_modulosNPM)
+        
         
         threading.Thread(target=cargarinfo_versionNPM).start()        
         
@@ -864,7 +865,7 @@ class ConfigurarEntornoNode(ttk.Window):
         
         def conteo_tareas():
             total_pasos = 1
-            for dic in lista_modulosNPM:
+            for dic in self._modulosNPM:
                 if dic["usar"] is not None and dic["usar"].get():
                     total_pasos += 1
             
@@ -981,7 +982,7 @@ class ConfigurarEntornoNode(ttk.Window):
         threading.Thread(target=ActualizarScrolledText, args=(self.textArea, self, self.completado)).start()
               
         if Iniciar_npm() == 0:
-            for modulo in lista_modulosNPM:
+            for modulo in self._modulosNPM:
                 if modulo["usar"] is not None and modulo["usar"].get():
                     actualizar_progreso(f"Instalando {modulo['nombre']}-{modulo["version"].get()} {'globalmente' if modulo['global'].get() else ''}")
                         
