@@ -13,3 +13,4 @@ dist/
 *.egg-info
 *.bat
 *.cmd
+output/
