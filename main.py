@@ -201,11 +201,18 @@ class ConfigurarEntornoNode(ttk.Window):
             self.progreso.start()
             threading.Thread(target=_ventanaEditor).start()
             self.after(100, _verificarCompletado)
-        
+            
         self._menu = tk.Menu(self, tearoff=0)
+        
+        submenu_Herramientas = tk.Menu(self._menu, tearoff=0)
+        submenu_Herramientas.add_command(label="Editor de código", command=lambda: _iniciarVentana())
+        
         self._menu.add_command(label="Opciones de la aplicación", state="disabled")
         self._menu.add_separator()
-        self._menu.add_command(label="Configurar un servidor express", command=lambda: _iniciarVentana())
+        self._menu.add_cascade(label="Herramientas", menu=submenu_Herramientas)
+        self._menu.add_separator()
+        self._menu.add_command(label="Acerca de", state="disabled")
+        
         lista = queue.Queue()
         
         self._menu.bind("<FocusOut>", hideMenu)
@@ -784,11 +791,11 @@ class ConfigurarEntornoNode(ttk.Window):
             self._checkVars.append({item: check_var})
             if item == "Abrir en VS Code\nal finalizar":
                 if self._veri_code:
-                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew")
+                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew", padx=5, pady=2)
                 else:
-                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="disabled").grid(column=0, row=i, sticky="nsew")
+                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="disabled").grid(column=0, row=i, sticky="nsew", padx=5, pady=2)
             else:   
-                ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew")
+                ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew", padx=5, pady=2)
         
         self.sec_botones.grid(row=10, column=0, columnspan=3, pady=5)
         

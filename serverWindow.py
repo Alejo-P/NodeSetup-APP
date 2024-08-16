@@ -1,11 +1,23 @@
-import os, shutil, copy
+import os, shutil, copy, queue, json
+import subprocess
+import threading
 from typing import Any
 import ttkbootstrap as ttk
 import ttkbootstrap.constants as c
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from Vars import lista_modulosNPM
-from Actions import promptUser, configureSyntax, applySintax, centerWindow
+from Actions import (
+    clearQueue,
+    doNothing,
+    getPathOf, 
+    loadInfoNPMModules, 
+    promptUser, 
+    configureSyntax, 
+    applySintax, 
+    centerWindow, 
+    runCommand
+)
 
 class ServerWindow:
     def __init__(self, ventana:ttk.Window, ruta:str) -> None:
@@ -131,7 +143,10 @@ class ServerWindow:
             if self._varRuta.get().find('.') == -1:
                 self._botonGuardar.config(state='disabled')
                 self._botonEliminar.config(text='Eliminar carpeta')
+                self._areaTextoEditor.delete('1.0', tk.END)
+                self._areaTextoEditor.config(state='disabled')
             else:
+                self._areaTextoEditor.config(state='normal')
                 self._botonGuardar.config(state='normal')
                 self._botonEliminar.config(text='Eliminar archivo')
             
@@ -259,12 +274,20 @@ class ServerWindow:
                     messagebox.showinfo('Eliminado', 'El archivo o carpeta ha sido eliminado correctamente')
         
         def guardarArchivo():
+            nonlocal PackageJSON
             try:
                 ruta_seleccion = _obtenerRutaArchivo('/').split("/")
                 ruta_absoluta = self._ruta.split("\\")[:-1]
                 ruta_absoluta = '/'.join(ruta_absoluta)
                 ruta_seleccion = '/'.join(ruta_seleccion)
                 directorio = os.path.join(ruta_absoluta, ruta_seleccion)
+                
+                if directorio.endswith("package.json"):
+                    try:
+                        PackageJSON = json.loads(self._areaTextoEditor.get('1.0', tk.END))
+                    except json.JSONDecodeError:
+                        messagebox.showerror('Error', 'El archivo package.json no es un archivo JSON válido')
+                        return
                 
                 if os.path.exists(directorio) and os.path.isfile(directorio):
                     with open(directorio, 'w') as f:
@@ -376,34 +399,253 @@ class ServerWindow:
             )
         
         def obtenerModulosInstalados():
+            nonlocal PackageJSON
             for elemento in listaElementos:
                 if elemento['nombre'] == 'package.json':
                     with open(elemento['rutaCompleta'], 'r') as f:
-                        contenido = f.read()
-                        for modulo in modulosNPM:
-                            if contenido.find(modulo['nombre'].lower()) != -1:
-                                print(modulo['nombre'])
-                                modulo['usar'] = True
-                            else:
-                                modulo['usar'] = False
+                        PackageJSON = json.loads(f.read())
+                        break
+            for modulo in modulosNPM:
+                dependencias = PackageJSON.get('dependencies', {})
+                devDependencias = PackageJSON.get('devDependencies', {})
+                if dependencias.get(modulo['nombre'].lower()) or devDependencias.get(modulo['nombre'].lower()):
+                    modulo['usar'] = True
+                    version = dependencias.get(modulo['nombre'].lower()) or devDependencias.get(modulo['nombre'].lower())
+                    version = version[1:] if version[0] == "^" else version
+                    modulo['version'] = version
+                else:
+                    modulo['usar'] = False
         
-        def instalarModulo():
-            pass
+        def _actualizarValoresComboModulos():
+            self._comboModulos['values'] = tuple([modulo['nombre'] for modulo in modulosNPM if not modulo["usar"]])
         
-        def EliminarModulo():
-            pass
+        def _actualizarTablaModulos():
+            # Actualizar la tabla de archivos (borrar todo el contenido y volver a insertar)
+            self._tablaModulos.delete(*self._tablaModulos.get_children())
+            
+            for modulo in modulosNPM:
+                if modulo['usar']:
+                    self._tablaModulos.insert('', 'end', values=(modulo['nombre'], modulo['version']))
+        
+        def instalarModulo(detalleModulo:dict[str, Any]):
+            def _intalarmoduloBackgroud():
+                resultado = runCommand([getPathOf("npm"), 'install', detalleModulo['nombre'].lower()], self._ruta)
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    detalleModulo['usar'] = False
+                    tareas.put("instalar modulo - " + detalleModulo['nombre'] + " - False")
+                    return
+               
+                detalleModulo['usar'] = True
+                tareas.put("instalar modulo - " + detalleModulo['nombre'] + " - True")
+            
+            textoBoton, estadoBoton = self._botonInstalar.cget('text'), self._botonInstalar.cget('state')
+            
+            if textoBoton != "Instalar" or estadoBoton == 'disabled':
+                messagebox.showwarning('Tarea en ejecución', 'Ya hay una tarea en ejecución')
+                return
+            
+            if self._moduloSeleccionado.get() == "Seleccionar módulo":
+                messagebox.showwarning('Error', 'No se ha seleccionado ningún módulo')
+                return
+            
+            
+            confirmacion = messagebox.askyesno('Instalar módulo', f'¿Está seguro de que desea instalar el módulo {detalleModulo["nombre"]}?')
+            if confirmacion:
+                self.root.protocol('WM_DELETE_WINDOW', doNothing)
+                self._botonInstalar.config(text="Instalando", state='disabled')
+                self._botonEjecutarServidor.config(state='disabled')
+                centerWindow(self.root, True)
+                hiloInstalacion = threading.Thread(target=_intalarmoduloBackgroud)
+                hiloInstalacion.daemon = True
+                hiloInstalacion.start()
+                self._afterTareas = self.root.after(100, _verificarTarea)
+                
+        def EliminarModulo(detalleModulo:dict[str, Any]):
+            def _desinstalarmoduloBackground():
+                resultado = runCommand([getPathOf("npm"), 'uninstall', detalleModulo['nombre'].lower()], self._ruta)
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    detalleModulo['usar'] = True
+                    tareas.put("eliminar modulo - " + detalleModulo['nombre'] + " - False")
+                    return
+                
+                detalleModulo['usar'] = False
+                tareas.put("eliminar modulo - " + detalleModulo['nombre'] + " - True")
+            
+            if not self._tablaModulos.selection():
+                messagebox.showwarning('Error', 'No se ha seleccionado ningún módulo')
+                return
+            
+            textoBoton, estadoBoton = self._botonInstalar.cget('text'), self._botonInstalar.cget('state')
+            
+            if textoBoton != "Instalar" or estadoBoton == 'disabled':
+                messagebox.showwarning('Tarea en ejecución', 'Ya hay una tarea en ejecución')
+                return    
+            
+            confirmacion = messagebox.askyesno('Eliminar módulo', f'¿Está seguro de que desea eliminar el módulo {detalleModulo["nombre"]}?')
+            if confirmacion:
+                self.root.protocol('WM_DELETE_WINDOW', doNothing)
+                self._botonInstalar.config(text="Eliminando", state='disabled')
+                self._botonEjecutarServidor.config(state='disabled')
+                centerWindow(self.root, True)
+                hiloDesinstalacion = threading.Thread(target=_desinstalarmoduloBackground)
+                hiloDesinstalacion.daemon = True
+                hiloDesinstalacion.start()
+                self._afterTareas = self.root.after(100, _verificarTarea)
+        
+        def _verificarTarea():
+            try:
+                tareaEjecutada = tareas.get_nowait()
+                desglose = tareaEjecutada.split(" - ")
+                self._botonInstalar.config(text="Instalar", state='normal')
+                self._botonEjecutarServidor.config(state='normal')
+                obtenerModulosInstalados()
+                _actualizarValoresComboModulos()
+                self._moduloSeleccionado.set("Seleccionar módulo")
+                _actualizarTablaModulos()
+                centerWindow(self.root, True)
+                self.root.protocol('WM_DELETE_WINDOW', cerrarVentana)
+                
+                if desglose[0] == "instalar modulo":
+                    if desglose[2] == "False":
+                        messagebox.showerror('Error', f'No se pudo instalar el módulo\n{desglose[1]}')
+                    else:
+                        messagebox.showinfo('Instalado', f'El módulo {desglose[1]} ha sido instalado correctamente')
+                elif desglose[0] == "eliminar modulo":
+                    if desglose[2] == "False":
+                        messagebox.showerror('Error', f'No se pudo eliminar el módulo\n{desglose[1]}')
+                    else:
+                        messagebox.showinfo('Eliminado', f'El módulo {desglose[1]} ha sido eliminado correctamente')
+                self._afterTareas = ""
+            except queue.Empty:
+                self._afterTareas = self.root.after(100, _verificarTarea)
+                return
+        
+        def _precargaInfoModulos():
+            nonlocal modulosNPM
+            modulosNPM = loadInfoNPMModules(modulosNPM)
+            tareas.put("modulos cargados")
+        
+        def _verificarPrecarga():
+            self._botonInstalar.config(text="Cargando",state='disabled')
+            self._tablaModulos.delete(*self._tablaModulos.get_children())
+            self._tablaModulos.insert('', 'end', values=('Cargando...', 'Cargando...'))
+            self._botonEjecutarServidor.config(state='disabled')
+            centerWindow(self.root, True)
+            try:
+                tareas.get_nowait()
+                self._botonInstalar.config(text="Instalar", state='normal')
+                self._botonEjecutarServidor.config(state='normal')
+                obtenerModulosInstalados()
+                _actualizarValoresComboModulos()
+                self._moduloSeleccionado.set("Seleccionar módulo")
+                _actualizarTablaModulos()
+                centerWindow(self.root, True)
+                self._afterPrecarga = ""
+            except queue.Empty:
+                self._afterPrecarga = self.root.after(100, _verificarPrecarga)
+                return
+            
+            clearQueue(tareas)
+            
+        def _ejecutarServidor():
+            def _ejecBackground():
+                resultado = subprocess.Popen([getPathOf("npm"), scriptEjecucion], cwd=self._ruta)
+                resultado.wait()
+                messagebox.showinfo('Servidor finalizado', 'El servidor ha finalizado su ejecución')
+            
+            scripts = PackageJSON.get('scripts', {})
+            if not scripts.get(scriptEjecucion):
+                messagebox.showwarning('Error', f'No se ha definido un script de inicio ({scriptEjecucion}) en el archivo package.json')
+                return
+            
+            threading.Thread(target=_ejecBackground).start()
+        
+        def cerrarVentana():
+            if self._afterPrecarga:
+                self.root.after_cancel(self._afterPrecarga)
+            
+            if self._afterTareas:
+                self.root.after_cancel(self._afterTareas)
+            
+            self.root.destroy()
+        
+        def _cambiarScriptInicio():
+            def _nuevoScript(script):
+                nonlocal scriptEjecucion
+                scriptEjecucion = script
+                messagebox.showinfo('Script de inicio cambiado', f'El script de inicio ha sido cambiado a {scriptEjecucion}')
+            
+            scripts = PackageJSON.get('scripts', {})
+            scripts = list(scripts.keys()) if scripts else ["cargando..."]
+            promptUser(
+                self.root,
+                'Cambiar script de inicio',
+                'Seleccione el script de inicio',
+                'info',
+                esArchivo=False,
+                esCarpeta=False,
+                opciones=scripts,
+                usarEntrada=False,
+                callback=_nuevoScript
+            )
+        
+        def _atajosTeclado():
+            attec = ttk.Toplevel(master=self.root)
+            attec.title('Atajos de teclado')
+            attec.resizable(False, False)
+            attec.transient(self.root)
+            attec.protocol('WM_DELETE_WINDOW', attec.destroy)
+            
+            ttk.Label(attec, text='Atajos de teclado').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + S: Guardar un archivo').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + O: Cargar un archivo').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + Shift + O: Crear carpeta').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + D: Eliminar un archivo').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + R: Editar nombre de un archivo').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + N: Crear un archivo').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + E: Ejecutar servidor').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + M: Instalar módulo').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Ctrl + Shift + M: Eliminar módulo').pack(expand=True, fill='x')
+            
+            centerWindow(attec, True)
+            
+        def _menuContextual():
+            def _showMenu(event):
+                menu.post(event.x_root, event.y_root)
+            
+            def _hideMenu(event):
+                menu.unpost()
+            
+            menu = tk.Menu(self.root, tearoff=0)
+            menu.add_command(label="Atajos de teclado", command=_atajosTeclado)
+            menu.add_separator()
+            menu.add_command(label="Cambiar script de inicio", command=_cambiarScriptInicio)
+            
+            self._entryRuta.bind("<Button-3>", _showMenu)
+            menu.bind("<Leave>", _hideMenu)
         
         self.root = ttk.Toplevel(master=ventana)
 
         self.root.title('Editor de código')
         self.root.resizable(False, False)
         self.root.transient(ventana)
+        self.root.protocol('WM_DELETE_WINDOW', cerrarVentana)
+        self.root.after(100, _menuContextual)
         
         listaElementos:list[dict[str, Any]] = []
+        tareas = queue.Queue()
         self._ruta = ruta
         self._varRuta = tk.StringVar()
         self._moduloSeleccionado = tk.StringVar()
         modulosNPM = copy.deepcopy(lista_modulosNPM)
+        PackageJSON = {}
+        scriptEjecucion = "start"
+        
+        hiloPrecarga = threading.Thread(target=_precargaInfoModulos)
+        hiloPrecarga.daemon = True
+        hiloPrecarga.start()
+        self._afterPrecarga = self.root.after(100, _verificarPrecarga)
+        self._afterTareas = ""
         
         self._frameTabla = ttk.Frame(self.root)
         encabezadoTabla = ['Archivos']
@@ -444,6 +686,10 @@ class ServerWindow:
         self._botonCrearcarpeta.grid(row=0, column=3, sticky='nsew', padx=1)
         self._botonGuardar = ttk.Button(self._frameOpciones, text='Guardar archivo', style='success.TButton', command=guardarArchivo)
         self._botonGuardar.grid(row=0, column=4, sticky='nsew', padx=1)
+        
+        columna, _ = self._frameOpciones.grid_size()
+        for columna in range(columna):
+            self._frameOpciones.columnconfigure(columna, weight=1)
         self._frameOpciones.grid(row=0, column=1, columnspan=3, sticky='nsew')
         
         self._frameEditor = ttk.Frame(self.root)
@@ -468,10 +714,13 @@ class ServerWindow:
         
         self._frameModulos = ttk.Frame(self.root, style='info.TLabelframe')
         self._frameModulos.grid_rowconfigure(1, weight=1)
-        self._comboModulos = ttk.Combobox(self._frameModulos, textvariable=self._moduloSeleccionado, values=tuple([modulo['nombre'] for modulo in modulosNPM if not modulo["usar"]]), state='readonly', style='info.TCombobox')
-        self._moduloSeleccionado.set('Seleccionar módulo')
+        self._comboModulos = ttk.Combobox(self._frameModulos, textvariable=self._moduloSeleccionado, values=("Cargando modulos ...",), state='readonly', style='info.TCombobox')
+        self._moduloSeleccionado.set("Cargando modulos ...")
         self._comboModulos.grid(row=0, column=0, sticky='nsew', padx=1)
-        self._botonInstalar = ttk.Button(self._frameModulos, text='Instalar', style='info.TButton', command=instalarModulo)
+        self._botonInstalar = ttk.Button(self._frameModulos, text='Instalar', style='info.TButton', command=lambda: instalarModulo(
+                [modulo for modulo in modulosNPM if modulo['nombre'] == self._moduloSeleccionado.get()][0] if self._moduloSeleccionado.get() != "Seleccionar módulo" else {}
+            )
+        )
         self._botonInstalar.grid(row=0, column=1, sticky='nsew', padx=1)
         
         encabezadoTablaModulos = ['Nombre', 'Versión']
@@ -488,24 +737,18 @@ class ServerWindow:
             self._tablaModulos.heading(encabezado, text=encabezado)
             self._tablaModulos.column(encabezado, width=80)
         
-        obtenerModulosInstalados()
-        
-        #TODO: Agregar funcionalidad para instalar y eliminar módulos
-        #TODO: Mostrar los módulos instalados en la tabla
-        #TODO: Mostrar mas informacion en la pantalla de instalacion de modulos (Label Instalar modulos)
-        
-        self._tablaModulos.bind('<Double-Button-3>', lambda event: EliminarModulo())
+        self._tablaModulos.bind('<Double-Button-3>', lambda event: EliminarModulo(  
+                [modulo for modulo in modulosNPM if modulo['nombre'] == self._tablaModulos.item(self._tablaModulos.selection()[0], 'values')[0]][0] if self._tablaModulos.selection() else {}
+            )
+        )
         self._tablaModulos.grid(row=1, column=0, columnspan=2, sticky='nsew', pady=5)
         
-        self._frameModulos.grid(row=0, rowspan=8, column=4, columnspan=3, sticky='nsew', padx=2)
+        self._frameModulos.grid(row=0, rowspan=7, column=4, columnspan=3, sticky='nsew', padx=2)
+        
+        self._botonEjecutarServidor = ttk.Button(self.root, text='Ejecutar servidor', style='success.TButton', command=_ejecutarServidor)
+        self._botonEjecutarServidor.grid(row=7, column=4, columnspan=3, sticky='nsew', pady=5)
         
         configureSyntax(self._areaTextoEditor)
-        self._areaTextoEditor.bind('<Control-s>', lambda event: guardarArchivo())
-        self._areaTextoEditor.bind('<Control-o>', lambda event: agregarArchivo())
-        self._areaTextoEditor.bind('<Control-Shift-o>', lambda event: crearCarpeta())
-        self._areaTextoEditor.bind('<Control-d>', lambda event: eliminarArchivo())
-        self._areaTextoEditor.bind('<Control-r>', lambda event: editarNombre())
-        self._areaTextoEditor.bind('<Control-n>', lambda event: crearArchivo())
         self._areaTextoEditor.bind(
             '<KeyRelease>', 
             lambda event: _aplicarSintaxis(
@@ -514,6 +757,20 @@ class ServerWindow:
                     'values'
                 )[0])
             )
+        self.root.bind('<Control-s>', lambda event: guardarArchivo())
+        self.root.bind('<Control-o>', lambda event: agregarArchivo())
+        self.root.bind('<Control-Shift-o>', lambda event: crearCarpeta())
+        self.root.bind('<Control-d>', lambda event: eliminarArchivo())
+        self.root.bind('<Control-r>', lambda event: editarNombre())
+        self.root.bind('<Control-n>', lambda event: crearArchivo())
+        self.root.bind('<Control-e>', lambda event: _ejecutarServidor())
+        self.root.bind('<Control-m>', lambda event: instalarModulo(
+            [modulo for modulo in modulosNPM if modulo['nombre'] == self._moduloSeleccionado.get()][0] if self._moduloSeleccionado.get() != "Seleccionar módulo" else {}
+        ))
+        self.root.bind('<Control-M>', lambda event: EliminarModulo(
+            [modulo for modulo in modulosNPM if modulo['nombre'] == self._tablaModulos.item(self._tablaModulos.selection()[0], 'values')[0]][0] if self._tablaModulos.selection() else {}
+        ))
+        
         centerWindow(self.root)
     
     def iniciar(self):

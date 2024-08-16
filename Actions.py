@@ -1,4 +1,4 @@
-from cgitb import text
+import ast
 from collections.abc import Callable
 import os, queue, re, subprocess, tkinter as tk
 import ttkbootstrap as ttk
@@ -100,12 +100,13 @@ def preventCloseWindow(titulo:str, mensaje:str, tipo:Literal["INFO", "WARNING", 
         mssg.showerror(titulo, mensaje)
 
 @overload
-def runCommand(comando:List[str], directorio:str = os.getcwd()) -> (subprocess.CompletedProcess[str] | subprocess.CalledProcessError):
+def runCommand(comando:List[str], directorio:str = os.getcwd(), *, nuevaVentana:bool=False) -> (subprocess.CompletedProcess[str] | subprocess.CalledProcessError):
     """Ejecuta un comando en la terminal y devuelve el resultado de la ejecucion.
 
     Args:
         comando (List[str]): _Lista de comandos a ejecutar, por ejemplo ["python", "-m", "main.py"]_
         directorio (str, optional): _Ruta desde a cual se ejecutara el comando_. Defaults to os.getcwd().
+        nuevaVentana (bool, optional): _Indica si se debe abrir una nueva ventana de consola_. Defaults to False.
         
     Returns:
         [subprocess.CompletedProcess]: _Resultado de la ejecucion del comando_.
@@ -113,12 +114,13 @@ def runCommand(comando:List[str], directorio:str = os.getcwd()) -> (subprocess.C
     pass
 
 @overload
-def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn:Literal["bytes"] = "bytes") -> (subprocess.CompletedProcess[bytes] | subprocess.CalledProcessError):
+def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn:Literal["bytes"] = "bytes", nuevaVentana:bool=False) -> (subprocess.CompletedProcess[bytes] | subprocess.CalledProcessError):
     """Ejecuta un comando en la terminal y devuelve el resultado de la ejecucion.
 
     Args:
         comando (List[str]): _Lista de comandos a ejecutar, por ejemplo ["python", "-m", "main.py"]_
         directorio (str, optional): _Ruta desde a cual se ejecutara el comando_. Defaults to os.getcwd().
+        nuevaVentana (bool, optional): _Indica si se debe abrir una nueva ventana de consola_. Defaults to False.
         retornarEn (Literal["bytes"], optional): _Indica si se debe retornar la salida en bytes o no_. Defaults to "text".
 
     Returns:
@@ -126,13 +128,13 @@ def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn:Liter
     """
     pass
 
-def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn="text"):
-    if retornarEn == "text":
-        return handleRunCommandText(comando, directorio)
-    else:
-        return handleRunCommandBytes(comando, directorio)
+def runCommand(comando:List[str], directorio:str = os.getcwd(), retornarEn="text", nuevaVentana=False):
+    if retornarEn != "text":
+        return handleRunCommandBytes(comando, directorio, nuevaVentana)
+    
+    return handleRunCommandText(comando, directorio, nuevaVentana)
 
-def handleRunCommandBytes(comando:List[str], directorio:str = os.getcwd()):
+def handleRunCommandBytes(comando:List[str], directorio:str = os.getcwd(), nuevaVentana=False):
     try:
         resultado = subprocess.run(
             comando,
@@ -141,13 +143,13 @@ def handleRunCommandBytes(comando:List[str], directorio:str = os.getcwd()):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
+            creationflags=subprocess.CREATE_NO_WINDOW if not nuevaVentana else 0   # Evita que se abra una ventana de consola
             )
         return resultado
     except subprocess.CalledProcessError as e:
         return e
 
-def handleRunCommandText(comando:List[str], directorio:str = os.getcwd()):
+def handleRunCommandText(comando:List[str], directorio:str = os.getcwd(), nuevaVentana=False):
     try:
         resultado = subprocess.run(
             comando,
@@ -156,7 +158,7 @@ def handleRunCommandText(comando:List[str], directorio:str = os.getcwd()):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0   # Evita que se abra una ventana de consola
+            creationflags=subprocess.CREATE_NO_WINDOW if not nuevaVentana else 0   # Evita que se abra una ventana de consola
             )
         return resultado
     except subprocess.CalledProcessError as e:
@@ -288,6 +290,34 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
             "mensaje": commit[1]
         })
     return listaDetalles
+
+def loadInfoNPMModules(modulosCargar:list[dict[str, Any]]):
+    """Carga la informacion de los modulos de NPM en un diccionario.
+
+    Args:
+        modulosCargar (list[dict[str, Any]]): _Lista de modulos a cargar_
+    
+    Returns:
+        _list[dict[str, Any]]_: _Lista de modulos cargados_
+    """
+    for dic in modulosCargar:
+        if not dic["versiones"]:
+            versionesPaquetes = runCommand([getPathOf("npm"), "show", dic["nombre"].lower(), "versions", "--depth=0"])
+            if isinstance(versionesPaquetes, subprocess.CalledProcessError):
+                dic["versiones"] = ["Ocurrió un error"]
+            else:
+                dic["versiones"] = list(ast.literal_eval(f"{versionesPaquetes.stdout.strip()}"))
+
+        if not dic["usar"]:
+            dic["usar"] = False
+        if not dic["global"]:
+            dic["global"] = False
+        if not dic["argumento"]:
+            dic["argumento"] = ""
+        if not dic["version"]:
+            dic["version"] = dic["versiones"][0] if dic["versiones"] else "No hay versiones"
+    
+    return modulosCargar
     
 def isQueueEmpty(cola:queue.Queue):
     """Verifica si la cola de ejecucion esta vacia.
@@ -308,21 +338,25 @@ def clearQueue(cola:queue.Queue):
         except:
             break
 
-def centerWindow(ventana: Union[ttk.Toplevel, tk.Tk, ttk.Window]):
+def centerWindow(ventana: Union[ttk.Toplevel, tk.Tk, ttk.Window], restablecer_tamaño=False):
     """Centra una ventana en la pantalla.
 
     Args:
         ventana (Union[ttk.Toplevel, tk.Tk, ttk.Window]): _Ventana a centrar_
+        restablecer_tamaño (bool, optional): _Indica si se debe restablecer el tamaño de la ventana_. Defaults to False.
     """
+    if restablecer_tamaño:
+            ventana.wm_geometry("")
+            
     ventana.update_idletasks()
-    ancho = ventana.winfo_width()
-    alto = ventana.winfo_height()
-    x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
-    y = (ventana.winfo_screenheight() // 2) - (alto // 2)
-    ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
+    width = ventana.winfo_width()
+    height = ventana.winfo_height()
+    x = (ventana.winfo_screenwidth() // 2) - (width // 2)
+    y = (ventana.winfo_screenheight() // 2) - (height // 2)
+    ventana.geometry(f"{width}x{height}+{x}+{y}")
 
 _NoCallback = lambda e: doNothing
-def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str, tipo:Literal["info", "warning", "error"], esArchivo:bool = False, esCarpeta:bool = False, callback:Callable[[str], Any] = _NoCallback):
+def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str, tipo:Literal["info", "warning", "error"], esArchivo:bool = False, esCarpeta:bool = False, opciones:list[str] = [], usarEntrada:bool = True, callback:Callable[[str], Any] = _NoCallback):
     """Muestra un mensaje al usuario y espera una respuesta.
     
     Args:
@@ -332,6 +366,8 @@ def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str,
         tipo (Literal["info", "warning", "error"]): _Tipo de mensaje_
         esArchivo (bool, optional): _Indica si se espera una ruta de archivo como respuesta_. Defaults to False.
         esCarpeta (bool, optional): _Indica si se espera una ruta de carpeta como respuesta_. Defaults to False.
+        opciones (list[str], optional): _Opciones a mostrar en un combobox_. Defaults to [].
+        usarEntrada (bool, optional): _Indica si se debe mostrar un campo de entrada para la respuesta_. Defaults to True.
         callback (Callable[[str], Any], optional): _Funcion a ejecutar despues de obtener la respuesta (esta funcion recibira la respuesta como parametro)_. Defaults to _NoCallback.
         
     Returns:
@@ -350,7 +386,14 @@ def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str,
             botonOk.config(state="normal")
             return
         
-        if not _nomArch.get():
+        if not _nomArch.get() and usarEntrada:
+            botonOk.config(state="disabled")
+            return
+        
+        botonOk.config(state="normal")
+    
+    def _validarSeleccion():
+        if not _opcSeleccionada.get() or _opcSeleccionada.get() == "cargando...":
             botonOk.config(state="disabled")
             return
         
@@ -367,21 +410,39 @@ def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str,
         return True
         
     def returnInput():
-        res = f"{_nomArch.get()}{_extArch.get()}" if esArchivo else _nomArch.get()
+        if esCarpeta:
+            res = f"{_nomArch.get()}"
+        else:
+            res = f"{_nomArch.get()}{_extArch.get()}"
+        
+        if not usarEntrada and opciones:
+            res = _opcSeleccionada.get()
+        
+        _nomArch.set("")
+        _extArch.set("")
+        _opcSeleccionada.set("")
         _top.destroy()
         callback(res)
     
     _top = ttk.Toplevel(master=ventana)
     _top.title(titulo)
     _top.resizable(False, False)
+    _top.transient(ventana)
     idValid = _top.register(_validarEntrada)
     
     _nomArch = ttk.StringVar()
     _extArch = ttk.StringVar()
+    _opcSeleccionada = ttk.StringVar()
     
     ttk.Label(_top, text=mensaje, style=f"{tipo}.TLabel").pack(padx=10, pady=10)
     inp = ttk.Entry(_top, style=f"{tipo}.TEntry", textvariable=_nomArch, validate="key", validatecommand=(idValid, "%P"))
-    inp.pack(padx=10, pady=10, expand=True, fill="x")
+    cmb = ttk.Combobox(_top, values=tuple(opciones), style=f"{tipo}.TCombobox", textvariable=_opcSeleccionada, state="readonly")
+    if usarEntrada:
+        inp.pack(padx=10, pady=10, expand=True, fill="x")
+    
+    if opciones:
+        _opcSeleccionada.set(opciones[0])
+        cmb.pack(padx=10, pady=10, expand=True, fill="x")
     
     if esArchivo:
         extArchivos = [".js", ".env", ".json", ".py", ".html", ".css", ".txt"]
@@ -394,7 +455,9 @@ def promptUser(ventana:Union[ttk.Window, ttk.Toplevel], titulo:str, mensaje:str,
     botonOk.pack(padx=10, pady=10)
     
     _nomArch.trace_add("write", lambda *args: _validInput())
+    _opcSeleccionada.trace_add("write", lambda *args: _validarSeleccion())
     _validInput()
+    _validarSeleccion()
     centerWindow(_top)
 
 def configureSyntax(textArea:tk.Text):
@@ -513,10 +576,3 @@ def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript", "html",
 
         # Aplicar el tag "string" al texto encontrado
         textArea.tag_add("string", start_idx, end_idx)
-
-if __name__ == "__main__":
-    def getAnswer(answer:str):
-        print(answer)
-    root = ttk.Window()
-    promptUser(root, "Ingrese su nombre", "Nombre", "info", False, True, getAnswer)
-    root.mainloop()

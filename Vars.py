@@ -1,4 +1,3 @@
-import keyword
 import os
 import queue
 
@@ -55,6 +54,14 @@ lista_modulosNPM = [
     {
         "usar": None,
         "nombre": "Bcrypt",
+        "argumento": None,
+        "version": None,
+        "versiones": None,
+        "global": None
+    },
+    {
+        "usar": None,
+        "nombre": "Body-parser",
         "argumento": None,
         "version": None,
         "versiones": None,
