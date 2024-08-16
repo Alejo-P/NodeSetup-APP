@@ -1,101 +1,101 @@
+import copy
+from pdb import run
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import os
-import shutil
-import threading
-import subprocess
-import time
-import ast
+from tkinter import filedialog
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import * # type: ignore
+from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
+import queue, os, shutil, threading, subprocess
+import time, ast, tempfile
 from typing import Literal
-from Actions import doNothing, getEvents, getVersionOf, setEvent, writeLog, getPathOf, runCommand
-from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos
+from Actions import (
+    clearQueue,
+    doNothing,
+    getBranchCommitsLog,
+    getCurrentBrach,
+    preventCloseWindow,
+    getEvents,
+    getVersionOf,
+    setEvent,
+    writeLog,
+    getPathOf,
+    runCommand,
+    loadImageTk,
+    getGitBranches
+)
+from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits
+from serverWindow import ServerWindow
 from version import __version__ as appVersion
 
-class ConfigurarEntornoNode(tk.Tk):
+class ConfigurarEntornoNode(ttk.Window):
     def __init__(self):
         self._version = getVersionOf("node")
+        self._versionGit = getVersionOf("git")
         self._veri_code = getPathOf("code")
         self._npm_path = getPathOf("npm")
+        self._git_path = getPathOf("git")
         self._referencias = {}
         self._lista_widgets= []
         self._version_NPM = None
+        self._ruta_temporal = tempfile.mkdtemp()
         
         if self._version is None:
             messagebox.showerror("Error", "Node.js no está instalado en el sistema")
             quit()
-            
-        super().__init__()
         
-        def Cerrar_ventana():
-            if self._idAfterBar:
-                self.after_cancel(self._idAfterBar)
-                self._idAfterBar = None
-            
-            self.cerrar_ventana()
-
+        super().__init__(themename="superhero")
+        
         self.title("NodeSetup")
         self.resizable(0, 0)  # type: ignore
-        self.protocol("WM_DELETE_WINDOW", lambda: Cerrar_ventana())
+        self.protocol("WM_DELETE_WINDOW", lambda: preventCloseWindow("Accion no permitida", "No puede cerrar esta ventana, hay tareas que requieren usarla", "WARNING"))
         
-        style = ttk.Style(self)
-       
-        # Personalizar la barra de progreso
-        style.configure("TProgressbar",
-            troughcolor='#5A5A5A',  # Color del fondo del canal
-            background='#FA8C75',  # Color del progreso
-            bordercolor='#FA8C75',  # Color del borde
-            thickness=20,  # Grosor de la barra de progreso
-        )
-        
-        style.configure("Custom.TCheckbutton",
-                        font=("Arial", 10),
-                        foreground="grey",
-                        relief="raised",
-                        padding=5,
-                        )
-        
-        style.map("Custom.TCheckbutton",
-                  foreground=[('active', 'black'), ('disabled', 'gray')],
-                  background=[('active', 'lightgrey')],
-                  relief=[('pressed', 'sunken')])
         
         self._checkVars = []
+        self._imagenes = {}
+        self._ruta = tk.StringVar()
+        self._cambiarDirectorio = tk.BooleanVar(value=False)
         
         self._idAfterBar = "Temporal"
-        self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:")
+        self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:", bootstyle=INFO) # type: ignore
         self.lbl_titulo = ttk.Label(self)
         self.lbl_versionApp = ttk.Label(self.frameInfo)
         self.lbl_version = ttk.Label(self.frameInfo)
         self.lbl_versionNPM = ttk.Label(self.frameInfo)
         self._lbl_ruta = ttk.Label(self, text="Ruta", width=50)
-        self.entry_ruta = ttk.Entry(self)
+        self.entry_ruta = ttk.Entry(self, textvariable=self._ruta, width=50)
         self.entry_ruta.bind(
             "<Return>",
             lambda event: self.iniciar_creacion_proyecto()
         )
-        self.boton_ruta = ttk.Button(self, text="Explorar", command=self.abrir_ruta, width=50)
-        self.frm_check = ttk.Labelframe(self, width=50, text="Opciones")
+        self.boton_ruta = ttk.Button(self, text="Explorar", command=self.abrir_ruta, bootstyle=(WARNING, OUTLINE), width=50) # type: ignore
+        self.frm_check = ttk.Labelframe(self, width=50, text="Opciones", bootstyle=PRIMARY) #type: ignore
+        self._botonModulos = ttk.Button(self.frm_check, text="Instalar modulos", bootstyle=SECONDARY) # type: ignore
+        self.labelGit = ttk.Label(self.frm_check, cursor="hand2")
+        self.labelGit.bind(
+            "<Button-1>",
+            lambda event: self._ventanaOpcionesGit()
+        )
         self.sec_botones = ttk.Frame(self)
-        self.btn_crear = ttk.Button(self.sec_botones, text="Crear", command=self.iniciar_creacion_proyecto)
-        self.btn_salir = ttk.Button(self.sec_botones, text="Salir", command=self.cerrar_ventana)
+        self.btn_crear = ttk.Button(self.sec_botones, text="Crear", command=self.iniciar_creacion_proyecto, bootstyle=(PRIMARY, OUTLINE), width=10) # type: ignore
+        self.btn_salir = ttk.Button(self.sec_botones, text="Salir", command=lambda: preventCloseWindow("Accion no permitida", "No puede cerrar esta ventana, hay tareas que requieren usarla", "WARNING"), bootstyle=(DANGER, OUTLINE), width=10) # type: ignore
         
         self._crearRuta = tk.BooleanVar(value=True)
-        self._chk_Ruta = ttk.Checkbutton(self, text="Crear ruta si no existe", variable=self._crearRuta, style="Custom.TCheckbutton")
+        self._chk_Ruta = ttk.Checkbutton(self, text="Crear ruta si no existe", variable=self._crearRuta, bootstyle="success-round-toggle", padding=6) # type: ignore
         
         self._eliminarContenido = tk.BooleanVar(value=True)
-        self._chk_eliminarPrimero = ttk.Checkbutton(self, text="Eliminar todo el contenido de la carpeta", variable=self._eliminarContenido, style="Custom.TCheckbutton")
+        self._chk_eliminarPrimero = ttk.Checkbutton(self, text="Eliminar todo el contenido de la carpeta", variable=self._eliminarContenido, bootstyle="success-round-toggle", padding=6) # type: ignore
         
         self._eliminarDatos = tk.BooleanVar(value=False)
-        self._chk_eliminarEnFallo = ttk.Checkbutton(self, text="Eliminar contenido tras un fallo", variable=self._eliminarDatos, style="Custom.TCheckbutton")
+        self._chk_eliminarEnFallo = ttk.Checkbutton(self, text="Eliminar contenido tras un fallo", variable=self._eliminarDatos, bootstyle="success-round-toggle", padding=6) # type: ignore
         
         self._pararEnFallo = tk.BooleanVar(value=False)
-        self._chk_fallo = ttk.Checkbutton(self, text="Detener en caso de fallo", variable=self._pararEnFallo, style="Custom.TCheckbutton")
+        self._chk_fallo = ttk.Checkbutton(self, text="Detener en caso de fallo", variable=self._pararEnFallo, bootstyle="success-round-toggle", padding=6) # type: ignore
         
-        self.frm_progreso = ttk.Labelframe(self, text="Progreso:", width=100)
+        self.frm_progreso = ttk.Labelframe(self, text="Progreso:", width=100, bootstyle=PRIMARY) # type: ignore
         self.lbl_progreso = ttk.Label(self.frm_progreso, text="Descripcion: Ninguna tarea en ejecucion")
         self.frm_progreso.grid_columnconfigure(0, weight=1)
-        self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate', style="TProgressbar")
+        self.progreso = ttk.Progressbar(self.frm_progreso, orient='horizontal', mode='determinate', maximum=100, bootstyle="success") # type: ignore
         
         self.completado = tk.BooleanVar(value=False)
         
@@ -103,9 +103,490 @@ class ConfigurarEntornoNode(tk.Tk):
         self.textArea = ScrolledText(self.frm_estadoEv, wrap=tk.WORD, width=50, height=15, font=('Arial', 8))
         self.textArea.pack(expand=True, fill=tk.BOTH)
         
+        self.repoURL = tk.StringVar()
+        
+        self._almacenar_imagenes()
         self.crear_widgets()
-        self._centrar_ventana()
+        self._menuContextual(None)
     
+    def _almacenar_imagenes(self):
+        # Cargar la imagen y guardarla en el diccionario
+        self._imagenes["Git"] = loadImageTk("assets/gitIcon.png", 25, 25)
+    
+    def mostrar_imagenes(self):
+        try:
+            self.labelGit.config(image=self._imagenes["Git"], text="Git", compound=tk.LEFT)
+        except Exception as e:
+            print(f"Error al cargar las imagenes: {e}")
+    
+    def _menuContextual(self, event):
+        def showMenu(event):
+            try:
+                self._menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                self._menu.grab_release()
+        
+        def hideMenu(event):
+            self._menu.unpost()
+        
+        def _ventanaEditor():
+            self.lock_unlock_widgets(estado="disabled")
+            if not os.listdir(self._ruta_temporal):
+                respuesta = runCommand([self._npm_path, "init", "-y"], self._ruta_temporal)
+                if isinstance(respuesta, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al crear el archivo package.json: {respuesta}")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                    lista.put(False)
+                    return
+                
+                respuesta = runCommand([self._npm_path, "install", "express"], self._ruta_temporal)
+                if isinstance(respuesta, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al instalar el paquete express: {respuesta}")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                    lista.put(False)
+                    return
+                
+                os.mkdir(os.path.join(self._ruta_temporal, "src"))
+                os.mkdir(os.path.join(self._ruta_temporal, "public"))
+                os.mkdir(os.path.join(self._ruta_temporal, "views"))
+                    
+                with open(os.path.join(self._ruta_temporal, "views", "index.html"), "w") as archivo:
+                    archivo.write(
+                        "<!DOCTYPE html>\n<html>\n<head>\n\t<title>Document</title>\n</head>\n<body>\n\t<h1>¡Hola Mundo!</h1>\n</body>\n</html>"
+                    )
+                    
+                with open(os.path.join(self._ruta_temporal, "public", "styles.css"), "w") as archivo:
+                    archivo.write(
+                        "body {\n\tfont-family: Arial, sans-serif;\n\tbackground-color: #f0f0f0;\n}\n\nh1 {\n\tcolor: #333;\n\ttext-align: center;\n}"
+                    )
+                    
+                with open(os.path.join(self._ruta_temporal, "public", "scripts.js"), "w") as archivo:
+                    archivo.write("console.log('Hola Mundo!')")
+                
+                with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
+                    archivo.write(
+                        "const express = require('express');\nconst app = express();\n\napp.use(express.static('public'));\n\napp.get('/', (req, res) => {\n\tres.sendFile(__dirname + '/views/index.html');\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor iniciado en el puerto 3000');\n});"
+                    )
+            
+            lista.put(True)
+            
+        def _verificarCompletado():
+            try:
+                resultado = lista.get_nowait()
+                if resultado:
+                    self.lbl_progreso.config(text="Descripcion: Proyecto creado con éxito")
+                    self.progreso.stop()
+                    self.progreso.config(value=0, mode="determinate", maximum=100, bootstyle="success") # type: ignore
+                    self.lock_unlock_widgets(estado="normal")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+                    srv = ServerWindow(self, self._ruta_temporal)
+                    srv.iniciar()
+                else:
+                    self.lbl_progreso.config(text="Descripcion: Error al crear el proyecto")
+                    self.progreso.stop()
+                    self.progreso.config(value=0, mode="determinate", maximum=100, bootstyle="success") # type: ignore
+                    self.lock_unlock_widgets(estado="normal")
+                    self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+            except queue.Empty:
+                self.protocol("WM_DELETE_WINDOW", doNothing)
+                self.after(100, _verificarCompletado)
+                return
+                
+            clearQueue(lista)
+        
+        def _iniciarVentana():
+            self.protocol("WM_DELETE_WINDOW", doNothing)
+            self.lbl_progreso.config(text="Descripcion: Cargando archivos e iniciando el editor de código")
+            self.progreso.config(value=0, maximum=100, mode="indeterminate", bootstyle="success") # type: ignore
+            self.progreso.start()
+            threading.Thread(target=_ventanaEditor).start()
+            self.after(100, _verificarCompletado)
+            
+        self._menu = tk.Menu(self, tearoff=0)
+        
+        submenu_Herramientas = tk.Menu(self._menu, tearoff=0)
+        submenu_Herramientas.add_command(label="Editor de código", command=lambda: _iniciarVentana())
+        
+        self._menu.add_command(label="Opciones de la aplicación", state="disabled")
+        self._menu.add_separator()
+        self._menu.add_cascade(label="Herramientas", menu=submenu_Herramientas)
+        self._menu.add_separator()
+        self._menu.add_command(label="Acerca de", state="disabled")
+        
+        lista = queue.Queue()
+        
+        self._menu.bind("<FocusOut>", hideMenu)
+        self.bind("<Button-3>", showMenu)
+    
+    def _ventanaOpcionesGit(self):
+        def cerrarVentana():
+            nonlocal entries, callbackName, callbackName2
+            if callbackName:
+                self._ruta.trace_remove("write", callbackName)
+            
+            if callbackName2:
+                self._ruta.trace_remove("write", callbackName2)
+            
+            ventana.destroy()
+            del entries, callbackName, callbackName2
+        
+        def _updateButton():
+            if all(entries.values()):
+                btnInicio.config(state="normal")
+            else:
+                btnInicio.config(state="disabled")
+        
+        def ValidarEntry():
+            nonlocal entries
+            if self.repoURL.get():
+                entries["RepoURL"] = True
+            else:
+                entries["RepoURL"] = False
+            
+            _updateButton()
+        
+        def ValidarRuta():
+            nonlocal entries
+            btnInicio.config(state="disabled")
+            if not self._ruta.get():
+                mensajeRuta.config(text="Debe seleccionar una ruta", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
+                return
+            
+            if not os.path.isdir(self._ruta.get()):
+                mensajeRuta.config(text="La ruta no es un directorio", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
+                return
+            
+            if not os.path.exists(self._ruta.get()):
+                mensajeRuta.config(text="La ruta no existe", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
+                return
+                            
+            if not os.access(self._ruta.get(), os.W_OK):
+                mensajeRuta.config(text="No tiene permisos para escribir en la ruta", foreground="red")
+                entries["Ruta"] = False
+                _updateButton()
+                return
+                
+            mensajeRuta.config(text="Ruta valida", foreground="green")
+            entries["Ruta"] = True
+            _updateButton()
+        
+        def iniciarClonacion():
+            if not self.repoURL.get():
+                messagebox.showwarning("Advertencia", "Debe ingresar una URL valida")
+                return
+            
+            ventana.protocol("WM_DELETE_WINDOW", doNothing)
+            frame_progreso.grid(row=8, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            self._centrar_ventana(ventana, True)
+            barraProgreso.start()
+            btnInicio.config(state="disabled")
+            e1.configure(state="disabled")
+            e2.configure(state="disabled")
+            nombre_repo = self.repoURL.get().split('/')[-1].replace('.git', '')
+            resultado = runCommand([self._git_path, "clone", self.repoURL.get()], self._ruta.get())
+            if isinstance(resultado, subprocess.CalledProcessError):
+                messagebox.showerror("Error", f"Error al clonar el repositorio: {resultado}")
+                e1.configure(state="normal")
+                e2.configure(state="normal")
+                return
+            
+            if self._cambiarDirectorio.get():
+                try:
+                    temRuta = self._ruta.get()
+                    self._ruta.set(f"{temRuta}/{nombre_repo}")
+                except Exception as e:
+                    print(e)
+            
+            e1.configure(state="normal")
+            e2.configure(state="normal")
+            barraProgreso.stop()
+            frame_progreso.grid_forget()
+            btnInicio.config(state="normal")
+            ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
+            self._centrar_ventana(ventana, True)
+            messagebox.showinfo("Información", "Repositorio clonado con éxito")
+        
+        def ValidarRepoGit():
+            if self._ruta.get() and os.path.isdir(self._ruta.get()):
+                rutacarpetaGIT = os.path.join(self._ruta.get(), ".git")
+                if not os.path.isdir(rutacarpetaGIT):
+                    mensajeRepo.config(text="No se encontro un repositorio Git", foreground="orange")
+                    mensajeHistorial.config(text="No se encontro un repositorio Git", foreground="orange")
+                    botonOK.config(state="disabled")
+                    ecommit.config(state="disabled")
+                    combo.config(state="disabled")
+                    comboRama["values"] = ("No se pudo extraer las ramas",)
+                    comboRama.current(0)
+                    comboRama.config(state="disabled")
+                    _limpiarTabla()
+                    return
+                
+                mensajeRepo.config(text="Repositorio Git encontrado", foreground="green")
+                mensajeHistorial.config(text="Repositorio Git encontrado", foreground="green")
+                botonOK.config(state="normal")
+                ecommit.config(state="normal")
+                combo.config(state="readonly")
+                comboRama.config(state="readonly")
+                mostrarRamas()
+                obtenerLogs()
+            else:
+                mensajeRepo.config(text="La ruta no es un directorio", foreground="red")
+                mensajeHistorial.config(text="La ruta no es un directorio", foreground="red")
+                botonOK.config(state="disabled")
+                ecommit.config(state="disabled")
+                combo.config(state="disabled")
+                comboRama["values"] = ("Directorio no valido",)
+                comboRama.current(0)
+                comboRama.config(state="disabled")
+                _limpiarTabla()
+        
+        def insertarPlaceHolder(event):
+            estadoEntry = ecommit["state"]
+            if estadoEntry == "disabled":
+                ecommit.config(state="normal")
+                
+            if not mensajeCommit.get():
+                ecommit.config(foreground="gray")
+                mensajeCommit.set("Ingrese un mensaje de confirmación ...")
+            
+            if estadoEntry == "disabled":
+                ecommit.config(state="disabled")
+                
+        def limpiarPlaceHolder(event):
+            if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
+                ecommit.config(foreground="black")
+                mensajeCommit.set("")
+        
+        def CambiarPestaña(event):
+            nonlocal callbackName, callbackName2
+            try:
+                indice = notebook.index(notebook.select())
+                notebook.select(indice)
+            except Exception as e:
+                print(e)
+        
+        def RealizarCommit():
+            nonlocal ramaActual
+            if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
+                messagebox.showwarning("Advertencia", "Debe ingresar un mensaje de confirmación")
+                return
+            
+            if comboRama.get() != ramaActual:
+                seleccion = messagebox.askyesno("Advertencia", "La rama de trabajo no es la rama actual del repositorio, ¿Desea continuar?")
+                if seleccion == "no":
+                    return
+                
+                resultado = runCommand([self._git_path, "checkout", comboRama.get()], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al cambiar de rama: {resultado}")
+                    return
+                messagebox.showinfo("Información", "Rama cambiada con éxito")
+            
+            if combo.get() == "Confirmar":
+                resultado = runCommand([self._git_path, "add", "."], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al agregar los cambios: {resultado}")
+                    return
+                
+                resultado = runCommand([self._git_path, "commit", "-m", mensajeCommit.get()], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al confirmar los cambios: {resultado}")
+                    return
+                
+                messagebox.showinfo("Información", "Cambios confirmados con éxito")
+            elif combo.get() == "Confirmar y enviar":
+                resultado = runCommand([self._git_path, "add", "."], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al agregar los cambios: {resultado}")
+                    return
+                
+                resultado = runCommand([self._git_path, "commit", "-m", mensajeCommit.get()], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al confirmar los cambios: {resultado}")
+                    return
+                
+                resultado = runCommand([self._git_path, "push"], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al enviar los cambios: {resultado}")
+                    return
+                
+                messagebox.showinfo("Información", "Cambios confirmados y enviados con éxito")
+        
+        def mostrarRamas():
+            def _obtenerRamas():
+                nonlocal ramaActual
+                ramas = getGitBranches(self._ruta.get())
+                ramaActual = getCurrentBrach(ramas)
+                respuestas.put(tuple(ramas.keys()))
+            
+            threading.Thread(target=_obtenerRamas).start()
+            ventana.after(100, _actualizarComboRamas)
+            comboRama["values"] = ("Obteniendo ramas...",)
+            comboRama.current(0)
+           
+        def _actualizarComboRamas():
+            try:
+                resultado = respuestas.get_nowait()
+                if comboRama["state"] != "disabled":
+                    comboRama["values"] = resultado
+                    try:
+                        comboRama.current(resultado.index(ramaActual))
+                    except ValueError:
+                        comboRama.current(0)
+            except queue.Empty:
+                ventana.after(100, _actualizarComboRamas)
+                return
+            
+            clearQueue(respuestas)
+         
+        def obtenerLogs():
+            def _obtenerCommits():
+                logs = getBranchCommitsLog(self._ruta.get())
+                registro_commits.put(logs)
+            
+            threading.Thread(target=_obtenerCommits).start()
+            ventana.after(100, _actualizarTabla)
+        
+        def _actualizarTabla():
+            try:
+                resultado = registro_commits.get_nowait()
+                tablaCommits.delete(*tablaCommits.get_children())
+                for i, commit in enumerate(resultado, 1):
+                    tablaCommits.insert("", "end", text=f"#{i}", values=(commit["id"], commit["rama"], commit["mensaje"]))
+            except queue.Empty:
+                ventana.after(100, _actualizarTabla)
+                return
+            
+            clearQueue(registro_commits)
+        
+        def _limpiarTabla():
+            tablaCommits.delete(*tablaCommits.get_children())
+        
+        def Comenzar():
+            threading.Thread(target=iniciarClonacion).start()
+        
+        ventana = tk.Toplevel(self)
+        ventana.title("Opciones de Git")
+        ventana.resizable(0, 0) # type: ignore
+        ventana.transient(self)
+        ventana.protocol("WM_DELETE_WINDOW", cerrarVentana)
+        entries = {
+            "RepoURL": False,
+            "Ruta": False
+        }
+        ramaActual = ""
+        
+        frame_version = ttk.LabelFrame(ventana, text="Información de Git")
+        ttk.Label(frame_version, text="Version de Git:").grid(row=0, column=0)
+        ttk.Label(frame_version, text=self._versionGit if self._versionGit else "").grid(row=0, column=1)
+        frame_version.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
+        notebook = ttk.Notebook(ventana, bootstyle=SECONDARY) # type: ignore
+        mensajeCommit = tk.StringVar()
+        
+        frameClonacion = ttk.Frame(notebook)
+        frameClonacion.grid_columnconfigure(0, weight=1)
+        frameClonacion.grid_columnconfigure(1, weight=1)
+        
+        ttk.Label(frameClonacion, text="URL repositorio").grid(row=1, column=0, columnspan=2)
+        e1 = ttk.Entry(frameClonacion, width=50, textvariable=self.repoURL)
+        e1.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+        ttk.Label(frameClonacion, text="Ruta para la clonación").grid(row=3, column=0, columnspan=2)
+        e2 = ttk.Entry(frameClonacion, width=50, textvariable=self._ruta)
+        e2.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+        
+        mensajeRuta = ttk.Label(frameClonacion) 
+        mensajeRuta.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+        
+        btnInicio = ttk.Button(frameClonacion, text="Clonar", command=lambda: Comenzar(), state="disabled")
+        btnInicio.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+        
+        ttk.Checkbutton(frameClonacion, text="Cambiar automaticamente al nuevo directorio", variable=self._cambiarDirectorio).grid(row=7, column=0, columnspan=2, padx=5, pady=5)
+        
+        frame_progreso = ttk.LabelFrame(frameClonacion, text="Progreso")
+        frame_progreso.columnconfigure(0, weight=1)
+        barraProgreso = ttk.Progressbar(frame_progreso, orient='horizontal', mode='indeterminate', length=100)
+        barraProgreso.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+        
+        frameConfirmacion = ttk.Frame(notebook)
+        frameConfirmacion.grid_columnconfigure(0, weight=1)
+        frameConfirmacion.grid_columnconfigure(1, weight=1)
+        
+        ttk.Label(frameConfirmacion, text="Ruta del repositorio").grid(row=0, column=0, columnspan=2)
+        eruta = ttk.Entry(frameConfirmacion, width=50, textvariable=self._ruta)
+        eruta.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
+        
+        mensajeRepo = ttk.Label(frameConfirmacion)
+        mensajeRepo.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+        
+        ttk.Label(frameConfirmacion, text="Mensaje de confirmacion").grid(row=3, column=0, columnspan=2)
+        ecommit = ttk.Entry(frameConfirmacion, textvariable=mensajeCommit, width=50)
+        ecommit.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+        
+        ttk.Label(frameConfirmacion, text="Rama:").grid(row=5, column=0)
+        comboRama = ttk.Combobox(frameConfirmacion, state="readonly")
+        comboRama.grid(row=5, column=1, padx=5, pady=5)
+        
+        opciones = ["Confirmar", "Confirmar y enviar"]
+        ttk.Label(frameConfirmacion, text="Acciones").grid(row=6, column=0)
+        combo = ttk.Combobox(frameConfirmacion, values=opciones, state="readonly")
+        combo.current(0)
+        combo.grid(row=6, column=1, padx=5, pady=5)
+        
+        botonOK = ttk.Button(frameConfirmacion, text="OK", command=lambda: RealizarCommit(), state="disabled")
+        botonOK.grid(row=7, column=0, columnspan=2, padx=5, pady=5)
+        
+        frameLogs = ttk.Frame(notebook)
+        frameLogs.grid_columnconfigure(0, weight=1)
+        ttk.Label(frameLogs, text="Ruta del repositorio").grid(row=0, column=0)
+        ttk.Entry(frameLogs, width=50, textvariable=self._ruta).grid(row=1, column=0, padx=5, pady=5)
+        
+        mensajeHistorial = ttk.Label(frameLogs)
+        mensajeHistorial.grid(row=2, column=0, padx=5, pady=5)
+        
+        tablaCommits = ttk.Treeview(frameLogs, show="headings", selectmode="browse")
+        tablaCommits["columns"] = ("Id", "Rama", "Mensaje")
+        tablaCommits.column("Id", anchor=tk.W, width=60)
+        tablaCommits.column("Rama", anchor=tk.W, width=80)
+        tablaCommits.column("Mensaje", anchor=tk.W, width=300)
+        tablaCommits.heading("Id", text="ID", anchor=tk.W)
+        tablaCommits.heading("Rama", text="Rama", anchor=tk.W)
+        tablaCommits.heading("Mensaje", text="Mensaje", anchor=tk.W)
+        tablaCommits.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+        
+        yScroll = ttk.Scrollbar(frameLogs, orient="vertical", command=tablaCommits.yview)
+        yScroll.grid(row=3, column=1, sticky="ns")
+        tablaCommits.configure(yscrollcommand=yScroll.set)
+        
+        notebook.add(frameClonacion, text="Clonar repositorio")
+        notebook.add(frameConfirmacion, text="Confirmar cambios")
+        notebook.add(frameLogs, text="Registro de commits")
+        
+        notebook.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
+        e1.bind("<KeyRelease>", lambda event: ValidarEntry())
+        
+        notebook.bind("<<NotebookTabChanged>>", CambiarPestaña)
+        
+        callbackName = self._ruta.trace_add("write", lambda *args: ValidarRuta())
+        callbackName2 = self._ruta.trace_add("write", lambda *args: ValidarRepoGit())
+        
+        ecommit.bind("<FocusIn>", limpiarPlaceHolder)
+        ecommit.bind("<FocusOut>", insertarPlaceHolder)
+        
+        ValidarEntry()
+        ValidarRuta()
+        ValidarRepoGit()
+        insertarPlaceHolder(None)
+        
+        self._centrar_ventana(ventana)
+        
     def crear_widgets(self):
         def cargarinfo_versionNPM():
             self.lbl_versionNPM.config(text="Version de NPM: Cargando...")
@@ -123,10 +604,12 @@ class ConfigurarEntornoNode(tk.Tk):
             if versionNPM.stdout.strip() < lista_versionesNPM[-1]:
                 messagebox.showinfo("Debe actualizar NPM", f"Se encontro una nueva version de NPM:\nTiene la version: {versionNPM.stdout.strip()}\nSe encontro la version: {lista_versionesNPM[-1]}")
             self.update_idletasks()
+            self.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_ventana())
+            self.btn_salir.config(command=lambda: self.cerrar_ventana())
         
         def ventana_seleccionModulos():
             def restablecer_seleccion():
-                for dic in lista_modulosNPM:
+                for dic in modulosNPM:
                     dic["usar"].set(False)
                     dic["global"].set(False)
                     dic["argumento"].set("")
@@ -154,11 +637,11 @@ class ConfigurarEntornoNode(tk.Tk):
                 def CrearWidgets(listaModulos):
                     if not self._lista_widgets:
                         for dic in listaModulos:
-                            check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], style="Custom.TCheckbutton")
-                            label_nombre = ttk.Label(modulos, text=dic["nombre"])
-                            entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"], state="readonly")
-                            combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"], state="readonly")
-                            check_global = ttk.Checkbutton(modulos, variable=dic["global"], style="Custom.TCheckbutton")
+                            check_usar = ttk.Checkbutton(modulos, variable=dic["usar"], bootstyle="success-round-toggle", padding=4) # type: ignore
+                            label_nombre = ttk.Label(modulos, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
+                            entry_argumento = ttk.Combobox(modulos, values=listaArgumentos, textvariable=dic["argumento"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                            combo_version = ttk.Combobox(modulos, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                            check_global = ttk.Checkbutton(modulos, variable=dic["global"], bootstyle="warning-round-toggle", padding=4) # type: ignore
 
                             self._lista_widgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
 
@@ -192,7 +675,7 @@ class ConfigurarEntornoNode(tk.Tk):
 
                     if not self._lista_widgets:
                         modulos.protocol("WM_DELETE_WINDOW", lambda: doNothing())
-                        for sublistas in dividir_lista(lista_modulosNPM, n_listas):
+                        for sublistas in dividir_lista(modulosNPM, n_listas):
                             hilo = threading.Thread(target=CargarInfoModulos, args=(sublistas,))
                             Registro_hilos.append(hilo)
 
@@ -209,7 +692,7 @@ class ConfigurarEntornoNode(tk.Tk):
 
                         Registro_hilos.clear()
 
-                    CrearWidgets(lista_modulosNPM)
+                    CrearWidgets(modulosNPM)
                     self._centrar_ventana(modulos)
 
                     # Mostrar los widgets en la interfaz
@@ -274,6 +757,7 @@ class ConfigurarEntornoNode(tk.Tk):
             self.lbl_version.grid(row=0, column=1)
         
         self.lbl_versionNPM.grid(row=0 , column=2)
+        modulosNPM = copy.deepcopy(lista_modulosNPM)
         
         threading.Thread(target=cargarinfo_versionNPM).start()        
         
@@ -294,18 +778,24 @@ class ConfigurarEntornoNode(tk.Tk):
         
         self._opciones = [False for _ in range(len(opciones))]
         
-        ttk.Button(self.frm_check, text="Instalar modulos", command=ventana_seleccionModulos).grid(column=0, row=0, sticky="nsew")
+        self._botonModulos["command"] = ventana_seleccionModulos
+        self._botonModulos.grid(column=0, row=0, sticky="nsew", padx=5, pady=5)
         
-        for i, item in enumerate(opciones, 1):
+        start = 1
+        if self._versionGit:
+            self.labelGit.grid(column=0, row=start)
+            start +=1
+        
+        for i, item in enumerate(opciones, start):
             check_var = tk.BooleanVar(value=False)
             self._checkVars.append({item: check_var})
             if item == "Abrir en VS Code\nal finalizar":
                 if self._veri_code:
-                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew")
+                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew", padx=5, pady=2)
                 else:
-                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="disabled").grid(column=0, row=i, sticky="nsew")
+                    ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="disabled").grid(column=0, row=i, sticky="nsew", padx=5, pady=2)
             else:   
-                ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew")
+                ttk.Checkbutton(self.frm_check, text=item, variable=check_var, style="Custom.TCheckbutton", state="normal").grid(column=0, row=i, sticky="nsew", padx=5, pady=2)
         
         self.sec_botones.grid(row=10, column=0, columnspan=3, pady=5)
         
@@ -588,11 +1078,20 @@ class ConfigurarEntornoNode(tk.Tk):
     
     def cerrar_ventana(self, ventana:tk.Tk | tk.Toplevel | None = None):
         if not ventana:
+            if self._idAfterBar:
+                self.after_cancel(self._idAfterBar)
+                self._idAfterBar = None
+
             ventana = self
         
         for item in ventana.winfo_children():
             item.destroy()
+        
         ventana.destroy()
+        
+        # Eliminar la ruta temporal y todos los archivos y carpetas contenidos en la ruta
+        if os.path.exists(self._ruta_temporal):
+            shutil.rmtree(self._ruta_temporal)
 
     def Iniciar(self):
         self.mainloop()
@@ -637,4 +1136,6 @@ def dividir_lista(lista, n):
 
 if __name__ == "__main__":
     app = ConfigurarEntornoNode()
+    app.mostrar_imagenes()
+    app._centrar_ventana()
     app.Iniciar()
