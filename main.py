@@ -1,5 +1,4 @@
 import copy
-from pdb import run
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk

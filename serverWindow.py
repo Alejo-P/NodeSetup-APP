@@ -576,7 +576,7 @@ class ServerWindow:
                 messagebox.showinfo('Script de inicio cambiado', f'El script de inicio ha sido cambiado a {scriptEjecucion}')
             
             scripts = PackageJSON.get('scripts', {})
-            scripts = list(scripts.keys()) if scripts else ["cargando..."]
+            scripts = list(scripts.keys()) if scripts else ["No se pudo encontrar ningún script"]
             promptUser(
                 self.root,
                 'Cambiar script de inicio',
