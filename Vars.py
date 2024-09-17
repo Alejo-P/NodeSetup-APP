@@ -43,151 +43,25 @@ archivos = [
     "index.js"
 ]
 
-lista_modulosNPM = [
-    {
-        "usar": None,
-        "nombre": "Axios",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Bcrypt",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Body-parser",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Cloudinary",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Cors",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Dotenv",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Express",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Express-fileupload",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Fs-extra",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None    
-    },
-    {
-        "usar": None,
-        "nombre": "Json-server",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Jsonwebtoken",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Mongoose",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Morgan",
-        "argumento": None, 
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "MySQL2",
-        "argumento": None, 
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Nodemailer",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Nodemon",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Sequelize",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None
-    },
-    {
-        "usar": None,
-        "nombre": "Uuid",
-        "argumento": None,
-        "version": None,
-        "versiones": None,
-        "global": None  
-    }
+modulosNPM = [
+    "Axios",
+    "Bcrypt",
+    "Body-parser",
+    "Cloudinary",
+    "Cors",
+    "Dotenv",
+    "Express",
+    "Express-fileupload",
+    "Fs-extra",
+    "Json-server",
+    "Jsonwebtoken",
+    "Mongoose",
+    "Morgan",
+    "MySQL2",
+    "Nodemailer",
+    "Nodemon",
+    "Sequelize",
+    "Uuid"
 ]
 
 Registro_hilos = []

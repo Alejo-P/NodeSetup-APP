@@ -1,4 +1,4 @@
-import copy
+import json
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
@@ -21,13 +21,14 @@ from Actions import (
     getPathOf,
     runCommand,
     loadImageTk,
-    getGitBranches
+    getGitBranches,
+    getDetailedModules
 )
-from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits, BASE_DIR
+from Vars import listaArgumentos, carpetas, archivos, archivos_p, Registro_hilos, respuestas, registro_commits, BASE_DIR
 from serverWindow import ServerWindow
 from version import __version__ as appVersion
 
-class ConfigurarEntornoNode(ttk.Window):
+class NodeSetupApp(ttk.Window):
     def __init__(self):
         self._version = getVersionOf("node")
         self._versionGit = getVersionOf("git")
@@ -54,7 +55,7 @@ class ConfigurarEntornoNode(ttk.Window):
         self._imagenes = {}
         self._ruta = tk.StringVar()
         self._cambiarDirectorio = tk.BooleanVar(value=False)
-        self._modulosNPM = copy.deepcopy(lista_modulosNPM)
+        self._modulosNPM = getDetailedModules()
         
         self._idAfterBar = "Temporal"
         self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:", bootstyle=INFO) # type: ignore
@@ -156,18 +157,26 @@ class ConfigurarEntornoNode(ttk.Window):
                         "<!DOCTYPE html>\n<html>\n<head>\n\t<title>Document</title>\n</head>\n<body>\n\t<h1>¡Hola Mundo!</h1>\n</body>\n</html>"
                     )
                     
-                with open(os.path.join(self._ruta_temporal, "public", "styles.css"), "w") as archivo:
+                with open(os.path.join(self._ruta_temporal, "public", "styles.css"), "w", encoding="utf-8") as archivo:
                     archivo.write(
                         "body {\n\tfont-family: Arial, sans-serif;\n\tbackground-color: #f0f0f0;\n}\n\nh1 {\n\tcolor: #333;\n\ttext-align: center;\n}"
                     )
                     
-                with open(os.path.join(self._ruta_temporal, "public", "scripts.js"), "w") as archivo:
-                    archivo.write("console.log('Hola Mundo!')")
+                with open(os.path.join(self._ruta_temporal, "public", "scripts.js"), "w", encoding="utf-8") as archivo:
+                    archivo.write("console.log('¡Hola Mundo!')")
                 
                 with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
                     archivo.write(
                         "const express = require('express')\nconst path = require('path');\nconst app = express();\n\napp.use(express.static('public'));\n\napp.get('/', (req, res) => {\n\tres.sendFile(path.join(__dirname, '..', 'views', 'index.html'));\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor iniciado en el puerto 3000');\n});"
                     )
+                
+                with open(os.path.join(self._ruta_temporal, "appSettings.json"), "w", encoding="utf-8") as archivo:
+                    JSON_content = json.dumps({
+                        "isLoadedModules": False,
+                        "isServerRunning": False,
+                        "modulesLoaded" : []
+                    }, indent=4)
+                    archivo.write(JSON_content)
             
             lista.put(True)
             
@@ -1136,7 +1145,7 @@ def dividir_lista(lista, n):
         yield lista[i:i + n]
 
 if __name__ == "__main__":
-    app = ConfigurarEntornoNode()
+    app = NodeSetupApp()
     app.mostrar_imagenes()
     app._centrar_ventana()
     app.Iniciar()
