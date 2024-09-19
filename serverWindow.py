@@ -688,6 +688,7 @@ class ServerWindow:
             
             frame_accionesArchivo = ttk.LabelFrame(attec, text='Acciones de archivos y/o carpetas', bootstyle='info.TLabelframe') #type: ignore
             frame_accionesArchivo.grid(row=1, column=0, sticky='nsew', padx=5, pady=5)
+            ttk.Entry(frame_accionesArchivo, )
             ttk.Label(frame_accionesArchivo, text='Ctrl + S: Guardar un archivo').pack(expand=True, fill='x')
             ttk.Label(frame_accionesArchivo, text='Ctrl + O: Cargar un archivo').pack(expand=True, fill='x')
             ttk.Label(frame_accionesArchivo, text='Ctrl + Shift + O: Crear carpeta').pack(expand=True, fill='x')

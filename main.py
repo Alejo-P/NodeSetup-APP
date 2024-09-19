@@ -114,6 +114,8 @@ class NodeSetupApp(ttk.Window):
         # Cargar la imagen y guardarla en el diccionario
         ruta_assets = os.path.join(BASE_DIR, "assets")
         self._imagenes["Git"] = loadImageTk(os.path.join(ruta_assets, "gitIcon.png"), 25, 25)
+        self._imagenes["Check"] = loadImageTk(os.path.join(ruta_assets, "checkIcon.png"), 25, 25)
+        self._imagenes["Error"] = loadImageTk(os.path.join(ruta_assets, "errorIcon.png"), 25, 25)
     
     def mostrar_imagenes(self):
         try:
@@ -443,7 +445,7 @@ class NodeSetupApp(ttk.Window):
         def _actualizarComboRamas():
             try:
                 resultado = respuestas.get_nowait()
-                if comboRama["state"] != "disabled":
+                if os.path.exists(os.path.join(self._ruta.get(), ".git")) and self._ruta.get():
                     comboRama["values"] = resultado
                     try:
                         comboRama.current(resultado.index(ramaActual))
@@ -466,9 +468,10 @@ class NodeSetupApp(ttk.Window):
         def _actualizarTabla():
             try:
                 resultado = registro_commits.get_nowait()
-                tablaCommits.delete(*tablaCommits.get_children())
-                for i, commit in enumerate(resultado, 1):
-                    tablaCommits.insert("", "end", text=f"#{i}", values=(commit["id"], commit["rama"], commit["mensaje"]))
+                if os.path.exists(os.path.join(self._ruta.get(), ".git")) and self._ruta.get():
+                    tablaCommits.delete(*tablaCommits.get_children())
+                    for i, commit in enumerate(resultado, 1):
+                        tablaCommits.insert("", "end", text=f"#{i}", values=(commit["id"], commit["rama"], commit["mensaje"]))
             except queue.Empty:
                 ventana.after(100, _actualizarTabla)
                 return
@@ -1116,6 +1119,21 @@ def lista_archivos_directorios(directorio_buscar:str):
         else:
             lista_directorios.append(elemento)
     return lista_archivos, lista_directorios
+
+def actualizarEventsFrame(frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
 def ActualizarScrolledText(textArea:ScrolledText, ventana:tk.Tk, completado:tk.BooleanVar):
     if not completado.get():
