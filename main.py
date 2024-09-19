@@ -1,6 +1,6 @@
 import json
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import Frame, filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
@@ -102,7 +102,7 @@ class NodeSetupApp(ttk.Window):
         
         self.frm_estadoEv = ttk.LabelFrame(self, text="Registro de eventos", width=100)
         self.textArea = ScrolledText(self.frm_estadoEv, wrap=tk.WORD, width=50, height=15, font=('Arial', 8))
-        self.textArea.pack(expand=True, fill=tk.BOTH)
+        #self.textArea.pack(expand=True, fill=tk.BOTH)
         
         self.repoURL = tk.StringVar()
         
@@ -990,7 +990,9 @@ class NodeSetupApp(ttk.Window):
                 self.completado.set(True)
                 return int(-1)
         
-        threading.Thread(target=ActualizarScrolledText, args=(self.textArea, self, self.completado)).start()
+        #threading.Thread(target=ActualizarScrolledText, args=(self.textArea, self, self.completado)).start()
+        self.frm_estadoEv.after(0, self.actualizarEventsFrame, self.frm_estadoEv, self.completado)
+        #threading.Thread(target=self.actualizarEventsFrame, args=(self.frm_estadoEv, self.completado)).start()
               
         if Iniciar_npm() == 0:
             for modulo in self._modulosNPM:
@@ -1105,6 +1107,68 @@ class NodeSetupApp(ttk.Window):
         # Eliminar la ruta temporal y todos los archivos y carpetas contenidos en la ruta
         if os.path.exists(self._ruta_temporal):
             shutil.rmtree(self._ruta_temporal)
+    
+    def actualizarEventsFrame(self, frame, completado):
+        for widget in frame.winfo_children():
+            widget.destroy()
+
+        if completado.get():
+            ttk.Label(frame, text="Tareas finalizadas").grid(row=0, column=0)
+            return
+
+        # Creación del Canvas
+        canvas = tk.Canvas(frame)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Creación del Scrollbar
+        scrollbar = tk.Scrollbar(frame, orient=tk.VERTICAL, command=canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Configuración del Scrollbar en el Canvas
+        canvas.config(yscrollcommand=scrollbar.set)
+
+        # Creación de un Frame interno dentro del Canvas para contener los eventos
+        contenido_frame = ttk.Frame(canvas)
+        canvas.create_window((0, 0), window=contenido_frame, anchor="nw")
+
+        # Función para ajustar el área desplazable
+        def ajustar_scroll(event):
+            canvas.config(scrollregion=canvas.bbox("all"))
+
+        contenido_frame.bind("<Configure>", ajustar_scroll)
+
+        # Creación de los eventos dentro del frame desplazable
+        for evento in getEvents():  # Suponiendo que getEvents() es un método de la clase
+            comando = evento["Comando"]
+            if evento["Salida"]:
+                bgColor = "#00FF00"
+                mensaje = evento["Salida"]
+                style = SUCCESS
+                icon = self._imagenes["Check"]
+            else:
+                bgColor = "#FF0000"
+                mensaje = evento["Error"]
+                style = DANGER
+                icon = self._imagenes["Error"]
+
+            # SubFrame para cada evento
+            subFrame = ttk.LabelFrame(contenido_frame, bootstyle=style) #type: ignore
+            ttk.Label(subFrame, image=icon).grid(row=0, column=0)
+            ttk.Label(subFrame, text=comando).grid(row=0, column=1)
+            ttk.Label(subFrame, text=mensaje)#.grid(row=0, column=2)
+
+            # Configuración de las columnas del subFrame
+            columnas = subFrame.grid_size()[0]
+            for columna in range(columnas):
+                subFrame.grid_columnconfigure(columna, weight=1)
+
+            # Empaquetar el subFrame
+            subFrame.pack(fill="x", padx=5, pady=5)
+
+        # Mantener el scroll y actualizar cada segundo
+        frame.after(1000, self.actualizarEventsFrame, frame, completado)
+        #TODO Implementar frame para mostrar los eventos en un widget ttk.Label (opcional: widget animado)
+        #TODO Mejorar el diseño y la logica al mostrar los eventos
 
     def Iniciar(self):
         self.mainloop()
@@ -1119,16 +1183,6 @@ def lista_archivos_directorios(directorio_buscar:str):
         else:
             lista_directorios.append(elemento)
     return lista_archivos, lista_directorios
-
-def actualizarEventsFrame(frame):
-    for widget in frame.winfo_children():
-        widget.destroy()
-    
-    for evento in getEvents():
-        pass
-    
-    #TODO Implementar frame para mostrar los eventos en un widget ttk.Label (opcional: widget animado)
-    
 
 def ActualizarScrolledText(textArea:ScrolledText, ventana:tk.Tk, completado:tk.BooleanVar):
     if not completado.get():
