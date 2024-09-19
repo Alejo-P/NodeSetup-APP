@@ -1124,15 +1124,10 @@ def actualizarEventsFrame(frame):
     for widget in frame.winfo_children():
         widget.destroy()
     
+    for evento in getEvents():
+        pass
     
-    
-    
-    
-    
-    
-    
-    
-    
+    #TODO Implementar frame para mostrar los eventos en un widget ttk.Label (opcional: widget animado)
     
 
 def ActualizarScrolledText(textArea:ScrolledText, ventana:tk.Tk, completado:tk.BooleanVar):
