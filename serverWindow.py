@@ -173,7 +173,7 @@ class ServerWindow:
 
                 # Listar archivos
                 for file in files:
-                    if "node_modules" in root or file == "package-lock.json":
+                    if "node_modules" in root or file == "package-lock.json" or file == "appSettings.json":
                         continue
                     
                     detalleElemento = {
@@ -588,14 +588,12 @@ class ServerWindow:
             with open(os.path.join(self._ruta, 'appSettings.json'), 'r') as f:
                 DataSettings = json.loads(f.read())
             
-            runCommand([getPathOf("explorer"), self._ruta])
             isLoaded = DataSettings.get("isLoadedModules")
             if not isLoaded:
                 modulosNPM = loadInfoNPMModules(modulosNPM)
                 _actualizarDataSettings("isLoadedModules", True)
             else:
                 modulosNPM = DataSettings.get("modulesLoaded")
-            
             
             tareas.put("modulos cargados")
         
@@ -640,6 +638,15 @@ class ServerWindow:
             self._NodeServer.setComando([getPathOf("npm"), "run", scriptEjecucion])
             self._NodeServer.setRuta(self._ruta)   
             threading.Thread(target=_ejecBackground).start()
+        
+        def _ejecutarServidorKey():
+            if self._NodeServer.enEjecucion():
+                if messagebox.askyesno('Servidor en ejecución', 'El servidor se encuentra en ejecución, ¿desea detenerlo?'):
+                    _detenerServidor()
+                    self._botonEjecutarServidor.config(text='Ejecutar servidor', command=_ejecutarServidor)
+            else:
+                _ejecutarServidor()
+                self._botonEjecutarServidor.config(text='Detener servidor', command=_detenerServidor)
         
         def cerrarVentana():
             if self._NodeServer.enEjecucion():
@@ -866,7 +873,7 @@ class ServerWindow:
         self.root.bind('<Control-d>', lambda event: eliminarArchivo())
         self.root.bind('<Control-r>', lambda event: editarNombre())
         self.root.bind('<Control-n>', lambda event: crearArchivo())
-        self.root.bind('<Control-e>', lambda event: _ejecutarServidor())
+        self.root.bind('<Control-e>', lambda event: _ejecutarServidorKey())
         self.root.bind('<Control-m>', lambda event: instalarModulo(
             [modulo for modulo in modulosNPM if modulo['nombre'] == self._moduloSeleccionado.get()][0] if self._moduloSeleccionado.get() != "Seleccionar módulo" else {}
         ))
