@@ -1,6 +1,6 @@
-import copy
+import json
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import Frame, filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
@@ -21,14 +21,18 @@ from Actions import (
     getPathOf,
     runCommand,
     loadImageTk,
-    getGitBranches
+    getGitBranches,
+    getDetailedModules
 )
-from Vars import listaArgumentos, carpetas, archivos, archivos_p, lista_modulosNPM, Registro_hilos, respuestas, registro_commits, BASE_DIR
+from Vars import listaArgumentos, carpetas, archivos, archivos_p, Registro_hilos, respuestas, registro_commits, BASE_DIR
 from serverWindow import ServerWindow
 from version import __version__ as appVersion
 
-class ConfigurarEntornoNode(ttk.Window):
+class NodeSetupApp(ttk.Window):
     def __init__(self):
+        def ajustar_scroll(event):
+            self.canvas.config(scrollregion=self.canvas.bbox("all"))
+
         self._version = getVersionOf("node")
         self._versionGit = getVersionOf("git")
         self._veri_code = getPathOf("code")
@@ -38,6 +42,7 @@ class ConfigurarEntornoNode(ttk.Window):
         self._lista_widgets= []
         self._version_NPM = None
         self._ruta_temporal = tempfile.mkdtemp()
+        self._accionesRealizar = []
         
         if self._version is None:
             messagebox.showerror("Error", "Node.js no está instalado en el sistema")
@@ -52,9 +57,10 @@ class ConfigurarEntornoNode(ttk.Window):
         
         self._checkVars = []
         self._imagenes = {}
+        self._task_widgets = {}
         self._ruta = tk.StringVar()
         self._cambiarDirectorio = tk.BooleanVar(value=False)
-        self._modulosNPM = copy.deepcopy(lista_modulosNPM)
+        self._modulosNPM = getDetailedModules()
         
         self._idAfterBar = "Temporal"
         self.frameInfo = ttk.LabelFrame(self, width=100, text="Informacion:", bootstyle=INFO) # type: ignore
@@ -100,8 +106,19 @@ class ConfigurarEntornoNode(ttk.Window):
         self.completado = tk.BooleanVar(value=False)
         
         self.frm_estadoEv = ttk.LabelFrame(self, text="Registro de eventos", width=100)
-        self.textArea = ScrolledText(self.frm_estadoEv, wrap=tk.WORD, width=50, height=15, font=('Arial', 8))
-        self.textArea.pack(expand=True, fill=tk.BOTH)
+        self.canvas = tk.Canvas(self.frm_estadoEv)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        self.scrollbar = ttk.Scrollbar(self.frm_estadoEv, orient=tk.VERTICAL, command=self.canvas.yview, bootstyle="danger-round") #type: ignore
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.canvas.config(yscrollcommand=self.scrollbar.set)
+
+        self.contenido_frame = ttk.Frame(self.canvas)
+        
+        self.canvas.create_window((0, 0), window=self.contenido_frame, anchor=tk.NW)
+        
+        self.contenido_frame.bind("<Configure>", ajustar_scroll)
         
         self.repoURL = tk.StringVar()
         
@@ -110,9 +127,12 @@ class ConfigurarEntornoNode(ttk.Window):
         self._menuContextual(None)
     
     def _almacenar_imagenes(self):
-        # Cargar la imagen y guardarla en el diccionario
         ruta_assets = os.path.join(BASE_DIR, "assets")
         self._imagenes["Git"] = loadImageTk(os.path.join(ruta_assets, "gitIcon.png"), 25, 25)
+        self._imagenes["Check"] = loadImageTk(os.path.join(ruta_assets, "checkIcon.png"), 25, 25)
+        self._imagenes["Error"] = loadImageTk(os.path.join(ruta_assets, "errorIcon.png"), 25, 25)
+        self._imagenes["Pending"] = loadImageTk(os.path.join(ruta_assets, "timerIcon.png"), 25, 25)
+        self._imagenes["Running"] = loadImageTk(os.path.join(ruta_assets, "playIcon.png"), 25, 25)
     
     def mostrar_imagenes(self):
         try:
@@ -156,18 +176,26 @@ class ConfigurarEntornoNode(ttk.Window):
                         "<!DOCTYPE html>\n<html>\n<head>\n\t<title>Document</title>\n</head>\n<body>\n\t<h1>¡Hola Mundo!</h1>\n</body>\n</html>"
                     )
                     
-                with open(os.path.join(self._ruta_temporal, "public", "styles.css"), "w") as archivo:
+                with open(os.path.join(self._ruta_temporal, "public", "styles.css"), "w", encoding="utf-8") as archivo:
                     archivo.write(
                         "body {\n\tfont-family: Arial, sans-serif;\n\tbackground-color: #f0f0f0;\n}\n\nh1 {\n\tcolor: #333;\n\ttext-align: center;\n}"
                     )
                     
-                with open(os.path.join(self._ruta_temporal, "public", "scripts.js"), "w") as archivo:
-                    archivo.write("console.log('Hola Mundo!')")
+                with open(os.path.join(self._ruta_temporal, "public", "scripts.js"), "w", encoding="utf-8") as archivo:
+                    archivo.write("console.log('¡Hola Mundo!')")
                 
                 with open(os.path.join(self._ruta_temporal, "src", "index.js"), "w") as archivo:
                     archivo.write(
                         "const express = require('express')\nconst path = require('path');\nconst app = express();\n\napp.use(express.static('public'));\n\napp.get('/', (req, res) => {\n\tres.sendFile(path.join(__dirname, '..', 'views', 'index.html'));\n});\n\napp.listen(3000, () => {\n\tconsole.log('Servidor iniciado en el puerto 3000');\n});"
                     )
+                
+                with open(os.path.join(self._ruta_temporal, "appSettings.json"), "w", encoding="utf-8") as archivo:
+                    JSON_content = json.dumps({
+                        "isLoadedModules": False,
+                        "isServerRunning": False,
+                        "modulesLoaded" : []
+                    }, indent=4)
+                    archivo.write(JSON_content)
             
             lista.put(True)
             
@@ -361,7 +389,7 @@ class ConfigurarEntornoNode(ttk.Window):
                 
         def limpiarPlaceHolder(event):
             if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
-                ecommit.config(foreground="black")
+                ecommit.config(foreground="white")
                 mensajeCommit.set("")
         
         def CambiarPestaña(event):
@@ -434,7 +462,7 @@ class ConfigurarEntornoNode(ttk.Window):
         def _actualizarComboRamas():
             try:
                 resultado = respuestas.get_nowait()
-                if comboRama["state"] != "disabled":
+                if os.path.exists(os.path.join(self._ruta.get(), ".git")) and self._ruta.get():
                     comboRama["values"] = resultado
                     try:
                         comboRama.current(resultado.index(ramaActual))
@@ -457,9 +485,10 @@ class ConfigurarEntornoNode(ttk.Window):
         def _actualizarTabla():
             try:
                 resultado = registro_commits.get_nowait()
-                tablaCommits.delete(*tablaCommits.get_children())
-                for i, commit in enumerate(resultado, 1):
-                    tablaCommits.insert("", "end", text=f"#{i}", values=(commit["id"], commit["rama"], commit["mensaje"]))
+                if os.path.exists(os.path.join(self._ruta.get(), ".git")) and self._ruta.get():
+                    tablaCommits.delete(*tablaCommits.get_children())
+                    for i, commit in enumerate(resultado, 1):
+                        tablaCommits.insert("", "end", text=f"#{i}", values=(commit["id"], commit["rama"], commit["mensaje"]))
             except queue.Empty:
                 ventana.after(100, _actualizarTabla)
                 return
@@ -864,26 +893,62 @@ class ConfigurarEntornoNode(ttk.Window):
         
         def conteo_tareas():
             total_pasos = 1
+            self._accionesRealizar.clear()
+            self._task_widgets.clear()
+            if self._crearRuta.get():
+                tarea = {
+                    "accion": "Crear ruta",
+                    "estado": "Pendiente",
+                    "info": None
+                }
+                self._accionesRealizar.append(tarea.copy())
+                total_pasos += 1
+            
+            if self._eliminarContenido.get():
+                tarea = {
+                    "accion": "Eliminar contenido de la carpeta",
+                    "estado": "Pendiente",
+                    "info": None
+                }
+                self._accionesRealizar.append(tarea.copy())
+                total_pasos += 1
+            
+            tarea = {
+                "accion": "Inicializar proyecto Node",
+                "estado": "Pendiente",
+                "info": None
+            }
+            self._accionesRealizar.append(tarea.copy())
+            
             for dic in self._modulosNPM:
                 if dic["usar"] is not None and dic["usar"].get():
+                    tarea = {
+                        "accion": f"Instalar modulo {dic['nombre']} - {dic['version'].get()}",
+                        "estado": "Pendiente",
+                        "info": dic
+                    }
+                    self._accionesRealizar.append(tarea.copy())
                     total_pasos += 1
             
             for dic in self._checkVars:
                 dic = dict(dic)
                 for clave, var in dic.items():
                     if var.get() and clave == "Crear archivos\nadicionales":
+                        tarea = {
+                            "accion": "Crear archivos adicionales",
+                            "estado": "Pendiente",
+                            "info": None
+                        }
+                        self._accionesRealizar.append(tarea.copy())
                         total_pasos += 1
                     elif var.get() and clave == "Abrir en VS Code\nal finalizar":
+                        tareas = {
+                            "accion": "Abrir en VS Code",
+                            "estado": "Pendiente",
+                            "info": None
+                        }
+                        self._accionesRealizar.append(tareas.copy())
                         total_pasos += 1
-                    
-            if self._crearRuta.get():
-                total_pasos += 1
-            
-            if self._eliminarContenido.get():
-                total_pasos += 1
-            
-            if self._eliminarDatos.get():
-                total_pasos += 1
             
             return total_pasos
         
@@ -900,62 +965,12 @@ class ConfigurarEntornoNode(ttk.Window):
             incrementar_progreso(self.progreso, incremento, objetivo, 50)
             self.update_idletasks()
         
-        if len(self.entry_ruta.get()) == 0:
-            messagebox.showwarning("Advertencia", "Debe seleccionar una ruta")
-            return
-        
-        self.lock_unlock_widgets(estado="disabled")
-        self.completado.set(False)
-        total_pasos = conteo_tareas()
-        pasos_completados = 0
-        
-        if self._crearRuta.get():
-            try:
-                actualizar_progreso("Creando ruta")
-                self._crear_ruta()
-            except NotADirectoryError as de:
-                actualizar_progreso("Error en la ruta", fill=True)
-                self.lock_unlock_widgets(estado="normal")
-                messagebox.showerror("Ruta invalida", f"Error en la ruta: {de}")
-                return
-            except Exception as e:
-                messagebox.showerror("Error", f"Error al crear la ruta: {e}")
-                self.lock_unlock_widgets(estado="normal")
-                actualizar_progreso("Error al crear la ruta", fill=True)
-                return
-        
-        if self._eliminarContenido.get():
-            if messagebox.askyesno("Advertencia", f"Se eliminara todo el contenido de la carteta actual\n {self.entry_ruta.get()},\n ¿Desea contunuar?"):
-                try:
-                    actualizar_progreso("Eliminando contenido de la carpeta")
-                    self._borrar_contenido_ruta()
-                except Exception as e:
-                    messagebox.showerror("Error", f"Error al eliminar contenido de la carpeta: {e}")
-                    self.lock_unlock_widgets(estado="normal")
-                    actualizar_progreso("Error al eliminar contenido de la carpeta", fill=True)
-                    return
-            else:
-                self.lock_unlock_widgets(estado="normal")
-                actualizar_progreso("Operacion cancelada", fill=True)
-                self.completado.set(True)
-                return
-        
-        self.progreso['value'] = 0
-        self.frm_estadoEv.grid(row=1, rowspan=11, column=4, columnspan=2, padx=5, sticky="nsew")
-        self._centrar_ventana(restablecer_tamaño=True)
         def Iniciar_npm():
             try:
                 actualizar_progreso("Inicializando proyecto Node")
                 # Ejecutar `npm init -y` para inicializar el proyecto
                 estado = runCommand([self._npm_path, "init", "-y"], self.entry_ruta.get())
-                setEvent(
-                    "INFO",
-                    {
-                        "Comando": " ".join([self._npm_path, "init", "-y"]),
-                        "Resultado": estado,
-                        "Funcion": Iniciar_npm.__name__
-                    }
-                )
+                
                 if isinstance(estado, subprocess.CalledProcessError):
                     messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {estado}")
                     self.lock_unlock_widgets(estado="normal")
@@ -978,13 +993,88 @@ class ConfigurarEntornoNode(ttk.Window):
                 self.completado.set(True)
                 return int(-1)
         
-        threading.Thread(target=ActualizarScrolledText, args=(self.textArea, self, self.completado)).start()
-              
-        if Iniciar_npm() == 0:
-            for modulo in self._modulosNPM:
+        if len(self.entry_ruta.get()) == 0:
+            messagebox.showwarning("Advertencia", "Debe seleccionar una ruta")
+            return
+        
+        self.lock_unlock_widgets(estado="disabled")
+        self.completado.set(False)
+        total_pasos = conteo_tareas()
+        pasos_completados = 0
+        
+        for widget in self.contenido_frame.winfo_children():
+            widget.destroy()
+        
+        self.canvas.config(scrollregion=self.canvas.bbox("all"))
+        self.progreso['value'] = 0
+        self.frm_estadoEv.grid(row=1, rowspan=11, column=4, columnspan=2, padx=5, sticky="nsew")
+        self._centrar_ventana(restablecer_tamaño=True)
+        
+        for tarea in self._accionesRealizar:
+            if tarea["accion"] == "Crear ruta":
+                try:
+                    tarea["estado"] = "En progreso"
+                    self.actualizarEventsFrame()
+                    actualizar_progreso("Creando ruta")
+                    self._crear_ruta()
+                    tarea["estado"] = "Completado"
+                    self.actualizarEventsFrame()
+                except NotADirectoryError as de:
+                    actualizar_progreso("Error en la ruta", fill=True)
+                    self.lock_unlock_widgets(estado="normal")
+                    tarea["estado"] = "Error"
+                    self.actualizarEventsFrame()
+                    messagebox.showerror("Ruta invalida", f"Error en la ruta: {de}")
+                    return
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al crear la ruta: {e}")
+                    self.lock_unlock_widgets(estado="normal")
+                    actualizar_progreso("Error al crear la ruta", fill=True)
+                    tarea["estado"] = "Error"
+                    self.actualizarEventsFrame()
+                    return
+            
+            if tarea["accion"] == "Eliminar contenido de la carpeta":
+                if messagebox.askyesno("Advertencia", f"Se eliminara todo el contenido de la carteta actual\n {self.entry_ruta.get()},\n ¿Desea contunuar?"):
+                    try:
+                        tarea["estado"] = "En progreso"
+                        self.actualizarEventsFrame()
+                        actualizar_progreso("Eliminando contenido de la carpeta")
+                        self._borrar_contenido_ruta()
+                        tarea["estado"] = "Completado"
+                        self.actualizarEventsFrame()
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Error al eliminar contenido de la carpeta: {e}")
+                        self.lock_unlock_widgets(estado="normal")
+                        actualizar_progreso("Error al eliminar contenido de la carpeta", fill=True)
+                        tarea["estado"] = "Error"
+                        self.actualizarEventsFrame()
+                        return
+                else:
+                    self.lock_unlock_widgets(estado="normal")
+                    actualizar_progreso("Operacion cancelada", fill=True)
+                    tarea["estado"] = "Error"
+                    self.actualizarEventsFrame()
+                    return
+            
+            if tarea["accion"] == "Inicializar proyecto Node":
+                tarea["estado"] = "En progreso"
+                self.actualizarEventsFrame()
+                
+                if Iniciar_npm() != 0:
+                    tarea["estado"] = "Error"
+                    self.actualizarEventsFrame()
+                    return
+                
+                tarea["estado"] = "Completado"
+                self.actualizarEventsFrame()
+            
+            if tarea["accion"].startswith("Instalar modulo"):
+                modulo = tarea["info"]
                 if modulo["usar"] is not None and modulo["usar"].get():
-                    actualizar_progreso(f"Instalando {modulo['nombre']}-{modulo["version"].get()} {'globalmente' if modulo['global'].get() else ''}")
-                        
+                    actualizar_progreso(f"Instalando {modulo['nombre']}-{modulo['version'].get()} {'globalmente' if modulo['global'].get() else ''}")
+                    tarea["estado"] = "En progreso"
+                    self.actualizarEventsFrame()
                     # Construir los argumentos del comando
                     comando = [
                         self._npm_path,
@@ -1003,16 +1093,10 @@ class ConfigurarEntornoNode(ttk.Window):
                     
                     # Ejecutar el comando
                     estado = runCommand(comando, self.entry_ruta.get())
-                    setEvent(
-                        "INFO",
-                        {
-                            "Comando": " ".join(comando),
-                            "Resultado": estado,
-                            "Funcion": " ".join(comando)
-                        }
-                    )
                     if isinstance(estado, subprocess.CalledProcessError):
                         messagebox.showerror("Error", f"Error instalando {modulo['nombre']}: {estado}")
+                        tarea["estado"] = "Error"
+                        self.actualizarEventsFrame()
                         if self._pararEnFallo.get():
                             self.lock_unlock_widgets(estado="normal")
                             if self._eliminarDatos.get():
@@ -1023,40 +1107,56 @@ class ConfigurarEntornoNode(ttk.Window):
                             actualizar_progreso(f"Error al instalar {modulo['nombre']}", fill=True)
                             self.completado.set(True)
                             return
-                       
-            for dic in self._checkVars:
-                dic = dict(dic)
-                for clave, var in dic.items():
-                    if var.get() and clave == "Crear archivos\nadicionales":
-                        actualizar_progreso("Creando archivos adicionales")
-                        self._crear_recursos_necesarios()
-                    elif var.get() and clave == "Abrir en VS Code\nal finalizar":
-                        actualizar_progreso("Abriendo en VS Code")
-                        try:
-                            code = os.system(f"code {self.entry_ruta.get()}")
-                            if code != 0:
-                                raise ValueError(f"codigo de estado: {code}, Razon probable: El comando no se pudo ejecutar")
-                        except ValueError:
-                            messagebox.showerror("Error", "Error al abrir en VS Code")
-                            if self._pararEnFallo.get():
-                                self.lock_unlock_widgets(estado="normal")
-                                actualizar_progreso("Error al abrir en VS Code", fill=True)
-                                return
+                    else:
+                        tarea["estado"] = "Completado"
+                        self.actualizarEventsFrame()
+            
+            if tarea["accion"] == "Crear archivos adicionales":
+                tarea["estado"] = "En progreso"
+                self.actualizarEventsFrame()
+                actualizar_progreso("Creando archivos adicionales")
+                self._crear_recursos_necesarios()
+                tarea["estado"] = "Completado"
+                self.actualizarEventsFrame()
             
             for archivo in archivos_p:
-                actualizar_progreso(f"Creando {archivo}")
                 with open(f"{self.entry_ruta.get()}/{archivo}", "w") as file:
                     if archivo == ".gitignore":
                         file.write("node_modules\n")
                         file.write(".env")
             
+            if tarea["accion"] == "Abrir en VS Code":
+                tarea["estado"] = "En progreso"
+                self.actualizarEventsFrame()
+                actualizar_progreso("Abriendo en VS Code")
+                try:
+                    resultado = runCommand([self._veri_code, "."], self.entry_ruta.get())
+                    if isinstance(resultado, subprocess.CalledProcessError):
+                        tarea["estado"] = "Error"
+                        self.actualizarEventsFrame()
+                        actualizar_progreso("Error al abrir en VS Code", fill=True)
+                        self.lock_unlock_widgets(estado="normal")
+                        messagebox.showerror("Error", f"Error al abrir en VS Code: {resultado}")
+                        return
+                    else:
+                        tarea["estado"] = "Completado"
+                        self.actualizarEventsFrame()
+                except Exception as e:
+                    tarea["estado"] = "Error"
+                    self.actualizarEventsFrame()
+                    actualizar_progreso("Error al abrir en VS Code", fill=True)
+                    self.lock_unlock_widgets(estado="normal")
+                    messagebox.showerror("Error", f"Error al abrir en VS Code: {e}")
+                    return
+                            
+        if pasos_completados == total_pasos:
             self.lock_unlock_widgets(estado="normal")
             actualizar_progreso("Completado", True)
             messagebox.showinfo("Informacion", "Proyecto creado con éxito")
-            self.completado.set(True)
-            time.sleep(1)
-            self.frm_estadoEv.grid_forget()
-            self._centrar_ventana(restablecer_tamaño=True)
+            time.sleep(4.5)
+            if self.winfo_exists():
+                self.frm_estadoEv.grid_forget()
+                self._centrar_ventana(restablecer_tamaño=True)
             del total_pasos, pasos_completados
 
     def _crear_ruta(self):
@@ -1093,6 +1193,51 @@ class ConfigurarEntornoNode(ttk.Window):
         # Eliminar la ruta temporal y todos los archivos y carpetas contenidos en la ruta
         if os.path.exists(self._ruta_temporal):
             shutil.rmtree(self._ruta_temporal)
+    
+    def actualizarEventsFrame(self):
+        for i, tarea in enumerate(self._accionesRealizar, 1):
+            if tarea["estado"] == "Pendiente":
+                style = WARNING
+                icon = self._imagenes["Pending"]
+            elif tarea["estado"] == "En progreso":
+                style = INFO
+                icon = self._imagenes["Running"]
+            elif tarea["estado"] == "Completado":
+                style = SUCCESS
+                icon = self._imagenes["Check"]
+            else:
+                style = DANGER
+                icon = self._imagenes["Error"]
+            
+            if i not in self._task_widgets:
+                subFrame = ttk.LabelFrame(self.contenido_frame, text=f"Tarea {i} de {len(self._accionesRealizar)}", bootstyle=style) # type: ignore
+                ttk.Label(subFrame, image=icon).grid(row=0, column=0, sticky="nsew", padx=3)
+                ttk.Label(subFrame, text=tarea["accion"]).grid(row=0, column=1, sticky="nsew", padx=9)
+                ttk.Label(subFrame, text=tarea["estado"]).grid(row=0, column=2, sticky="nsew", padx=3)
+                
+                columnas = subFrame.grid_size()[0]
+                for columna in range(columnas):
+                    subFrame.grid_columnconfigure(columna, weight=1)
+
+                subFrame.grid(row=i-1, column=0, sticky="nsew", padx=5, pady=5)
+                self._task_widgets[i] = subFrame
+            else:
+                subFrame = self._task_widgets[i]
+                subFrame.config(text=f"Tarea {i} de {len(self._accionesRealizar)}", bootstyle=style)  # type: ignore
+                subFrame.grid_slaves(row=0, column=0)[0].config(image=icon)
+                subFrame.grid_slaves(row=0, column=1)[0].config(text=tarea["accion"])
+                subFrame.grid_slaves(row=0, column=2)[0].config(text=tarea["estado"])
+
+        columnas = self.contenido_frame.grid_size()[0]
+        for columna in range(columnas):
+            self.contenido_frame.grid_columnconfigure(columna, weight=1)
+        
+        # Eliminar los frames que no se han actualizado
+        for key in list(self._task_widgets.keys()):
+            if key not in range(1, len(self._accionesRealizar)+1):
+                frame = self._task_widgets.pop(key)
+                frame.destroy()
+        # Opción: Si alguna tarea se elimina o no está presente en `self._accionesRealizar`, se puede eliminar de `_task_widgets` si es necesario
 
     def Iniciar(self):
         self.mainloop()
@@ -1108,35 +1253,12 @@ def lista_archivos_directorios(directorio_buscar:str):
             lista_directorios.append(elemento)
     return lista_archivos, lista_directorios
 
-def ActualizarScrolledText(textArea:ScrolledText, ventana:tk.Tk, completado:tk.BooleanVar):
-    if not completado.get():
-        textArea.delete(1.0, tk.END)
-        try:
-            for evento in getEvents():
-                textArea.insert(tk.END, "_"*25)
-                textArea.insert(tk.END, f"""
-\nCMD: {evento["Comando"]}
-SALIDA: {str(evento["Salida"]).strip() if evento["Salida"] else str(evento["Error"]).strip()}
-CODIGO: {evento["CodigoRetorno"]}
-FUNCION: {evento["Funcion"]}\n""")
-                textArea.insert(tk.END, "_"*25)
-                textArea.see(tk.END)
-        except Exception as e:
-            print("Error al actualizar el texto:", e)
-        
-        ventana.after(1000, ActualizarScrolledText, textArea, ventana, completado)
-    else:
-        textArea.delete(1.0, tk.END)
-        textArea.insert(tk.END, "Tareas finalizadas")
-        textArea.see(tk.END)
-        return
-
 def dividir_lista(lista, n):
     for i in range(0, len(lista), n):
         yield lista[i:i + n]
 
 if __name__ == "__main__":
-    app = ConfigurarEntornoNode()
+    app = NodeSetupApp()
     app.mostrar_imagenes()
     app._centrar_ventana()
     app.Iniciar()

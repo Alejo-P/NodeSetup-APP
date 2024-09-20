@@ -1,12 +1,11 @@
-import os, shutil, copy, queue, json
+import os, shutil, psutil, queue, json
 import subprocess
 import threading
 from typing import Any
 import ttkbootstrap as ttk
-import ttkbootstrap.constants as c
+import ttkbootstrap.constants as BOOTSTRAP
 import tkinter as tk
 from tkinter import messagebox, filedialog
-from Vars import lista_modulosNPM
 from Actions import (
     clearQueue,
     doNothing,
@@ -14,10 +13,61 @@ from Actions import (
     loadInfoNPMModules, 
     promptUser, 
     configureSyntax, 
-    applySintax, 
+    applySintax,
     centerWindow, 
-    runCommand
+    runCommand,
+    getDetailedModules
 )
+
+class NodeServer:
+    _enEjecucion = False
+    def __init__(self, comando:list[str] | None = None, ruta:str | None = None) -> None:
+        self._comando = comando if comando else []
+        self._ruta = ruta if ruta else ''
+        self._proceso = None
+    
+    def enEjecucion(self):
+        return self._enEjecucion
+    
+    def ejecutar(self):
+        if self._enEjecucion:
+            print('El servidor ya se encuentra en ejecución')
+            return
+        
+        if not self._comando or not all(fragmento for fragmento in self._comando) or not self._ruta:
+            print('Comando incorrectamente definido o ruta no definida')
+            return
+        
+        self._proceso = subprocess.Popen(self._comando, cwd=self._ruta)
+        self._enEjecucion = True
+    
+    def detener(self):
+        if not self._enEjecucion or not self._proceso:
+            print('El servidor no se encuentra en ejecución')
+            return
+        
+        self._enEjecucion = False
+        
+        if self._proceso.poll() is not None:
+            print('El servidor ya ha sido detenido')
+            return
+
+        procesos = psutil.Process(self._proceso.pid)
+        for proceso in procesos.children(recursive=True):
+            proceso.terminate()
+        
+        procesos.kill()
+        procesos.wait()
+            
+    def reiniciar(self):
+        self.detener()
+        self.ejecutar()
+        
+    def setComando(self, comando:list[str]):
+        self._comando = comando
+        
+    def setRuta(self, ruta:str):
+        self._ruta = ruta
 
 class ServerWindow:
     def __init__(self, ventana:ttk.Window, ruta:str) -> None:
@@ -123,7 +173,7 @@ class ServerWindow:
 
                 # Listar archivos
                 for file in files:
-                    if "node_modules" in root or file == "package-lock.json":
+                    if "node_modules" in root or file == "package-lock.json" or file == "appSettings.json":
                         continue
                     
                     detalleElemento = {
@@ -238,14 +288,18 @@ class ServerWindow:
                 _actualizarEntradaRuta()
                 
         def eliminarArchivo():
-            # Verificar si el elemento a eliminar no es la carpeta principal (el elemento padre de todos los archivos)
-            if self._tablaArchivos.selection()[0] == self._tablaArchivos.get_children()[0]:
-                messagebox.showwarning('Error', 'No se puede eliminar la carpeta principal')
-                return
-            
             seleccion = self._tablaArchivos.selection()
             if not seleccion:
                 messagebox.showwarning('Error', 'No se ha seleccionado ningún archivo')
+                return
+            
+            # Verificar si el elemento a eliminar no es la carpeta principal (el elemento padre de todos los archivos)
+            if seleccion[0] == self._tablaArchivos.get_children()[0]:
+                messagebox.showwarning('Error', 'No se puede eliminar la carpeta principal')
+                return
+            
+            if "package.json" in self._tablaArchivos.item(seleccion[0], 'values')[0]:
+                messagebox.showwarning('Error', 'No se puede eliminar el archivo package.json')
                 return
             
             ruta_seleccion = _obtenerRutaArchivo('/').split("/")
@@ -415,6 +469,8 @@ class ServerWindow:
                     modulo['version'] = version
                 else:
                     modulo['usar'] = False
+            
+            _actualizarDataSettings("modulesLoaded", modulosNPM)
         
         def _actualizarValoresComboModulos():
             self._comboModulos['values'] = tuple([modulo['nombre'] for modulo in modulosNPM if not modulo["usar"]])
@@ -427,9 +483,15 @@ class ServerWindow:
                 if modulo['usar']:
                     self._tablaModulos.insert('', 'end', values=(modulo['nombre'], modulo['version']))
         
+        def _actualizarDataSettings(clave:str, valor:Any):
+            nonlocal DataSettings
+            DataSettings[clave] = valor
+            with open(os.path.join(self._ruta, 'appSettings.json'), 'w') as f:
+                f.write(json.dumps(DataSettings, indent=4))
+            
         def instalarModulo(detalleModulo:dict[str, Any]):
             def _intalarmoduloBackgroud():
-                resultado = runCommand([getPathOf("npm"), 'install', detalleModulo['nombre'].lower()], self._ruta)
+                resultado = runCommand([getPathOf("npm"), 'i', f"{detalleModulo['nombre'].lower()}@{detalleModulo['version']}"], self._ruta)
                 if isinstance(resultado, subprocess.CalledProcessError):
                     detalleModulo['usar'] = False
                     tareas.put("instalar modulo - " + detalleModulo['nombre'] + " - False")
@@ -521,8 +583,18 @@ class ServerWindow:
                 return
         
         def _precargaInfoModulos():
-            nonlocal modulosNPM
-            modulosNPM = loadInfoNPMModules(modulosNPM)
+            nonlocal modulosNPM, DataSettings
+            
+            with open(os.path.join(self._ruta, 'appSettings.json'), 'r') as f:
+                DataSettings = json.loads(f.read())
+            
+            isLoaded = DataSettings.get("isLoadedModules")
+            if not isLoaded:
+                modulosNPM = loadInfoNPMModules(modulosNPM)
+                _actualizarDataSettings("isLoadedModules", True)
+            else:
+                modulosNPM = DataSettings.get("modulesLoaded")
+            
             tareas.put("modulos cargados")
         
         def _verificarPrecarga():
@@ -546,21 +618,42 @@ class ServerWindow:
                 return
             
             clearQueue(tareas)
+        
+        def _detenerServidor():
+            self._NodeServer.detener()
+            self._botonEjecutarServidor.config(text='Ejecutar servidor', command=_ejecutarServidor)
+            messagebox.showinfo('Servidor detenido', 'El servidor ha sido detenido correctamente')
             
         def _ejecutarServidor():
             def _ejecBackground():
-                resultado = subprocess.Popen([getPathOf("npm"), "run", scriptEjecucion], cwd=self._ruta)
-                resultado.wait()
-                messagebox.showinfo('Servidor finalizado', 'El servidor ha finalizado su ejecución')
+                self._NodeServer.ejecutar()
+                self._botonEjecutarServidor.config(text='Detener servidor', command=_detenerServidor)
+                messagebox.showinfo('Servidor en ejecución', 'El servidor se encuentra en ejecución')
             
             scripts = PackageJSON.get('scripts', {})
             if not scripts.get(scriptEjecucion):
                 messagebox.showwarning('Error', f'No se ha definido un script de inicio ({scriptEjecucion}) en el archivo package.json')
                 return
             
+            self._NodeServer.setComando([getPathOf("npm"), "run", scriptEjecucion])
+            self._NodeServer.setRuta(self._ruta)   
             threading.Thread(target=_ejecBackground).start()
         
+        def _ejecutarServidorKey():
+            if self._NodeServer.enEjecucion():
+                if messagebox.askyesno('Servidor en ejecución', 'El servidor se encuentra en ejecución, ¿desea detenerlo?'):
+                    _detenerServidor()
+            else:
+                _ejecutarServidor()
+        
         def cerrarVentana():
+            if self._NodeServer.enEjecucion():
+                confirmacion = messagebox.askyesno('Servidor en ejecución', 'El servidor se encuentra en ejecución, ¿desea detenerlo?')
+                if not confirmacion:
+                    return
+                
+                _detenerServidor()
+            
             if self._afterPrecarga:
                 self.root.after_cancel(self._afterPrecarga)
             
@@ -596,16 +689,29 @@ class ServerWindow:
             attec.transient(self.root)
             attec.protocol('WM_DELETE_WINDOW', attec.destroy)
             
-            ttk.Label(attec, text='Atajos de teclado').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + S: Guardar un archivo').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + O: Cargar un archivo').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + Shift + O: Crear carpeta').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + D: Eliminar un archivo').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + R: Editar nombre de un archivo').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + N: Crear un archivo').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + E: Ejecutar servidor').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + M: Instalar módulo').pack(expand=True, fill='x')
-            ttk.Label(attec, text='Ctrl + Shift + M: Eliminar módulo').pack(expand=True, fill='x')
+            ttk.Label(attec, text='Atajos del teclado').grid(row=0, column=0, columnspan=2, sticky='nsew')
+            
+            frame_accionesArchivo = ttk.LabelFrame(attec, text='Acciones de archivos y/o carpetas', bootstyle='info.TLabelframe') #type: ignore
+            frame_accionesArchivo.grid(row=1, column=0, sticky='nsew', padx=5, pady=5)
+            ttk.Entry(frame_accionesArchivo, )
+            ttk.Label(frame_accionesArchivo, text='Ctrl + S: Guardar un archivo').pack(expand=True, fill='x')
+            ttk.Label(frame_accionesArchivo, text='Ctrl + O: Cargar un archivo').pack(expand=True, fill='x')
+            ttk.Label(frame_accionesArchivo, text='Ctrl + Shift + O: Crear carpeta').pack(expand=True, fill='x')
+            ttk.Label(frame_accionesArchivo, text='Ctrl + D: Eliminar un archivo').pack(expand=True, fill='x')
+            ttk.Label(frame_accionesArchivo, text='Ctrl + R: Editar nombre de un archivo').pack(expand=True, fill='x')
+            ttk.Label(frame_accionesArchivo, text='Ctrl + N: Crear un archivo').pack(expand=True, fill='x')
+            
+            frame_accionesServidor = ttk.LabelFrame(attec, text='Acciones de servidor', bootstyle='info.TLabelframe') #type: ignore
+            frame_accionesServidor.grid(row=1, column=1, sticky='nsew', padx=5, pady=5)
+            ttk.Label(frame_accionesServidor, text='Ctrl + E: Ejecutar/Detener servidor').pack(expand=True, fill='x')
+            ttk.Label(frame_accionesServidor, text='Ctrl + M: Instalar módulo').pack(expand=True, fill='x')
+            ttk.Label(frame_accionesServidor, text='Ctrl + Shift + M: Eliminar módulo').pack(expand=True, fill='x')
+            
+            ttk.Button(attec, text='Cerrar', command=attec.destroy, bootstyle=(BOOTSTRAP.DANGER, BOOTSTRAP.OUTLINE)).grid(row=2, column=0, columnspan=2, sticky='nsew', pady=5, padx=5) #type: ignore
+            
+            columnas = attec.grid_size()[0]
+            for columna in range(columnas):
+                attec.columnconfigure(columna, weight=1)
             
             centerWindow(attec, True)
             
@@ -635,10 +741,12 @@ class ServerWindow:
         listaElementos:list[dict[str, Any]] = []
         tareas = queue.Queue()
         self._ruta = ruta
+        self._NodeServer = NodeServer()
         self._varRuta = tk.StringVar()
         self._moduloSeleccionado = tk.StringVar()
-        modulosNPM = copy.deepcopy(lista_modulosNPM)
+        modulosNPM = getDetailedModules(excluirClaves=['versiones', 'global', 'argumento'])
         PackageJSON = {}
+        DataSettings = {}
         scriptEjecucion = "start"
         
         hiloPrecarga = threading.Thread(target=_precargaInfoModulos)
@@ -763,7 +871,7 @@ class ServerWindow:
         self.root.bind('<Control-d>', lambda event: eliminarArchivo())
         self.root.bind('<Control-r>', lambda event: editarNombre())
         self.root.bind('<Control-n>', lambda event: crearArchivo())
-        self.root.bind('<Control-e>', lambda event: _ejecutarServidor())
+        self.root.bind('<Control-e>', lambda event: _ejecutarServidorKey())
         self.root.bind('<Control-m>', lambda event: instalarModulo(
             [modulo for modulo in modulosNPM if modulo['nombre'] == self._moduloSeleccionado.get()][0] if self._moduloSeleccionado.get() != "Seleccionar módulo" else {}
         ))

@@ -1,11 +1,43 @@
-import ast
+import ast, copy
 from collections.abc import Callable
 import os, queue, re, subprocess, tkinter as tk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 from typing import Any, List, Literal, overload, Union
-from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS, keywordsHTML, keywordsCSS
+from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS, keywordsHTML, keywordsCSS, modulosNPM
+
+def getDetailedModules(excluirClaves:List[str] = [], excluirModulos:List[str] = []):
+    """Detalla los modulos de NPM que se van a instalar.
+
+    Args:
+        excluirClaves (List[str], optional): _Claves a excluir del diccionario de modulos_. Defaults to []
+        excluirModulos (List[str], optional): _Modulos a excluir de la lista de modulos_. Defaults to []
+    
+    Returns:
+        list[dict]: _Lista de modulos de NPM_
+    """
+    
+    detalleMoodulos = []
+    for nombreModulo in modulosNPM:
+        if nombreModulo in excluirModulos:
+            continue
+        
+        dic_base = {
+            "usar": None,
+            "nombre": nombreModulo,
+            "argumento": "",
+            "version": None,
+            "versiones": None,
+            "global": None
+        }
+        
+        for clave in excluirClaves:
+            dic_base.pop(clave, None)
+        
+        dic = copy.deepcopy(dic_base)
+        detalleMoodulos.append(dic)
+    return detalleMoodulos
 
 def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
     """Regsitar un evento (detalles de un comando) ejecutado por el programa.
@@ -291,31 +323,33 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
         })
     return listaDetalles
 
-def loadInfoNPMModules(modulosCargar:list[dict[str, Any]]):
-    """Carga la informacion de los modulos de NPM en un diccionario.
-
-    Args:
-        modulosCargar (list[dict[str, Any]]): _Lista de modulos a cargar_
-    
-    Returns:
-        _list[dict[str, Any]]_: _Lista de modulos cargados_
-    """
+def loadInfoNPMModules(modulosCargar: List[dict[str, Any]]):
     for dic in modulosCargar:
-        if not dic["versiones"]:
-            versionesPaquetes = runCommand([getPathOf("npm"), "show", dic["nombre"].lower(), "versions", "--depth=0"])
-            if isinstance(versionesPaquetes, subprocess.CalledProcessError):
-                dic["versiones"] = ["Ocurrió un error"]
-            else:
-                dic["versiones"] = list(ast.literal_eval(f"{versionesPaquetes.stdout.strip()}"))
-
-        if not dic["usar"]:
+        versionesPaquetes = runCommand([getPathOf("npm"), "show", dic["nombre"].lower(), "versions", "--depth=0"])
+        if isinstance(versionesPaquetes, subprocess.CalledProcessError):
+            versiones = ["Ocurrió un error"]
+        else:
+            versiones = list(ast.literal_eval(f"{versionesPaquetes.stdout.strip()}"))
+        
+        # Verifica si la clave "versiones" existe antes de usarla
+        if dic.get("versiones") is not None:
+            dic["versiones"] = versiones
+        
+        # Verifica si la clave "usar" existe antes de usarla
+        if dic.get("usar", "") == None:
             dic["usar"] = False
-        if not dic["global"]:
+        
+        # Verifica si la clave "global" existe antes de usarla
+        if dic.get("global", "") == None:
             dic["global"] = False
-        if not dic["argumento"]:
+        
+        # Verifica si la clave "argumento" existe antes de usarla
+        if dic.get("argumento", "") == None:
             dic["argumento"] = ""
-        if not dic["version"]:
-            dic["version"] = dic["versiones"][0] if dic["versiones"] else "No hay versiones"
+        
+        # Verifica si la clave "version" existe y maneja el caso en que "versiones" esté ausente
+        if dic.get("version", "") == None:
+            dic["version"] = versiones[-1]
     
     return modulosCargar
     
