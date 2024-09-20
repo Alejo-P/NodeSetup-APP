@@ -643,10 +643,8 @@ class ServerWindow:
             if self._NodeServer.enEjecucion():
                 if messagebox.askyesno('Servidor en ejecución', 'El servidor se encuentra en ejecución, ¿desea detenerlo?'):
                     _detenerServidor()
-                    self._botonEjecutarServidor.config(text='Ejecutar servidor', command=_ejecutarServidor)
             else:
                 _ejecutarServidor()
-                self._botonEjecutarServidor.config(text='Detener servidor', command=_detenerServidor)
         
         def cerrarVentana():
             if self._NodeServer.enEjecucion():
