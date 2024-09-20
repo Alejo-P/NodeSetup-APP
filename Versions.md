@@ -24,8 +24,8 @@
                     <li>
                         Se modifico la vista de eventos 
                         <b>(acciones realizadas por la aplicación)</b>
-                        para mostrar los eventos de manera visual y no
-                        solo texto y se mostrarán como lista de tareas
+                        para mostrar los eventos eb forma de lista y no
+                        solo texto, se mostrarán como lista de tareas
                         que el programa ira marcando como pendientes,
                         en proceso, completadas o con error segun sea
                         el caso.
