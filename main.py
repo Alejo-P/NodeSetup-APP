@@ -389,7 +389,7 @@ class NodeSetupApp(ttk.Window):
                 
         def limpiarPlaceHolder(event):
             if mensajeCommit.get() == "Ingrese un mensaje de confirmación ...":
-                ecommit.config(foreground="black")
+                ecommit.config(foreground="white")
                 mensajeCommit.set("")
         
         def CambiarPestaña(event):
@@ -1153,7 +1153,7 @@ class NodeSetupApp(ttk.Window):
             self.lock_unlock_widgets(estado="normal")
             actualizar_progreso("Completado", True)
             messagebox.showinfo("Informacion", "Proyecto creado con éxito")
-            time.sleep(5)
+            time.sleep(4.5)
             if self.winfo_exists():
                 self.frm_estadoEv.grid_forget()
                 self._centrar_ventana(restablecer_tamaño=True)
