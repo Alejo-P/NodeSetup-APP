@@ -1,10 +1,9 @@
 import json
 import tkinter as tk
-from tkinter import Frame, filedialog
+from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
-from tkinter.scrolledtext import ScrolledText
 import queue, os, shutil, threading, subprocess
 import time, ast, tempfile
 from typing import Literal
@@ -14,9 +13,7 @@ from Actions import (
     getBranchCommitsLog,
     getCurrentBrach,
     preventCloseWindow,
-    getEvents,
     getVersionOf,
-    setEvent,
     writeLog,
     getPathOf,
     runCommand,

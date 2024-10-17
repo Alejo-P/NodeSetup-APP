@@ -43,7 +43,7 @@ archivos = [
     "index.js"
 ]
 
-modulosNPM = [
+modulosNPM = sorted([
     "Axios",
     "Bcrypt",
     "Body-parser",
@@ -58,11 +58,11 @@ modulosNPM = [
     "Mongoose",
     "Morgan",
     "MySQL2",
+    "Uuid",
     "Nodemailer",
     "Nodemon",
     "Sequelize",
-    "Uuid"
-]
+], key=str.lower)
 
 Registro_hilos = []
 
