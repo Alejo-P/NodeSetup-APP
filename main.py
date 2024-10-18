@@ -21,7 +21,15 @@ from Actions import (
     getGitBranches,
     getDetailedModules
 )
-from Vars import listaArgumentos, carpetas, archivos, archivos_p, Registro_hilos, respuestas, registro_commits, BASE_DIR
+from Vars import (
+    listaArgumentos,
+    carpetas, archivos,
+    archivos_p,
+    Registro_hilos,
+    respuestas,
+    registro_commits,
+    ruta_assets
+)
 from serverWindow import ServerWindow
 from version import __version__ as appVersion
 
@@ -124,12 +132,11 @@ class NodeSetupApp(ttk.Window):
         self._menuContextual(None)
     
     def _almacenar_imagenes(self):
-        ruta_assets = os.path.join(BASE_DIR, "assets")
         self._imagenes["Git"] = loadImageTk(os.path.join(ruta_assets, "gitIcon.png"), 25, 25)
         self._imagenes["Check"] = loadImageTk(os.path.join(ruta_assets, "checkIcon.png"), 25, 25)
         self._imagenes["Error"] = loadImageTk(os.path.join(ruta_assets, "errorIcon.png"), 25, 25)
         self._imagenes["Pending"] = loadImageTk(os.path.join(ruta_assets, "timerIcon.png"), 25, 25)
-        self._imagenes["Running"] = loadImageTk(os.path.join(ruta_assets, "playIcon.png"), 25, 25)
+        self._imagenes["Running"] = loadImageTk(os.path.join(ruta_assets, "dotAndCircleIcon.png"), 25, 25)
     
     def mostrar_imagenes(self):
         try:
@@ -1239,6 +1246,110 @@ class NodeSetupApp(ttk.Window):
     def Iniciar(self):
         self.mainloop()
 
+class NodeSetupAppNew(ttk.Window):
+    def __init__(self):
+        super().__init__(themename="superhero")
+        
+        def onFrameClick(event):
+            for widget in self._frmOpciones.winfo_children():
+                widget.config( # type: ignore
+                    style="Custom.TLabel",
+                    cursor="hand2"
+                )
+                widget.bind("<Button-1>", onFrameClick)
+            
+            event.widget.config(style="Selected.TLabel", cursor="arrow")
+            event.widget.unbind("<Button-1>")
+            showSelectedFrame(event)
+        
+        def showSelectedFrame(event):
+            for frame in self.winfo_children():
+                if frame.winfo_class() == "TFrame" and frame.winfo_name() != "selector":
+                    frame.pack_forget()
+            
+            if event.widget["text"] == "Principal":
+                self.framePrincipal.pack(side="right", fill="both", expand=True)
+            elif event.widget["text"] == "Modulos":
+                self.frameModulos.pack(side="right", fill="both", expand=True)
+            elif event.widget["text"] == "Git":
+                self.frameGit.pack(side="right", fill="both", expand=True)
+            elif event.widget["text"] == "Configuracion":
+                self.frameConfiguracion.pack(side="right", fill="both", expand=True)
+            
+            
+        
+        self.title("Node Setup App")
+        self.geometry("800x600")
+        self.resizable(False, False)
+        
+        self._ruta = tk.StringVar()
+        self._imagenes = {}
+        
+        estilos = ttk.Style()
+        estilos.configure("Custom.TFrame", background="#3E556A")
+        estilos.configure("Response.TLabel", background="#526170")
+        estilos.configure("Custom.TLabel", background="#3E556A", foreground="white")
+        estilos.configure("Selected.TLabel", background="#2B3E50", foreground="white")
+        
+        self.frameSeleccion = ttk.Frame(self)
+        
+        self.Principal = ttk.Label(self.frameSeleccion, text="Principal")
+        self.Modulos = ttk.Label(self.frameSeleccion, text="Modulos")
+        self.Git = ttk.Label(self.frameSeleccion, text="Git")
+        self.Configuracion = ttk.Label(self.frameSeleccion, text="Configuracion")
+        
+        for widget in self.frameSeleccion.winfo_children():
+            widget.config( # type: ignore
+                cursor="hand2"
+            )
+            widget.bind("<Button-1>", onFrameClick)
+        
+        self.Principal.pack(fill="both", expand=True)
+        self.Modulos.pack(fill="both", expand=True)
+        self.Git.pack(fill="both", expand=True)
+        self.Configuracion.pack(fill="both", expand=True)
+        
+        filas = self.frameSeleccion.grid_size()[1]
+        for fila in range(filas):
+            self.frameSeleccion.grid_rowconfigure(fila, weight=1)
+        
+        self.frameSeleccion.pack(fill="y", side="left")
+        
+        self.framePrincipal = ttk.Frame(self)
+        self.frameModulos = ttk.Frame(self)
+        self.frameGit = ttk.Frame(self)
+        self.frameConfiguracion = ttk.Frame(self)
+        
+        ttk.Label(self.framePrincipal, text="Principal").pack()
+        ttk.Label(self.frameModulos, text="Modulos").pack()
+        ttk.Label(self.frameGit, text="Git").pack()
+        ttk.Label(self.frameConfiguracion, text="Configuracion").pack()
+        
+        self._loadImages()
+    
+    def _loadImages(self):
+        self._imagenes["principal"] = loadImageTk((os.path.join(ruta_assets, "homeIcon.png")), 50, 50)
+        self._imagenes["modulos"] = loadImageTk((os.path.join(ruta_assets, "downloadsIcon.png")), 50, 50)
+        self._imagenes["git"] = loadImageTk((os.path.join(ruta_assets, "codeForkIcon.png")), 50, 50)
+        self._imagenes["configuracion"] = loadImageTk((os.path.join(ruta_assets, "cogIcon.png")), 50, 50)
+    
+    def mostrar_imagenes(self):
+        self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")
+        self.Modulos.config(image=self._imagenes["modulos"], anchor="center", compound="top")
+        self.Git.config(image=self._imagenes["git"], anchor="center", compound="top")
+        self.Configuracion.config(image=self._imagenes["configuracion"], anchor="center", compound="top")
+    
+    def _centrar_ventana(self):
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
+    
+    def Iniciar(self):
+        self.mainloop()
+
 def lista_archivos_directorios(directorio_buscar:str):
     contenido_directorio = os.listdir(directorio_buscar)
     lista_archivos = []
@@ -1255,7 +1366,7 @@ def dividir_lista(lista, n):
         yield lista[i:i + n]
 
 if __name__ == "__main__":
-    app = NodeSetupApp()
+    app = NodeSetupAppNew()
     app.mostrar_imagenes()
     app._centrar_ventana()
     app.Iniciar()

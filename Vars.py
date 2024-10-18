@@ -72,6 +72,8 @@ ruta = os.getcwd()
 
 BASE_DIR = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
 
+ruta_assets = os.path.join(BASE_DIR, "assets")
+
 respuestas = queue.Queue()
 
 registro_commits = queue.Queue()
