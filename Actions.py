@@ -610,3 +610,36 @@ def applySintax(textArea:tk.Text, syntax:Literal["python", "javascript", "html",
 
         # Aplicar el tag "string" al texto encontrado
         textArea.tag_add("string", start_idx, end_idx)
+
+def getFileExtension(file:str):
+    """Obtiene la extension de un archivo.
+
+    Args:
+        file (str): _Nombre del archivo_
+
+    Returns:
+        _str_: _Extension del archivo_
+    """
+    return os.path.splitext(file)[1]
+
+def getFileName(file:str):
+    """Obtiene el nombre de un archivo.
+
+    Args:
+        file (str): _Nombre del archivo_
+
+    Returns:
+        _str_: _Nombre del archivo_
+    """
+    return os.path.splitext(file)[0]
+
+def getFileNameAndExtension(file:str):
+    """Obtiene el nombre y la extension de un archivo.
+
+    Args:
+        file (str): _Nombre del archivo_
+
+    Returns:
+        _tuple_: _Nombre y extension del archivo_
+    """
+    return os.path.splitext(file)

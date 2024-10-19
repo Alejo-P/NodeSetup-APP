@@ -12,6 +12,7 @@ from Actions import (
     doNothing,
     getBranchCommitsLog,
     getCurrentBrach,
+    getFileExtension,
     preventCloseWindow,
     getVersionOf,
     writeLog,
@@ -1250,8 +1251,14 @@ class NodeSetupAppNew(ttk.Window):
     def __init__(self):
         super().__init__(themename="superhero")
         
-        def onFrameClick(event):
-            for widget in self._frmOpciones.winfo_children():
+        def onFrameClick(event:tk.Event):
+            if str(event.widget["state"]) == "disabled":
+                return
+            
+            for widget in self.frameSeleccion.winfo_children():
+                if str(widget.cget("state")) == "disabled":
+                    continue
+                
                 widget.config( # type: ignore
                     style="Custom.TLabel",
                     cursor="hand2"
@@ -1262,81 +1269,175 @@ class NodeSetupAppNew(ttk.Window):
             event.widget.unbind("<Button-1>")
             showSelectedFrame(event)
         
-        def showSelectedFrame(event):
+        def onUpdateFrames():
+            for frame in self.frameSeleccion.winfo_children():
+                if str(frame.cget("state")) == "disabled":
+                    frame.config( # type: ignore
+                        style="Disabled.TLabel",
+                        cursor="arrow"
+                    )
+                    frame.unbind("<Button-1>")
+                    continue
+                
+                frame.config( # type: ignore
+                    style="Custom.TLabel",
+                    cursor="hand2"
+                )
+                frame.bind("<Button-1>", onFrameClick)
+        
+        def showSelectedFrame(event:tk.Event):
             for frame in self.winfo_children():
                 if frame.winfo_class() == "TFrame" and frame.winfo_name() != "selector":
                     frame.pack_forget()
             
-            if event.widget["text"] == "Principal":
+            widget = event.widget
+            if widget["text"] == "Principal":
                 self.framePrincipal.pack(side="right", fill="both", expand=True)
-            elif event.widget["text"] == "Modulos":
+            elif widget["text"] == "Modulos":
                 self.frameModulos.pack(side="right", fill="both", expand=True)
-            elif event.widget["text"] == "Git":
+            elif widget["text"] == "Git":
                 self.frameGit.pack(side="right", fill="both", expand=True)
-            elif event.widget["text"] == "Configuracion":
+            elif widget["text"] == "Tareas":
+                self.frameTareas.pack(side="right", fill="both", expand=True)
+            elif widget["text"] == "Configuracion":
                 self.frameConfiguracion.pack(side="right", fill="both", expand=True)
-            
-            
         
-        self.title("Node Setup App")
+        self.title(f"Node Setup App ({appVersion})")
         self.geometry("800x600")
         self.resizable(False, False)
         
         self._ruta = tk.StringVar()
         self._imagenes = {}
+        self._version = appVersion
+        
+        self._npm_path = getPathOf("npm")
+        self._git_path = getPathOf("git")
+        self._code_path = getPathOf("code")
+        self._node_path = getPathOf("node")
+        
+        self._versionGit = getVersionOf(self._git_path)
+        self._versionNPM = getVersionOf(self._npm_path)
+        self._versionNode = getVersionOf(self._node_path)
         
         estilos = ttk.Style()
         estilos.configure("Custom.TFrame", background="#3E556A")
         estilos.configure("Response.TLabel", background="#526170")
         estilos.configure("Custom.TLabel", background="#3E556A", foreground="white")
+        estilos.configure("Disabled.TLabel", background="#3E556A", foreground="gray")
         estilos.configure("Selected.TLabel", background="#2B3E50", foreground="white")
         
-        self.frameSeleccion = ttk.Frame(self)
+        self.frameSeleccion = ttk.Frame(self, name="selector", style="Custom.TFrame")
         
-        self.Principal = ttk.Label(self.frameSeleccion, text="Principal")
-        self.Modulos = ttk.Label(self.frameSeleccion, text="Modulos")
-        self.Git = ttk.Label(self.frameSeleccion, text="Git")
-        self.Configuracion = ttk.Label(self.frameSeleccion, text="Configuracion")
+        self.Principal = ttk.Label(self.frameSeleccion, text="Principal", style="Custom.TLabel")
+        self.Modulos = ttk.Label(self.frameSeleccion, text="Modulos", style="Custom.TLabel")
+        self.Git = ttk.Label(self.frameSeleccion, text="Git", style="Custom.TLabel")
+        self.Tareas = ttk.Label(self.frameSeleccion, text="Tareas", style="Disabled.TLabel", state="disabled")
+        self.Configuracion = ttk.Label(self.frameSeleccion, text="Configuracion", style="Custom.TLabel")
         
-        for widget in self.frameSeleccion.winfo_children():
-            widget.config( # type: ignore
-                cursor="hand2"
-            )
-            widget.bind("<Button-1>", onFrameClick)
+        onUpdateFrames()
         
         self.Principal.pack(fill="both", expand=True)
         self.Modulos.pack(fill="both", expand=True)
         self.Git.pack(fill="both", expand=True)
+        self.Tareas.pack(fill="both", expand=True)
         self.Configuracion.pack(fill="both", expand=True)
         
-        filas = self.frameSeleccion.grid_size()[1]
-        for fila in range(filas):
-            self.frameSeleccion.grid_rowconfigure(fila, weight=1)
-        
-        self.frameSeleccion.pack(fill="y", side="left")
+        self.frameSeleccion.pack(fill="y", side="left", ipadx=5)
         
         self.framePrincipal = ttk.Frame(self)
         self.frameModulos = ttk.Frame(self)
         self.frameGit = ttk.Frame(self)
+        self.frameTareas = ttk.Frame(self)
         self.frameConfiguracion = ttk.Frame(self)
         
-        ttk.Label(self.framePrincipal, text="Principal").pack()
-        ttk.Label(self.frameModulos, text="Modulos").pack()
-        ttk.Label(self.frameGit, text="Git").pack()
-        ttk.Label(self.frameConfiguracion, text="Configuracion").pack()
+        self._principalFrame()
+        self._modulosFrame()
+        self._gitFrame()
+        self._tareasFrame()
+        self._configuracionFrame()
         
         self._loadImages()
     
+    def _principalFrame(self):
+        def abrir_ruta():
+            self._ruta.set(filedialog.askdirectory())
+        
+        def validateEntryRuta(event:tk.Event):
+            valor = self._ruta.get()
+            
+            if os.path.isfile(valor) or getFileExtension(valor):
+                messagebox.showerror("Error", "La ruta seleccionada es un archivo, debe ser un directorio")
+                self._ruta.set("")
+        
+        def disableInfoEntries():
+            for widget in frameInformacion.winfo_children():
+                if widget.winfo_class() == "TEntry":
+                    widget.config(state="readonly") # type: ignore
+        
+        #StringVars
+        self._ruta = tk.StringVar()
+        
+        frameInformacion = ttk.LabelFrame(self.framePrincipal, text="Informacion")
+        ttk.Label(frameInformacion, text="Version de la app:").grid(row=0, column=0)
+        entryAppV = ttk.Entry(frameInformacion)
+        entryAppV.insert(0, appVersion)
+        entryAppV.grid(row=0, column=1, pady=5)
+        
+        ttk.Label(frameInformacion, text="Version de Node:").grid(row=1, column=0)
+        entryNodeV = ttk.Entry(frameInformacion)
+        entryNodeV.insert(0, self._versionNode if self._versionNode else "No disponible")
+        entryNodeV.grid(row=1, column=1, pady=5)
+        
+        ttk.Label(frameInformacion, text="Version de NPM:").grid(row=2, column=0)
+        entryNPMV = ttk.Entry(frameInformacion)
+        entryNPMV.insert(0, self._versionNPM if self._versionNPM else "No disponible")
+        entryNPMV.grid(row=2, column=1, pady=5)
+        
+        frameInformacion.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        self.framePrincipal.after(100, disableInfoEntries)
+        
+        ttk.Label(self.framePrincipal, text="Directorio del proyecto").grid(row=1, column=0)
+        entryRuta = ttk.Entry(self.framePrincipal, textvariable=self._ruta, width=50)
+        entryRuta.grid(row=2, column=0, padx=5, pady=5)
+        entryRuta.bind("<Return>", validateEntryRuta)
+        ttk.Button(self.framePrincipal, text="Seleccionar", command=abrir_ruta).grid(row=2, column=1)
+        
+        ttk.Checkbutton(self.framePrincipal, text="Eliminar contenido de la carpeta", bootstyle="warning-round-toggle").grid(row=3, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        ttk.Checkbutton(self.framePrincipal, text="Crear ruta", bootstyle="warning-round-toggle").grid(row=4, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        ttk.Checkbutton(self.framePrincipal, text="Eliminar en caso de fallo", bootstyle="warning-round-toggle").grid(row=5, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        ttk.Checkbutton(self.framePrincipal, text="Parar en caso de fallo", bootstyle="warning-round-toggle").grid(row=6, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+
+    def _modulosFrame(self):
+        ttk.Label(self.frameModulos, text="Modulos").pack()
+    
+    def _gitFrame(self):
+        ttk.Label(self.frameGit, text="Git").pack()
+    
+    def _tareasFrame(self):
+        ttk.Label(self.frameTareas, text="Tareas").pack()
+    
+    def _configuracionFrame(self):
+        ttk.Label(self.frameConfiguracion, text="Configuracion").pack()
+    
     def _loadImages(self):
+        # Iconos para Frames
         self._imagenes["principal"] = loadImageTk((os.path.join(ruta_assets, "homeIcon.png")), 50, 50)
         self._imagenes["modulos"] = loadImageTk((os.path.join(ruta_assets, "downloadsIcon.png")), 50, 50)
         self._imagenes["git"] = loadImageTk((os.path.join(ruta_assets, "codeForkIcon.png")), 50, 50)
+        self._imagenes["tareas"] = loadImageTk((os.path.join(ruta_assets, "checkboxIcon.png")), 50, 50)
         self._imagenes["configuracion"] = loadImageTk((os.path.join(ruta_assets, "cogIcon.png")), 50, 50)
+        
+        # Iconos para tareas
+        self._imagenes["Pending"] = loadImageTk((os.path.join(ruta_assets, "timerIcon.png")), 20, 20)
+        self._imagenes["Running"] = loadImageTk((os.path.join(ruta_assets, "playIcon.png")), 20, 20)
+        self._imagenes["Check"] = loadImageTk((os.path.join(ruta_assets, "checkIcon.png")), 20, 20)
+        self._imagenes["Error"] = loadImageTk((os.path.join(ruta_assets, "errorIcon.png")), 20, 20)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")
         self.Modulos.config(image=self._imagenes["modulos"], anchor="center", compound="top")
         self.Git.config(image=self._imagenes["git"], anchor="center", compound="top")
+        self.Tareas.config(image=self._imagenes["tareas"], anchor="center", compound="top")
         self.Configuracion.config(image=self._imagenes["configuracion"], anchor="center", compound="top")
     
     def _centrar_ventana(self):
