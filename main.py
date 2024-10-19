@@ -1267,7 +1267,7 @@ class NodeSetupAppNew(ttk.Window):
             
             event.widget.config(style="Selected.TLabel", cursor="arrow")
             event.widget.unbind("<Button-1>")
-            showSelectedFrame(event)
+            showSelectedFrame(event.widget.cget("text"))
         
         def onUpdateFrames():
             for frame in self.frameSeleccion.winfo_children():
@@ -1285,22 +1285,27 @@ class NodeSetupAppNew(ttk.Window):
                 )
                 frame.bind("<Button-1>", onFrameClick)
         
-        def showSelectedFrame(event:tk.Event):
+        def showSelectedFrame(frameName:str):
             for frame in self.winfo_children():
                 if frame.winfo_class() == "TFrame" and frame.winfo_name() != "selector":
                     frame.pack_forget()
             
-            widget = event.widget
-            if widget["text"] == "Principal":
+            if frameName == "Principal":
                 self.framePrincipal.pack(side="right", fill="both", expand=True)
-            elif widget["text"] == "Modulos":
+            elif frameName == "Modulos":
                 self.frameModulos.pack(side="right", fill="both", expand=True)
-            elif widget["text"] == "Git":
+            elif frameName == "Git":
                 self.frameGit.pack(side="right", fill="both", expand=True)
-            elif widget["text"] == "Tareas":
+            elif frameName == "Tareas":
                 self.frameTareas.pack(side="right", fill="both", expand=True)
-            elif widget["text"] == "Configuracion":
+            elif frameName == "Configuracion":
                 self.frameConfiguracion.pack(side="right", fill="both", expand=True)
+        
+        def goToFrame(frameName:str):
+            for frame in self.frameSeleccion.winfo_children():
+                if frame.cget("text") == frameName:
+                    frame.event_generate("<Button-1>")
+                    break
         
         self.title(f"Node Setup App ({appVersion})")
         self.geometry("800x600")
@@ -1309,6 +1314,8 @@ class NodeSetupAppNew(ttk.Window):
         self._ruta = tk.StringVar()
         self._imagenes = {}
         self._version = appVersion
+        
+        self._funcGoToFrame = goToFrame
         
         self._npm_path = getPathOf("npm")
         self._git_path = getPathOf("git")
@@ -1360,14 +1367,30 @@ class NodeSetupAppNew(ttk.Window):
     
     def _principalFrame(self):
         def abrir_ruta():
-            self._ruta.set(filedialog.askdirectory())
+            if ruta:=filedialog.askdirectory():
+                self._ruta.set(ruta)
         
-        def validateEntryRuta(event:tk.Event):
+        def validateEntryRuta(event):
             valor = self._ruta.get()
             
+            if not valor:
+                btn_irModulos.config(state="disabled")
+                return
+            
             if os.path.isfile(valor) or getFileExtension(valor):
-                messagebox.showerror("Error", "La ruta seleccionada es un archivo, debe ser un directorio")
+                btn_irModulos.config(state="disabled")
                 self._ruta.set("")
+                messagebox.showerror("Error", "La ruta seleccionada es un archivo, debe ser un directorio")
+                return
+            
+            if not os.path.exists(valor):
+                btn_irModulos.config(state="disabled")
+                self._ruta.set("")
+                messagebox.showerror("Error", "La ruta seleccionada no existe")
+                return
+            
+            btn_irModulos.config(state="normal")
+                
         
         def disableInfoEntries():
             for widget in frameInformacion.winfo_children():
@@ -1378,34 +1401,60 @@ class NodeSetupAppNew(ttk.Window):
         self._ruta = tk.StringVar()
         
         frameInformacion = ttk.LabelFrame(self.framePrincipal, text="Informacion")
-        ttk.Label(frameInformacion, text="Version de la app:").grid(row=0, column=0)
+        ttk.Label(frameInformacion, text="Version de la app:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
         entryAppV = ttk.Entry(frameInformacion)
         entryAppV.insert(0, appVersion)
-        entryAppV.grid(row=0, column=1, pady=5)
+        entryAppV.grid(row=1, column=0, pady=5, padx=5, sticky="ew")
         
-        ttk.Label(frameInformacion, text="Version de Node:").grid(row=1, column=0)
+        ttk.Label(frameInformacion, text="Version de Node:", anchor="center").grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         entryNodeV = ttk.Entry(frameInformacion)
         entryNodeV.insert(0, self._versionNode if self._versionNode else "No disponible")
-        entryNodeV.grid(row=1, column=1, pady=5)
+        entryNodeV.grid(row=1, column=1, pady=5, padx=5, sticky="ew")
         
-        ttk.Label(frameInformacion, text="Version de NPM:").grid(row=2, column=0)
+        ttk.Label(frameInformacion, text="Version de NPM:", anchor="center").grid(row=0, column=2, padx=5, pady=5, sticky="ew")
         entryNPMV = ttk.Entry(frameInformacion)
         entryNPMV.insert(0, self._versionNPM if self._versionNPM else "No disponible")
-        entryNPMV.grid(row=2, column=1, pady=5)
+        entryNPMV.grid(row=1, column=2, pady=5, padx=5, sticky="ew")
+        
+        columnas, filas = frameInformacion.grid_size()
+        for columna in range(columnas):
+            frameInformacion.grid_columnconfigure(columna, weight=1)
+            
+        for fila in range(filas):
+            frameInformacion.grid_rowconfigure(fila, weight=1)
         
         frameInformacion.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         self.framePrincipal.after(100, disableInfoEntries)
         
-        ttk.Label(self.framePrincipal, text="Directorio del proyecto").grid(row=1, column=0)
+        ttk.Label(self.framePrincipal, text="Directorio del proyecto").grid(row=1, column=0, columnspan=2, padx=5)
+        scrollEntry = ttk.Scrollbar(self.framePrincipal, orient="horizontal", bootstyle="info-round") # type: ignore
         entryRuta = ttk.Entry(self.framePrincipal, textvariable=self._ruta, width=50)
-        entryRuta.grid(row=2, column=0, padx=5, pady=5)
-        entryRuta.bind("<Return>", validateEntryRuta)
-        ttk.Button(self.framePrincipal, text="Seleccionar", command=abrir_ruta).grid(row=2, column=1)
+        scrollEntry.config(command=entryRuta.xview)
+        entryRuta.config(xscrollcommand=scrollEntry.set)
         
-        ttk.Checkbutton(self.framePrincipal, text="Eliminar contenido de la carpeta", bootstyle="warning-round-toggle").grid(row=3, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
-        ttk.Checkbutton(self.framePrincipal, text="Crear ruta", bootstyle="warning-round-toggle").grid(row=4, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
-        ttk.Checkbutton(self.framePrincipal, text="Eliminar en caso de fallo", bootstyle="warning-round-toggle").grid(row=5, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
-        ttk.Checkbutton(self.framePrincipal, text="Parar en caso de fallo", bootstyle="warning-round-toggle").grid(row=6, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        entryRuta.grid(row=2, column=0, padx=5, sticky="ew")
+        scrollEntry.grid(row=3, column=0, padx=5, sticky="ew")
+        entryRuta.bind("<Return>", validateEntryRuta)
+        entryRuta.bind("<FocusOut>", validateEntryRuta)
+        ttk.Button(self.framePrincipal, text="Seleccionar", command=abrir_ruta, bootstyle=(WARNING, OUTLINE)).grid(row=2, rowspan=2, column=1, padx=5, sticky="nsew", pady=7) # type: ignore
+        
+        self.EliminarContenidoVar = tk.BooleanVar()
+        self.CrearRutaVar = tk.BooleanVar()
+        self.EliminarEnFalloVar = tk.BooleanVar()
+        self.PararEnFalloVar = tk.BooleanVar()
+        
+        ttk.Checkbutton(self.framePrincipal, text="Eliminar contenido de la carpeta", variable=self.EliminarContenidoVar, bootstyle="warning-round-toggle").grid(row=4, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        ttk.Checkbutton(self.framePrincipal, text="Crear ruta", variable=self.CrearRutaVar, bootstyle="warning-round-toggle").grid(row=5, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        ttk.Checkbutton(self.framePrincipal, text="Eliminar en caso de fallo", variable=self.EliminarEnFalloVar, bootstyle="warning-round-toggle").grid(row=6, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        ttk.Checkbutton(self.framePrincipal, text="Parar en caso de fallo", variable=self.PararEnFalloVar, bootstyle="warning-round-toggle").grid(row=7, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
+        
+        btn_irModulos = ttk.Button(self.framePrincipal, text="Seleccion de modulos", command=lambda:self._funcGoToFrame("Modulos"))
+        btn_irModulos.grid(row=8, column=0, columnspan=2, padx=5, pady=5, sticky="nsew") # type: ignore
+        validateEntryRuta(None)
+        
+        columnas = self.framePrincipal.grid_size()[0]
+        for columna in range(columnas):
+            self.framePrincipal.grid_columnconfigure(columna, weight=1)
 
     def _modulosFrame(self):
         ttk.Label(self.frameModulos, text="Modulos").pack()
