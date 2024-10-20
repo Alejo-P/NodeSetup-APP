@@ -1261,7 +1261,7 @@ class NodeSetupAppNew(ttk.Window):
                 
                 widget.config( # type: ignore
                     style="Custom.TLabel",
-                    cursor="hand2"
+                    cursor="hand2",
                 )
                 widget.bind("<Button-1>", onFrameClick)
             
@@ -1278,6 +1278,14 @@ class NodeSetupAppNew(ttk.Window):
                     )
                     frame.unbind("<Button-1>")
                     continue
+                
+                if str(frame.cget("style")) == "Selected.TLabel":
+                    frame.config( # type: ignore
+                        style="Selected.TLabel",
+                        cursor="arrow"
+                    )
+                    frame.unbind("<Button-1>")   
+                    continue 
                 
                 frame.config( # type: ignore
                     style="Custom.TLabel",
@@ -1306,6 +1314,8 @@ class NodeSetupAppNew(ttk.Window):
                 if frame.cget("text") == frameName:
                     frame.event_generate("<Button-1>")
                     break
+            else:
+                messagebox.showerror("Error", f"El frame {frameName} no existe")
         
         self.title(f"Node Setup App ({appVersion})")
         self.geometry("800x600")
@@ -1316,6 +1326,7 @@ class NodeSetupAppNew(ttk.Window):
         self._version = appVersion
         
         self._funcGoToFrame = goToFrame
+        self._funcOnUpdateFrames = onUpdateFrames
         
         self._npm_path = getPathOf("npm")
         self._git_path = getPathOf("git")
@@ -1336,12 +1347,10 @@ class NodeSetupAppNew(ttk.Window):
         self.frameSeleccion = ttk.Frame(self, name="selector", style="Custom.TFrame")
         
         self.Principal = ttk.Label(self.frameSeleccion, text="Principal", style="Custom.TLabel")
-        self.Modulos = ttk.Label(self.frameSeleccion, text="Modulos", style="Custom.TLabel")
+        self.Modulos = ttk.Label(self.frameSeleccion, text="Modulos", style="Disabled.TLabel", state="disabled")
         self.Git = ttk.Label(self.frameSeleccion, text="Git", style="Custom.TLabel")
         self.Tareas = ttk.Label(self.frameSeleccion, text="Tareas", style="Disabled.TLabel", state="disabled")
         self.Configuracion = ttk.Label(self.frameSeleccion, text="Configuracion", style="Custom.TLabel")
-        
-        onUpdateFrames()
         
         self.Principal.pack(fill="both", expand=True)
         self.Modulos.pack(fill="both", expand=True)
@@ -1364,33 +1373,39 @@ class NodeSetupAppNew(ttk.Window):
         self._configuracionFrame()
         
         self._loadImages()
+        onUpdateFrames()
+        goToFrame("Principal")
     
     def _principalFrame(self):
         def abrir_ruta():
             if ruta:=filedialog.askdirectory():
                 self._ruta.set(ruta)
-        
-        def validateEntryRuta(event):
-            valor = self._ruta.get()
-            
-            if not valor:
+                onUpdateEntryRuta(None)
+                    
+        def onUpdateEntryRuta(event):
+            if not self._ruta.get():
                 btn_irModulos.config(state="disabled")
+                self.Modulos.config(state="disabled")
+                self._funcOnUpdateFrames()
                 return
             
-            if os.path.isfile(valor) or getFileExtension(valor):
+            if not os.path.exists(self._ruta.get()) and not self.CrearRutaVar.get():
                 btn_irModulos.config(state="disabled")
-                self._ruta.set("")
-                messagebox.showerror("Error", "La ruta seleccionada es un archivo, debe ser un directorio")
-                return
-            
-            if not os.path.exists(valor):
-                btn_irModulos.config(state="disabled")
-                self._ruta.set("")
+                self.Modulos.config(state="disabled")
+                self._funcOnUpdateFrames()
                 messagebox.showerror("Error", "La ruta seleccionada no existe")
                 return
             
+            if os.path.isfile(self._ruta.get()) or getFileExtension(self._ruta.get()):
+                btn_irModulos.config(state="disabled")
+                self.Modulos.config(state="disabled")
+                self._funcOnUpdateFrames()
+                messagebox.showerror("Error", "La ruta seleccionada es un archivo, debe ser un directorio")
+                return
+            
+            self.Modulos.config(state="normal")
             btn_irModulos.config(state="normal")
-                
+            self._funcOnUpdateFrames()
         
         def disableInfoEntries():
             for widget in frameInformacion.winfo_children():
@@ -1434,12 +1449,14 @@ class NodeSetupAppNew(ttk.Window):
         
         entryRuta.grid(row=2, column=0, padx=5, sticky="ew")
         scrollEntry.grid(row=3, column=0, padx=5, sticky="ew")
-        entryRuta.bind("<Return>", validateEntryRuta)
-        entryRuta.bind("<FocusOut>", validateEntryRuta)
+        entryRuta.bind("<Return>", onUpdateEntryRuta)
+        entryRuta.bind("<FocusOut>", onUpdateEntryRuta)
+        
         ttk.Button(self.framePrincipal, text="Seleccionar", command=abrir_ruta, bootstyle=(WARNING, OUTLINE)).grid(row=2, rowspan=2, column=1, padx=5, sticky="nsew", pady=7) # type: ignore
         
         self.EliminarContenidoVar = tk.BooleanVar()
         self.CrearRutaVar = tk.BooleanVar()
+        self.CrearRutaVar.trace_add("write", lambda *args: onUpdateEntryRuta(None))
         self.EliminarEnFalloVar = tk.BooleanVar()
         self.PararEnFalloVar = tk.BooleanVar()
         
@@ -1450,7 +1467,7 @@ class NodeSetupAppNew(ttk.Window):
         
         btn_irModulos = ttk.Button(self.framePrincipal, text="Seleccion de modulos", command=lambda:self._funcGoToFrame("Modulos"))
         btn_irModulos.grid(row=8, column=0, columnspan=2, padx=5, pady=5, sticky="nsew") # type: ignore
-        validateEntryRuta(None)
+        onUpdateEntryRuta(None)
         
         columnas = self.framePrincipal.grid_size()[0]
         for columna in range(columnas):
