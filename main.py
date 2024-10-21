@@ -1354,7 +1354,7 @@ class NodeSetupAppNew(ttk.Window):
         self._code_path = getPathOf("code")
         self._node_path = getPathOf("node")
         
-        self._versionGit = getVersionOf(self._git_path) if not self._git_path else None
+        self._versionGit = getVersionOf(self._git_path) if self._git_path else None
         self._versionNPM = getVersionOf(self._npm_path)
         self._versionNode = getVersionOf(self._node_path)
         
@@ -1532,22 +1532,6 @@ class NodeSetupAppNew(ttk.Window):
             self.framePrincipal.grid_columnconfigure(columna, weight=1)
 
     def _modulosFrame(self):
-        def centarFrameCanvas():
-            # Obtener las dimensiones del canvas
-            canvas_width = canvas.winfo_width()
-            canvas_height = canvas.winfo_height()
-
-            # Asegurarse de que el tamaño del canvas está actualizado
-            canvas.update_idletasks()
-
-            # Centrar el frame en el canvas
-            canvas.create_window(
-                canvas_width // 2,  # Coordenada x (centro del canvas)
-                canvas_height // 2,  # Coordenada y (centro del canvas)
-                window=frame,  # El frame que quieres centrar
-                anchor="center"  # Para que el frame se ancle al centro de las coordenadas
-            )
-        
         def RestablecerSeleccion():
             for dic in self._modulosNPM:
                 dic["usar"].set(False)
@@ -1695,7 +1679,84 @@ class NodeSetupAppNew(ttk.Window):
         self.frameModulos.grid_rowconfigure(0, weight=1)
         
     def _gitFrame(self):
-        ttk.Label(self.frameGit, text="Git").pack()
+        def onClickFrame(event:tk.Event):
+            if str(event.widget["state"]) == "disabled":
+                return
+            
+            for widget in lbl_frame.winfo_children():
+                if str(widget.cget("state")) == "disabled":
+                    continue
+                
+                widget.config( # type: ignore
+                    style="Custom.TLabel",
+                    cursor="hand2",
+                )
+                widget.bind("<Button-1>", onClickFrame)
+            
+            event.widget.config(style="Selected.TLabel", cursor="arrow")
+            event.widget.unbind("<Button-1>")
+            showSelectedFrame(event.widget.cget("text"))
+        
+        def showSelectedFrame(frameName:str):
+            for frame in self.frameGit.winfo_children():
+                if frame.winfo_class() == "TFrame" and frame.winfo_name() != "git_selector":
+                    frame.grid_forget()
+            
+            if frameName == "Inicio":
+                frameInicio.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+            elif frameName == "Commit":
+                frameCommit.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+            elif frameName == "Logs":
+                frameLogs.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+        
+        
+        frameInformacion = ttk.LabelFrame(self.frameGit, text="Informacion", style="info.TLabelframe", name="git_info")
+        ttk.Label(frameInformacion, text="Version de Git:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        entryGitV = ttk.Entry(frameInformacion)
+        entryGitV.insert(0, self._versionGit if self._versionGit else "No disponible")
+        entryGitV.config(state="readonly")
+        entryGitV.grid(row=1, column=0, pady=5, padx=5, sticky="ew")
+        
+        columnas, filas = frameInformacion.grid_size()
+        for columna in range(columnas):
+            frameInformacion.grid_columnconfigure(columna, weight=1)
+        
+        for fila in range(filas):
+            frameInformacion.grid_rowconfigure(fila, weight=1)
+        
+        frameInformacion.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+        
+        frameInicio = ttk.Frame(self.frameGit)
+        frameCommit = ttk.Frame(self.frameGit)
+        frameLogs = ttk.Frame(self.frameGit)
+        
+        ttk.Label(frameInicio, text="Inicio").pack()
+        ttk.Label(frameCommit, text="Commit").pack()
+        ttk.Label(frameLogs, text="Logs").pack()
+        
+        lbl_frame = ttk.Frame(self.frameGit, style="Custom.TFrame", name="git_selector")
+        lblInicio = ttk.Label(lbl_frame, text="Inicio", style="Selected.TLabel", anchor="center")
+        lblInicio.grid(row=0, column=0, sticky="nsew")
+        lblInicio.bind("<Button-1>", onClickFrame)
+        
+        lblCommit = ttk.Label(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
+        lblCommit.grid(row=0, column=1, sticky="nsew")
+        lblCommit.bind("<Button-1>", onClickFrame)
+        
+        lblLogs = ttk.Label(lbl_frame, text="Logs", style="Custom.TLabel", anchor="center")
+        lblLogs.grid(row=0, column=2, sticky="nsew")
+        lblLogs.bind("<Button-1>", onClickFrame)
+        
+        columnas, filas = lbl_frame.grid_size()
+        for columna in range(columnas):
+            lbl_frame.grid_columnconfigure(columna, weight=1)
+        
+        for fila in range(filas):
+            lbl_frame.grid_rowconfigure(fila, weight=1)
+        lbl_frame.grid(row=2, column=0, padx=5, sticky="nsew")
+        
+        self.frameGit.grid_columnconfigure(0, weight=1)
+        self.frameGit.grid_rowconfigure(1, weight=1)
     
     def _tareasFrame(self):
         ttk.Label(self.frameTareas, text="Tareas").pack()
