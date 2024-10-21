@@ -1,3 +1,4 @@
+from concurrent.futures import thread
 import json
 import tkinter as tk
 from tkinter import filedialog
@@ -22,6 +23,7 @@ from Actions import (
     getGitBranches,
     getDetailedModules
 )
+from Tools import ToolTip
 from Vars import (
     listaArgumentos,
     carpetas, archivos,
@@ -1292,6 +1294,8 @@ class NodeSetupAppNew(ttk.Window):
                     cursor="hand2"
                 )
                 frame.bind("<Button-1>", onFrameClick)
+            
+            setToolTipText()
         
         def showSelectedFrame(frameName:str):
             for frame in self.winfo_children():
@@ -1317,12 +1321,29 @@ class NodeSetupAppNew(ttk.Window):
             else:
                 messagebox.showerror("Error", f"El frame {frameName} no existe")
         
+        def setToolTipText():
+            self.toolTipPrincipal.setText("Configurar el entorno de Node")
+            
+            mensajeFrameModulos = "Seleccionar los módulos a instalar"
+            if self.Modulos.cget("style") == "Disabled.TLabel":
+                mensajeFrameModulos += "\n(No se puede acceder a este frame)" 
+            self.toolTipModulos.setText(mensajeFrameModulos)
+            
+            mensajeFrameGit = "Configurar Git en el proyecto"
+            if self.Git.cget("style") == "Disabled.TLabel":
+                mensajeFrameGit += "\n(No se puede acceder a este frame)"
+            self.toolTipGit.setText(mensajeFrameGit)
+            
+            self.toolTipTareas.setText("Ver las tareas realizadas")
+            self.toolTipConfiguracion.setText("Configurar la aplicación")
+        
         self.title(f"Node Setup App ({appVersion})")
         self.geometry("800x600")
         self.resizable(False, False)
         
         self._ruta = tk.StringVar()
         self._imagenes = {}
+        self._tareas = []
         self._version = appVersion
         
         self._funcGoToFrame = goToFrame
@@ -1333,7 +1354,7 @@ class NodeSetupAppNew(ttk.Window):
         self._code_path = getPathOf("code")
         self._node_path = getPathOf("node")
         
-        self._versionGit = getVersionOf(self._git_path)
+        self._versionGit = getVersionOf(self._git_path) if not self._git_path else None
         self._versionNPM = getVersionOf(self._npm_path)
         self._versionNode = getVersionOf(self._node_path)
         
@@ -1348,15 +1369,36 @@ class NodeSetupAppNew(ttk.Window):
         
         self.Principal = ttk.Label(self.frameSeleccion, text="Principal", style="Custom.TLabel")
         self.Modulos = ttk.Label(self.frameSeleccion, text="Modulos", style="Disabled.TLabel", state="disabled")
-        self.Git = ttk.Label(self.frameSeleccion, text="Git", style="Custom.TLabel")
+        self.Git = ttk.Label(self.frameSeleccion, text="Git", style="Custom.TLabel" if self._versionGit else "Disabled.TLabel", state="normal" if self._versionGit else "disabled")
         self.Tareas = ttk.Label(self.frameSeleccion, text="Tareas", style="Disabled.TLabel", state="disabled")
         self.Configuracion = ttk.Label(self.frameSeleccion, text="Configuracion", style="Custom.TLabel")
+        
+        self.toolTipPrincipal = ToolTip(self.Principal)
+        self.toolTipModulos = ToolTip(self.Modulos)
+        self.toolTipGit = ToolTip(self.Git)
+        self.toolTipTareas = ToolTip(self.Tareas)
+        self.toolTipConfiguracion = ToolTip(self.Configuracion)
         
         self.Principal.pack(fill="both", expand=True)
         self.Modulos.pack(fill="both", expand=True)
         self.Git.pack(fill="both", expand=True)
         self.Tareas.pack(fill="both", expand=True)
         self.Configuracion.pack(fill="both", expand=True)
+        
+        self.Principal.bind("<Enter>", lambda e: self.toolTipPrincipal.showtip())
+        self.Principal.bind("<Leave>", lambda e: self.toolTipPrincipal.hidetip())
+        
+        self.Modulos.bind("<Enter>", lambda e: self.toolTipModulos.showtip())
+        self.Modulos.bind("<Leave>", lambda e: self.toolTipModulos.hidetip())
+        
+        self.Git.bind("<Enter>", lambda e: self.toolTipGit.showtip())
+        self.Git.bind("<Leave>", lambda e: self.toolTipGit.hidetip())
+        
+        self.Tareas.bind("<Enter>", lambda e: self.toolTipTareas.showtip())
+        self.Tareas.bind("<Leave>", lambda e: self.toolTipTareas.hidetip())
+        
+        self.Configuracion.bind("<Enter>", lambda e: self.toolTipConfiguracion.showtip())
+        self.Configuracion.bind("<Leave>", lambda e: self.toolTipConfiguracion.hidetip())
         
         self.frameSeleccion.pack(fill="y", side="left", ipadx=5)
         
@@ -1465,8 +1507,24 @@ class NodeSetupAppNew(ttk.Window):
         ttk.Checkbutton(self.framePrincipal, text="Eliminar en caso de fallo", variable=self.EliminarEnFalloVar, bootstyle="warning-round-toggle").grid(row=6, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
         ttk.Checkbutton(self.framePrincipal, text="Parar en caso de fallo", variable=self.PararEnFalloVar, bootstyle="warning-round-toggle").grid(row=7, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
         
-        btn_irModulos = ttk.Button(self.framePrincipal, text="Seleccion de modulos", command=lambda:self._funcGoToFrame("Modulos"))
-        btn_irModulos.grid(row=8, column=0, columnspan=2, padx=5, pady=5, sticky="nsew") # type: ignore
+        frameBotones = ttk.Frame(self.framePrincipal)
+        btn_irModulos = ttk.Button(frameBotones, text="Seleccion de modulos", command=lambda:self._funcGoToFrame("Modulos"), bootstyle=(INFO, OUTLINE)) # type: ignore
+        btn_irModulos.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
+        btn_proceder = ttk.Button(frameBotones, text="Crear el proyecto", command=self._creacion_proyecto, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
+        btn_proceder.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+        
+        btn_salir = ttk.Button(frameBotones, text="Salir", command=self.destroy, bootstyle=(DANGER, OUTLINE)) # type: ignore
+        btn_salir.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+        
+        columnas, filas = frameBotones.grid_size()
+        for columna in range(columnas):
+            frameBotones.grid_columnconfigure(columna, weight=1)
+        
+        for fila in range(filas):
+            frameBotones.grid_rowconfigure(fila, weight=1)
+        frameBotones.grid(row=8, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
         onUpdateEntryRuta(None)
         
         columnas = self.framePrincipal.grid_size()[0]
@@ -1474,8 +1532,168 @@ class NodeSetupAppNew(ttk.Window):
             self.framePrincipal.grid_columnconfigure(columna, weight=1)
 
     def _modulosFrame(self):
-        ttk.Label(self.frameModulos, text="Modulos").pack()
-    
+        def centarFrameCanvas():
+            # Obtener las dimensiones del canvas
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+
+            # Asegurarse de que el tamaño del canvas está actualizado
+            canvas.update_idletasks()
+
+            # Centrar el frame en el canvas
+            canvas.create_window(
+                canvas_width // 2,  # Coordenada x (centro del canvas)
+                canvas_height // 2,  # Coordenada y (centro del canvas)
+                window=frame,  # El frame que quieres centrar
+                anchor="center"  # Para que el frame se ancle al centro de las coordenadas
+            )
+        
+        def RestablecerSeleccion():
+            for dic in self._modulosNPM:
+                dic["usar"].set(False)
+                dic["global"].set(False)
+                dic["argumento"].set(listaArgumentos[0])
+                dic["version"].set(dic["versiones"][-1] if dic["versiones"] else "Ocurrió un error")
+        
+        def CargarInfoModulos(listaModulos):
+            for dic in listaModulos:
+                if not dic["versiones"]:
+                    versionesPaquetes = runCommand([self._npm_path, "show", dic["nombre"].lower(), "versions", "--depth=0"])
+                    if isinstance(versionesPaquetes, subprocess.CalledProcessError):
+                        writeLog("ERROR", f"Error al obtener versiones de {dic['nombre']}: {versionesPaquetes}", CargarInfoModulos.__name__)
+                        continue
+                    dic["versiones"] = list(ast.literal_eval(f"{versionesPaquetes.stdout.strip()}"))
+
+                if not dic["usar"]:
+                    dic["usar"] = tk.BooleanVar(value=False)
+                if not dic["global"]:
+                    dic["global"] = tk.BooleanVar(value=False)
+                if not dic["argumento"]:
+                    dic["argumento"] = tk.StringVar(value=listaArgumentos[0])
+                if not dic["version"]:
+                    dic["version"] = tk.StringVar(value=dic["versiones"][-1] if dic["versiones"] else "Ocurrió un error")
+        
+        def CrearWidgets(listaModulos):
+            if not listaWidgets:
+                for dic in listaModulos:
+                    check_usar = ttk.Checkbutton(frame, variable=dic["usar"], bootstyle="success-round-toggle", padding=4) # type: ignore
+                    label_nombre = ttk.Label(frame, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
+                    entry_argumento = ttk.Combobox(frame, values=listaArgumentos, textvariable=dic["argumento"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                    combo_version = ttk.Combobox(frame, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                    check_global = ttk.Checkbutton(frame, variable=dic["global"], bootstyle="warning-round-toggle", padding=4) # type: ignore
+
+                    listaWidgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
+        
+        def mostrar_widgets():
+            try:
+                for i, widget_list in enumerate(listaWidgets, 2):
+                    for j, widget in enumerate(widget_list):
+                        if isinstance(widget, (ttk.Checkbutton, ttk.Combobox)):
+                            widget.grid(row=i, column=j % len(encabezado), padx=5, pady=2)
+                        elif isinstance(widget, ttk.Label):
+                            widget.grid(row=i, column=j % len(encabezado), padx=5, pady=2, sticky="w")
+
+                canvas.grid(row=0, column=0, sticky="nsew")
+                scrollbar.grid(row=0, column=1, sticky="ns")
+                frame_botones = ttk.Frame(self.frameModulos, width=100)
+                frame_botones.grid(row=1, column=0, columnspan=2, pady=5, sticky="nsew")
+
+                frame_botones.grid_columnconfigure(0, weight=1)
+                frame_botones.grid_columnconfigure(1, weight=1)
+
+                ttk.Button(frame_botones, text="Regresar", command=lambda: self._funcGoToFrame("Principal"), style="info.TButton").grid(row=0, column=0, padx=10, sticky="nsew")
+                ttk.Button(frame_botones, text="Restablecer", command=RestablecerSeleccion, style="warning.TButton").grid(row=0, column=1, padx=10, sticky="nsew")
+                
+                columnas, filas = frame.grid_size()
+                for columna in range(columnas):
+                    frame.grid_columnconfigure(columna, weight=1)
+                
+                for fila in range(filas):
+                    frame.grid_rowconfigure(fila, weight=1)
+                
+                self.frameModulos.grid_columnconfigure(0, weight=1)
+                self.frameModulos.grid_rowconfigure(0, weight=1)
+            except tk.TclError as e:
+                print(f"Error al mostrar widgets: {e}")
+        
+        def iniciarCarga():
+            n_listas = 6
+            progress_bar.grid(row=2, column=0, columnspan=len(encabezado), padx=5, pady=10)
+            progress_bar.start()
+            msg_estado.config(text="Cargando módulos de NPM... No cierre la ventana!")
+            btn_carga.grid_forget()
+
+            if not listaWidgets:
+                self.protocol("WM_DELETE_WINDOW", lambda: doNothing())
+                for sublistas in dividir_lista(self._modulosNPM, n_listas):
+                    hilo = threading.Thread(target=CargarInfoModulos, args=(sublistas,))
+                    Registro_hilos.append(hilo)
+
+                for hilo in Registro_hilos:
+                    hilo.start()
+
+                for hilo in Registro_hilos:
+                    hilo.join()
+
+                if progress_bar.winfo_exists() and msg_estado.winfo_exists():
+                    progress_bar.stop()
+                    progress_bar.grid_forget()
+                    msg_estado.grid_forget()
+
+                Registro_hilos.clear()
+            
+            CrearWidgets(self._modulosNPM)
+
+            # Mostrar los widgets en la interfaz
+            self.frameModulos.after(0, mostrar_widgets)  # Programar mostrar_widgets en el hilo principal
+
+            self.protocol("WM_DELETE_WINDOW", lambda: self._cerrarVentana())
+        
+        self._modulosNPM = getDetailedModules()
+        canvas = tk.Canvas(self.frameModulos)
+        frame = ttk.Frame(canvas)
+        scrollbar = ttk.Scrollbar(self.frameModulos, orient="vertical", command=canvas.yview)
+        canvas.config(yscrollcommand=scrollbar.set)
+        
+        frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=frame, anchor="nw")
+        
+        encabezado = [
+            "Seleccionar",
+            "Nombre",
+            "Argumentos",
+            "Version",
+            "Global"
+        ]
+        
+        listaWidgets = []
+        
+        for i, txt in enumerate(encabezado):
+            ttk.Label(frame, text=txt, anchor="center").grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
+        
+        ttk.Separator(frame, orient="horizontal").grid(row=1, column=0, columnspan=5, sticky="ew")
+        
+        # Añadir una barra de progreso
+        progress_bar = ttk.Progressbar(self.frameModulos, orient='horizontal', mode='indeterminate', length=280, style="info.TProgressbar")
+        msg_estado = ttk.Label(self.frameModulos, text="Para ver los modulos disponibles, inicie la carga!")
+
+        msg_estado.grid(row=0, column=0, padx=5, pady=2)
+        
+        
+        btn_carga = ttk.Button(
+            self.frameModulos,
+            text="Cargar módulos",
+            command=lambda: threading.Thread(target=iniciarCarga).start(),
+            bootstyle=(INFO, OUTLINE) # type: ignore
+        )
+        btn_carga.grid(row=1, column=0, padx=5, pady=5, sticky="nsew", ipadx=10) 
+        
+        columnas = self.frameModulos.grid_size()[0]
+        for columna in range(columnas):
+            self.frameModulos.grid_columnconfigure(columna, weight=1)
+        
+        self.frameModulos.grid_rowconfigure(0, weight=1)
+        
     def _gitFrame(self):
         ttk.Label(self.frameGit, text="Git").pack()
     
@@ -1484,6 +1702,20 @@ class NodeSetupAppNew(ttk.Window):
     
     def _configuracionFrame(self):
         ttk.Label(self.frameConfiguracion, text="Configuracion").pack()
+    
+    def _creacion_proyecto(self):
+        pass
+    
+    def _cerrarVentana(self, ventana:tk.Tk | tk.Toplevel | None = None):
+        if not ventana:
+            ventana = self
+            
+        #? Aqui se cancela cuanquier After programado en la ventana principal
+        
+        for widget in ventana.winfo_children():
+            widget.destroy()
+        
+        ventana.destroy()
     
     def _loadImages(self):
         # Iconos para Frames
