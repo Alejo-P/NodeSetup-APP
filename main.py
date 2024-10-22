@@ -1385,19 +1385,19 @@ class NodeSetupAppNew(ttk.Window):
         self.Tareas.pack(fill="both", expand=True)
         self.Configuracion.pack(fill="both", expand=True)
         
-        self.Principal.bind("<Enter>", lambda e: self.toolTipPrincipal.showtip())
+        self.Principal.bind("<Enter>", lambda e: self.toolTipPrincipal.showtip("e"))
         self.Principal.bind("<Leave>", lambda e: self.toolTipPrincipal.hidetip())
         
-        self.Modulos.bind("<Enter>", lambda e: self.toolTipModulos.showtip())
+        self.Modulos.bind("<Enter>", lambda e: self.toolTipModulos.showtip("e"))
         self.Modulos.bind("<Leave>", lambda e: self.toolTipModulos.hidetip())
         
-        self.Git.bind("<Enter>", lambda e: self.toolTipGit.showtip())
+        self.Git.bind("<Enter>", lambda e: self.toolTipGit.showtip("e"))
         self.Git.bind("<Leave>", lambda e: self.toolTipGit.hidetip())
         
-        self.Tareas.bind("<Enter>", lambda e: self.toolTipTareas.showtip())
+        self.Tareas.bind("<Enter>", lambda e: self.toolTipTareas.showtip("e"))
         self.Tareas.bind("<Leave>", lambda e: self.toolTipTareas.hidetip())
         
-        self.Configuracion.bind("<Enter>", lambda e: self.toolTipConfiguracion.showtip())
+        self.Configuracion.bind("<Enter>", lambda e: self.toolTipConfiguracion.showtip("e"))
         self.Configuracion.bind("<Leave>", lambda e: self.toolTipConfiguracion.hidetip())
         
         self.frameSeleccion.pack(fill="y", side="left", ipadx=5)
