@@ -3,6 +3,7 @@ from email.mime import image
 import json
 import tkinter as tk
 from tkinter import filedialog
+from sympy import content
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
@@ -1752,19 +1753,22 @@ class NodeSetupAppNew(ttk.Window):
             def onClonarRepositorio():
                 def verificar_clonacion():
                     try:
-                        exito = resultado_clonacion.get_nowait()
+                        exito, mensaje = resultado_clonacion.get_nowait()
+                         
                         btn_clonacion.config(state="normal", text="Clonar")
                         if not exito:
-                            messagebox.showerror("Error", f"Error al clonar el repositorio: {resultado}")
+                            messagebox.showerror("Error", f"Error al clonar el repositorio: {mensaje}")
+                            return
+                        messagebox.showinfo("Información", mensaje)
                     except queue.Empty:
                         frameInicio.after(100, verificar_clonacion)
                 
                 def clonar_background():
                     resultado = runCommand([self._git_path, "clone", URLrepo.get(), self._ruta.get()])
                     if isinstance(resultado, subprocess.CalledProcessError):
-                        resultado_clonacion.put(False)
+                        resultado_clonacion.put((False, resultado.stderr))
                         return
-                    resultado_clonacion.put(True)
+                    resultado_clonacion.put((True, "El repositorio se clonó correctamente"))
                 
                 btn_clonacion.config(state="disabled", text="Clonando...")
                 resultado_clonacion = queue.Queue()
@@ -1778,8 +1782,8 @@ class NodeSetupAppNew(ttk.Window):
                 # Validación de la URL del repositorio
                 if not URLrepo.get():
                     btn_clonacion.config(state="disabled")
-                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
                     mensajes += 1
+                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
                     if "-> La URL del repositorio no puede estar vacía" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La URL del repositorio no puede estar vacía")
                 else:
@@ -1791,8 +1795,8 @@ class NodeSetupAppNew(ttk.Window):
                 # Validación de la ruta de destino vacía
                 if not self._ruta.get():
                     btn_clonacion.config(state="disabled")
-                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
                     mensajes += 1
+                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
                     if "-> La ruta de destino no puede estar vacía" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no puede estar vacía")
                 else:
@@ -1804,8 +1808,8 @@ class NodeSetupAppNew(ttk.Window):
                 # Validación de la ruta de destino válida
                 if not ValidateOnlyPath(self._ruta.get()):
                     btn_clonacion.config(state="disabled")
-                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
                     mensajes += 1
+                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
                     if "-> La ruta de destino no es válida" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no es válida")
                 else:
@@ -1818,7 +1822,6 @@ class NodeSetupAppNew(ttk.Window):
                 if mensajes == 0:
                     lblInicio.config(image="", compound="center", style="Selected.TLabel")
                     btn_clonacion.config(state="normal")
-
             
             ttk.Label(frameInicio, text="Ingresa la URL del repositorio:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryURL = ttk.Entry(frameInicio, textvariable=URLrepo, width=50)
@@ -1851,6 +1854,11 @@ class NodeSetupAppNew(ttk.Window):
             btn_clonacion.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
             frameInicio.grid_columnconfigure(0, weight=1)
+        
+        def contentFrameCommit():
+                ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                entrymsg = ttk.Entry(frameCommit, width=50)
+                entrymsg.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
         
         frameInformacion = ttk.LabelFrame(self.frameGit, text="Informacion", style="info.TLabelframe", name="git_info")
         ttk.Label(frameInformacion, text="Version de Git:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -1911,6 +1919,7 @@ class NodeSetupAppNew(ttk.Window):
         self.frameGit.grid_rowconfigure(1, weight=1)
         
         contentFrameInicio()
+        contentFrameCommit()
         setGitTooltipText()
         goToGitFrame("Inicio")
     

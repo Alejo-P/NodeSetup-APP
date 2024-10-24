@@ -44,24 +44,25 @@ archivos = [
 ]
 
 modulosNPM = sorted([
-    "Axios",
-    "Bcrypt",
-    "Body-parser",
     "Cloudinary",
-    "Cors",
+    "Body-parser",
     "Dotenv",
+    "Bcrypt",
+    "Cors",
     "Express",
+    "Axios",
     "Express-fileupload",
-    "Fs-extra",
     "Json-server",
-    "Jsonwebtoken",
+    "Fs-extra",
     "Mongoose",
-    "Morgan",
-    "MySQL2",
     "Uuid",
-    "Nodemailer",
-    "Nodemon",
+    "Jsonwebtoken",
+    "Typescript",
+    "MySQL2",
+    "Morgan",
     "Sequelize",
+    "Nodemon",
+    "Nodemailer",
 ], key=str.lower)
 
 Registro_hilos = []
