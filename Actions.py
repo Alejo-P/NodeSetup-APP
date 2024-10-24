@@ -643,3 +643,25 @@ def getFileNameAndExtension(file:str):
         _tuple_: _Nombre y extension del archivo_
     """
     return os.path.splitext(file)
+
+def ValidateOnlyPath(path:str):
+    """Valida si una ruta es un directorio.
+
+    Args:
+        path (str): _Ruta a validar_
+
+    Returns:
+        _bool_: _Indica si la ruta es un directorio existente o no_
+    """
+    return os.path.isdir(path)
+
+def ValidateOnlyFile(path:str):
+    """Valida si una ruta es un archivo.
+
+    Args:
+        path (str): _Ruta a validar_
+
+    Returns:
+        _bool_: _Indica si la ruta es un archivo o no_
+    """
+    return os.path.isfile(path)

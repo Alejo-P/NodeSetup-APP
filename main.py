@@ -1,4 +1,5 @@
 from concurrent.futures import thread
+from email.mime import image
 import json
 import tkinter as tk
 from tkinter import filedialog
@@ -9,6 +10,7 @@ import queue, os, shutil, threading, subprocess
 import time, ast, tempfile
 from typing import Literal
 from Actions import (
+    ValidateOnlyPath,
     clearQueue,
     doNothing,
     getBranchCommitsLog,
@@ -1334,14 +1336,17 @@ class NodeSetupAppNew(ttk.Window):
                 mensajeFrameGit += "\n(No se puede acceder a este frame)"
             self.toolTipGit.setText(mensajeFrameGit)
             
-            self.toolTipTareas.setText("Ver las tareas realizadas")
+            mensajeTareas = "Ver las tareas realizadas"
+            if self.Tareas.cget("style") == "Disabled.TLabel":
+                mensajeTareas += "\n(No se puede acceder a este frame)"
+            self.toolTipTareas.setText(mensajeTareas)
+            
             self.toolTipConfiguracion.setText("Configurar la aplicación")
         
         self.title(f"Node Setup App ({appVersion})")
         self.geometry("800x600")
         self.resizable(False, False)
         
-        self._ruta = tk.StringVar()
         self._imagenes = {}
         self._tareas = []
         self._version = appVersion
@@ -1364,6 +1369,8 @@ class NodeSetupAppNew(ttk.Window):
         estilos.configure("Custom.TLabel", background="#3E556A", foreground="white")
         estilos.configure("Disabled.TLabel", background="#3E556A", foreground="gray")
         estilos.configure("Selected.TLabel", background="#2B3E50", foreground="white")
+        estilos.configure("Warning.TLabel", background="#FFC107", foreground="black")
+        estilos.configure("Error.TLabel", background="#DC3545", foreground="white")
         
         self.frameSeleccion = ttk.Frame(self, name="selector", style="Custom.TFrame")
         
@@ -1408,13 +1415,14 @@ class NodeSetupAppNew(ttk.Window):
         self.frameTareas = ttk.Frame(self)
         self.frameConfiguracion = ttk.Frame(self)
         
+        self._loadImages()
+        
         self._principalFrame()
         self._modulosFrame()
         self._gitFrame()
         self._tareasFrame()
         self._configuracionFrame()
         
-        self._loadImages()
         onUpdateFrames()
         goToFrame("Principal")
     
@@ -1427,12 +1435,14 @@ class NodeSetupAppNew(ttk.Window):
         def onUpdateEntryRuta(event):
             if not self._ruta.get():
                 btn_irModulos.config(state="disabled")
+                btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
                 return
             
             if not os.path.exists(self._ruta.get()) and not self.CrearRutaVar.get():
                 btn_irModulos.config(state="disabled")
+                btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
                 messagebox.showerror("Error", "La ruta seleccionada no existe")
@@ -1440,12 +1450,14 @@ class NodeSetupAppNew(ttk.Window):
             
             if os.path.isfile(self._ruta.get()) or getFileExtension(self._ruta.get()):
                 btn_irModulos.config(state="disabled")
+                btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
                 messagebox.showerror("Error", "La ruta seleccionada es un archivo, debe ser un directorio")
                 return
             
             self.Modulos.config(state="normal")
+            btn_proceder.config(state="normal")
             btn_irModulos.config(state="normal")
             self._funcOnUpdateFrames()
         
@@ -1687,15 +1699,33 @@ class NodeSetupAppNew(ttk.Window):
                 if str(widget.cget("state")) == "disabled":
                     continue
                 
+                if str(widget.cget("style")) == "Warning.TLabel":
+                    widget.config( # type: ignore
+                        style="Warning.TLabel",
+                        cursor="arrow",
+                    )
+                    widget.bind("<Button-1>", onClickFrame)
+                    continue
+                
                 widget.config( # type: ignore
                     style="Custom.TLabel",
                     cursor="hand2",
                 )
                 widget.bind("<Button-1>", onClickFrame)
             
+            
+            
             event.widget.config(style="Selected.TLabel", cursor="arrow")
             event.widget.unbind("<Button-1>")
             showSelectedFrame(event.widget.cget("text"))
+        
+        def goToGitFrame(framename:str):
+            for frame in lbl_frame.winfo_children():
+                if frame.cget("text") == framename:
+                    frame.event_generate("<Button-1>")
+                    break
+            else:
+                messagebox.showerror("Error", f"El frame {framename} no existe")
         
         def showSelectedFrame(frameName:str):
             for frame in self.frameGit.winfo_children():
@@ -1709,6 +1739,118 @@ class NodeSetupAppNew(ttk.Window):
             elif frameName == "Logs":
                 frameLogs.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
         
+        def setGitTooltipText():
+            self.toolTip_GitInicio.setText("Clonar un repositorio de Git")
+            self.toolTip_GitCommit.setText("Realizar commits en un repositorio de Git")
+            self.toolTip_GitLogs.setText("Ver los logs de un repositorio de Git")
+        
+        def ChangePath():
+            if ruta:=filedialog.askdirectory():
+                self._ruta.set(ruta)
+        
+        def contentFrameInicio():
+            def onClonarRepositorio():
+                def verificar_clonacion():
+                    try:
+                        exito = resultado_clonacion.get_nowait()
+                        btn_clonacion.config(state="normal", text="Clonar")
+                        if not exito:
+                            messagebox.showerror("Error", f"Error al clonar el repositorio: {resultado}")
+                    except queue.Empty:
+                        frameInicio.after(100, verificar_clonacion)
+                
+                def clonar_background():
+                    resultado = runCommand([self._git_path, "clone", URLrepo.get(), self._ruta.get()])
+                    if isinstance(resultado, subprocess.CalledProcessError):
+                        resultado_clonacion.put(False)
+                        return
+                    resultado_clonacion.put(True)
+                
+                btn_clonacion.config(state="disabled", text="Clonando...")
+                resultado_clonacion = queue.Queue()
+                threading.Thread(target=clonar_background).start()
+                frameInicio.after(100, verificar_clonacion)
+            
+            def ValidarEntries():
+                textoTooltip = self.toolTip_GitInicio.getText()
+                mensajes = 0
+
+                # Validación de la URL del repositorio
+                if not URLrepo.get():
+                    btn_clonacion.config(state="disabled")
+                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    mensajes += 1
+                    if "-> La URL del repositorio no puede estar vacía" not in textoTooltip:
+                        self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La URL del repositorio no puede estar vacía")
+                else:
+                    # Si se ha corregido, eliminar la advertencia
+                    if "-> La URL del repositorio no puede estar vacía" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La URL del repositorio no puede estar vacía", "").strip()
+                        self.toolTip_GitInicio.setText(textoTooltip)
+                
+                # Validación de la ruta de destino vacía
+                if not self._ruta.get():
+                    btn_clonacion.config(state="disabled")
+                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    mensajes += 1
+                    if "-> La ruta de destino no puede estar vacía" not in textoTooltip:
+                        self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no puede estar vacía")
+                else:
+                    # Si se ha corregido, eliminar la advertencia
+                    if "-> La ruta de destino no puede estar vacía" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La ruta de destino no puede estar vacía", "").strip()
+                        self.toolTip_GitInicio.setText(textoTooltip)
+
+                # Validación de la ruta de destino válida
+                if not ValidateOnlyPath(self._ruta.get()):
+                    btn_clonacion.config(state="disabled")
+                    lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    mensajes += 1
+                    if "-> La ruta de destino no es válida" not in textoTooltip:
+                        self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no es válida")
+                else:
+                    # Si se ha corregido, eliminar la advertencia
+                    if "-> La ruta de destino no es válida" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La ruta de destino no es válida", "").strip()
+                        self.toolTip_GitInicio.setText(textoTooltip)
+
+                # Si no hay mensajes de advertencia, habilitar el botón
+                if mensajes == 0:
+                    lblInicio.config(image="", compound="center", style="Selected.TLabel")
+                    btn_clonacion.config(state="normal")
+
+            
+            ttk.Label(frameInicio, text="Ingresa la URL del repositorio:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            entryURL = ttk.Entry(frameInicio, textvariable=URLrepo, width=50)
+            scrollEntryURL = ttk.Scrollbar(frameInicio, orient="horizontal", bootstyle="info-round") # type: ignore
+            entryURL.config(xscrollcommand=scrollEntryURL.set)
+            scrollEntryURL.config(command=entryURL.xview)
+            entryURL.grid(row=1, column=0, padx=5, sticky="nsew")
+            scrollEntryURL.grid(row=2, column=0, padx=5, sticky="nsew")
+            
+            ttk.Label(frameInicio, text="Directorio de destino:", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+            entryRuta = ttk.Entry(frameInicio, textvariable=self._ruta, width=50)
+            scrollEntry = ttk.Scrollbar(frameInicio, orient="horizontal", bootstyle="info-round") # type: ignore
+            entryRuta.config(xscrollcommand=scrollEntry.set)
+            scrollEntry.config(command=entryRuta.xview)
+            entryRuta.grid(row=4, column=0, padx=5, sticky="nsew")
+            scrollEntry.grid(row=5, column=0, padx=5, sticky="nsew")
+            
+            maglbl = ttk.Label(frameInicio, image=self._imagenes["Magnifier"])
+            maglbl.grid(row=4, rowspan=2, column=1, padx=5, pady=5, sticky="nsew")
+            maglbl.bind("<Button-1>", lambda e: ChangePath())
+            tooltipMag = ToolTip(maglbl)
+            tooltipMag.setText("Seleccionar un directorio distinto")
+            maglbl.bind("<Enter>", lambda e: tooltipMag.showtip("w"))
+            maglbl.bind("<Leave>", lambda e: tooltipMag.hidetip())
+            
+            URLrepo.trace_add("write", lambda *args: ValidarEntries())
+            self._ruta.trace_add("write", lambda *args: ValidarEntries())
+            
+            btn_clonacion = ttk.Button(frameInicio, text="Clonar", command=onClonarRepositorio, bootstyle=(INFO, OUTLINE)) # type: ignore
+            btn_clonacion.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
+            frameInicio.grid_columnconfigure(0, weight=1)
         
         frameInformacion = ttk.LabelFrame(self.frameGit, text="Informacion", style="info.TLabelframe", name="git_info")
         ttk.Label(frameInformacion, text="Version de Git:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -1730,22 +1872,32 @@ class NodeSetupAppNew(ttk.Window):
         frameCommit = ttk.Frame(self.frameGit)
         frameLogs = ttk.Frame(self.frameGit)
         
-        ttk.Label(frameInicio, text="Inicio").pack()
-        ttk.Label(frameCommit, text="Commit").pack()
-        ttk.Label(frameLogs, text="Logs").pack()
+        URLrepo = ttk.StringVar()
         
         lbl_frame = ttk.Frame(self.frameGit, style="Custom.TFrame", name="git_selector")
-        lblInicio = ttk.Label(lbl_frame, text="Inicio", style="Selected.TLabel", anchor="center")
-        lblInicio.grid(row=0, column=0, sticky="nsew")
+        lblInicio = ttk.Label(lbl_frame, text="Inicio", style="Custom.TLabel", anchor="center")
+        lblInicio.grid(row=0, column=0, sticky="nsew", ipady=6)
         lblInicio.bind("<Button-1>", onClickFrame)
         
+        self.toolTip_GitInicio = ToolTip(lblInicio)
+        lblInicio.bind("<Enter>", lambda e: self.toolTip_GitInicio.showtip("n"))
+        lblInicio.bind("<Leave>", lambda e: self.toolTip_GitInicio.hidetip())
+        
         lblCommit = ttk.Label(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
-        lblCommit.grid(row=0, column=1, sticky="nsew")
+        lblCommit.grid(row=0, column=1, sticky="nsew", ipady=6)
         lblCommit.bind("<Button-1>", onClickFrame)
         
+        self.toolTip_GitCommit = ToolTip(lblCommit)
+        lblCommit.bind("<Enter>", lambda e: self.toolTip_GitCommit.showtip("n"))
+        lblCommit.bind("<Leave>", lambda e: self.toolTip_GitCommit.hidetip())
+        
         lblLogs = ttk.Label(lbl_frame, text="Logs", style="Custom.TLabel", anchor="center")
-        lblLogs.grid(row=0, column=2, sticky="nsew")
+        lblLogs.grid(row=0, column=2, sticky="nsew", ipady=6)
         lblLogs.bind("<Button-1>", onClickFrame)
+        
+        self.toolTip_GitLogs = ToolTip(lblLogs)
+        lblLogs.bind("<Enter>", lambda e: self.toolTip_GitLogs.showtip("n"))
+        lblLogs.bind("<Leave>", lambda e: self.toolTip_GitLogs.hidetip())
         
         columnas, filas = lbl_frame.grid_size()
         for columna in range(columnas):
@@ -1757,6 +1909,10 @@ class NodeSetupAppNew(ttk.Window):
         
         self.frameGit.grid_columnconfigure(0, weight=1)
         self.frameGit.grid_rowconfigure(1, weight=1)
+        
+        contentFrameInicio()
+        setGitTooltipText()
+        goToGitFrame("Inicio")
     
     def _tareasFrame(self):
         ttk.Label(self.frameTareas, text="Tareas").pack()
@@ -1791,6 +1947,10 @@ class NodeSetupAppNew(ttk.Window):
         self._imagenes["Running"] = loadImageTk((os.path.join(ruta_assets, "playIcon.png")), 20, 20)
         self._imagenes["Check"] = loadImageTk((os.path.join(ruta_assets, "checkIcon.png")), 20, 20)
         self._imagenes["Error"] = loadImageTk((os.path.join(ruta_assets, "errorIcon.png")), 20, 20)
+        
+        # Iconos adicionales
+        self._imagenes["Magnifier"] = loadImageTk((os.path.join(ruta_assets, "magnifierIcon.png")), 20, 20)
+        self._imagenes["Warning"] = loadImageTk((os.path.join(ruta_assets, "warningIcon.png")), 15, 15)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")
