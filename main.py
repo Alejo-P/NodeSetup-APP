@@ -1856,9 +1856,51 @@ class NodeSetupAppNew(ttk.Window):
             frameInicio.grid_columnconfigure(0, weight=1)
         
         def contentFrameCommit():
-                ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-                entrymsg = ttk.Entry(frameCommit, width=50)
-                entrymsg.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+            def insertarPlaceHolder(event:tk.Event):
+                estado = entrymsg.cget("state")
+                if estado == "readonly":
+                    entrymsg.config(state="normal")
+                    
+                if entrymsg.get() == "":
+                    entrymsg.insert(0, "Introduzca aqui el mensaje del commit...")
+                    entrymsg.config(foreground="gray")
+                    
+                entrymsg.config(state=estado)
+            
+            def removerPlaceHolder(event:tk.Event):
+                if entrymsg.get() == "Introduzca aqui el mensaje del commit...":
+                    entrymsg.delete(0, "end")
+                    entrymsg.config(foreground="black")
+            
+            def onCommit():
+                pass
+            
+            ttk.Label(frameCommit, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            entryRuta = ttk.Entry(frameCommit, textvariable=self._ruta, width=50)
+            entryRuta.grid(row=1, column=0, padx=5, sticky="nsew")
+            scrollRuta = ttk.Scrollbar(frameCommit, orient="horizontal", bootstyle="info-round") # type: ignore
+            entryRuta.config(xscrollcommand=scrollRuta.set)
+            scrollRuta.config(command=entryRuta.xview)
+            scrollRuta.grid(row=2, column=0, padx=5, sticky="nsew")
+            lblmagCommit = ttk.Label(frameCommit, image=self._imagenes["Magnifier"])
+            lblmagCommit.grid(row=1, rowspan=2, column=1, padx=5, sticky="nsew")
+            lblmagCommit.bind("<Button-1>", lambda e: ChangePath())
+            
+            ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+            entrymsg = ttk.Entry(frameCommit, width=50)
+            entrymsg.bind("<FocusIn>", removerPlaceHolder)
+            entrymsg.bind("<FocusOut>", insertarPlaceHolder)
+            entrymsg.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
+            
+            ttk.Label(frameCommit, text="Rama", style="info.TLabel", anchor="center").grid(row=5, column=0, padx=5, pady=5, sticky="nsew")
+            entrybranch = ttk.Entry(frameCommit, width=50)
+            entrybranch.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
+            
+            btn_commit = ttk.Button(frameCommit, text="Commit", command=onCommit, bootstyle=(INFO, OUTLINE)) # type: ignore
+            btn_commit.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            
+            frameCommit.grid_columnconfigure(0, weight=1)
+            insertarPlaceHolder(tk.Event())
         
         frameInformacion = ttk.LabelFrame(self.frameGit, text="Informacion", style="info.TLabelframe", name="git_info")
         ttk.Label(frameInformacion, text="Version de Git:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
