@@ -1868,9 +1868,39 @@ class NodeSetupAppNew(ttk.Window):
                 entrymsg.config(state=estado)
             
             def removerPlaceHolder(event:tk.Event):
-                if entrymsg.get() == "Introduzca aqui el mensaje del commit...":
+                if entrymsg.get() == "Introduzca aqui el mensaje del commit..." and str(entrymsg["foreground"]) == "gray":
                     entrymsg.delete(0, "end")
-                    entrymsg.config(foreground="black")
+                    entrymsg.config(foreground="white")
+            
+            def validarEntries():
+                textoTooltip = self.toolTip_GitCommit.getText()
+                mensajes = 0
+                
+                if not self._ruta.get():
+                    btn_commit.config(state="disabled")
+                    mensajes += 1
+                    lblCommit.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    if "-> La ruta del repositorio no puede estar vacía" not in textoTooltip:
+                        self.toolTip_GitCommit.setText(f"{textoTooltip}\n-> La ruta del repositorio no puede estar vacía")
+                else:
+                    if "-> La ruta del repositorio no puede estar vacía" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La ruta del repositorio no puede estar vacía", "").strip()
+                        self.toolTip_GitCommit.setText(textoTooltip)
+                
+                if not entrymsg.get() or (entrymsg.get() == "Introduzca aqui el mensaje del commit..." and str(entrymsg["foreground"]) == "gray"):
+                    btn_commit.config(state="disabled")
+                    mensajes += 1
+                    lblCommit.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    if "-> El mensaje del commit no puede estar vacío" not in textoTooltip:
+                        self.toolTip_GitCommit.setText(f"{textoTooltip}\n-> El mensaje del commit no puede estar vacío")
+                else:
+                    if "-> El mensaje del commit no puede estar vacío" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> El mensaje del commit no puede estar vacío", "").strip()
+                        self.toolTip_GitCommit.setText(textoTooltip)
+                
+                if mensajes == 0:
+                    lblCommit.config(image="", compound="center", style="Selected.TLabel")
+                    btn_commit.config(state="normal")
             
             def onCommit():
                 pass
@@ -1886,21 +1916,25 @@ class NodeSetupAppNew(ttk.Window):
             lblmagCommit.grid(row=1, rowspan=2, column=1, padx=5, sticky="nsew")
             lblmagCommit.bind("<Button-1>", lambda e: ChangePath())
             
+            msgCommitVar = tk.StringVar()
             ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
-            entrymsg = ttk.Entry(frameCommit, width=50)
+            entrymsg = ttk.Entry(frameCommit, textvariable=msgCommitVar, width=50)
             entrymsg.bind("<FocusIn>", removerPlaceHolder)
             entrymsg.bind("<FocusOut>", insertarPlaceHolder)
             entrymsg.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
             
             ttk.Label(frameCommit, text="Rama", style="info.TLabel", anchor="center").grid(row=5, column=0, padx=5, pady=5, sticky="nsew")
-            entrybranch = ttk.Entry(frameCommit, width=50)
-            entrybranch.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
+            combobranch = ttk.Combobox(frameCommit, width=50)
+            combobranch.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
             
             btn_commit = ttk.Button(frameCommit, text="Commit", command=onCommit, bootstyle=(INFO, OUTLINE)) # type: ignore
             btn_commit.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             
-            frameCommit.grid_columnconfigure(0, weight=1)
             insertarPlaceHolder(tk.Event())
+            msgCommitVar.trace_add("write", lambda *args: validarEntries())
+            self._ruta.trace_add("write", lambda *args: validarEntries())
+            
+            frameCommit.grid_columnconfigure(0, weight=1)
         
         frameInformacion = ttk.LabelFrame(self.frameGit, text="Informacion", style="info.TLabelframe", name="git_info")
         ttk.Label(frameInformacion, text="Version de Git:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
