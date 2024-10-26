@@ -3,6 +3,7 @@ from email.mime import image
 import json
 import tkinter as tk
 from tkinter import filedialog
+from requests import get
 from sympy import content
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
@@ -17,6 +18,8 @@ from Actions import (
     getBranchCommitsLog,
     getCurrentBrach,
     getFileExtension,
+    isFileInPath,
+    isFolderInPath,
     preventCloseWindow,
     getVersionOf,
     writeLog,
@@ -26,6 +29,7 @@ from Actions import (
     getGitBranches,
     getDetailedModules
 )
+from CustomWidgets import SelectionLabel
 from Tools import ToolTip
 from Vars import (
     listaArgumentos,
@@ -1700,6 +1704,25 @@ class NodeSetupAppNew(ttk.Window):
                 if str(widget.cget("state")) == "disabled":
                     continue
                 
+                if isinstance(widget, SelectionLabel):
+                    if widget.type == "warning":
+                        widget.config( # type: ignore
+                            style="Warning.TLabel",
+                            cursor="arrow",
+                        )
+                        widget.onClick(callback=onClickFrame)
+                        continue
+                    #TODO: Continuar con el uso de la clase personalizada (lograr mantener el color del widget cuando se seleccionen otros)
+                    
+                    if widget.type == "selected":
+                        widget.config( # type: ignore
+                            style="Selected.TLabel",
+                            cursor="arrow",
+                        )
+                        widget.deleteOnClick()
+                        continue
+                
+                
                 if str(widget.cget("style")) == "Warning.TLabel":
                     widget.config( # type: ignore
                         style="Warning.TLabel",
@@ -1856,21 +1879,34 @@ class NodeSetupAppNew(ttk.Window):
             frameInicio.grid_columnconfigure(0, weight=1)
         
         def contentFrameCommit():
-            def insertarPlaceHolder(event:tk.Event):
-                estado = entrymsg.cget("state")
-                if estado == "readonly":
-                    entrymsg.config(state="normal")
+            def obtenerRamas():
+                def verificarResultado():
+                    try:
+                        ramas = resultadoRamas.get_nowait()
+                        if (self._ruta.get() and ramas) and isFolderInPath(".git", self._ruta.get()):
+                            combobranch.config(values=list(ramas.keys()))
+                            combobranch.current(list(ramas.values()).index(True))
+                            return
+                        combobranch.config(values=("Ruta invalida",))
+                        combobranch.current(0)
+                    except:
+                        frameCommit.after(100, verificarResultado)
                     
-                if entrymsg.get() == "":
-                    entrymsg.insert(0, "Introduzca aqui el mensaje del commit...")
-                    entrymsg.config(foreground="gray")
+                    clearQueue(resultadoRamas)
                     
-                entrymsg.config(state=estado)
-            
-            def removerPlaceHolder(event:tk.Event):
-                if entrymsg.get() == "Introduzca aqui el mensaje del commit..." and str(entrymsg["foreground"]) == "gray":
-                    entrymsg.delete(0, "end")
-                    entrymsg.config(foreground="white")
+                def obtener_background():
+                    if os.path.exists(self._ruta.get()) and isFolderInPath(".git", self._ruta.get()):
+                        ramas = getGitBranches(self._ruta.get())
+                        resultadoRamas.put(ramas)
+                        return
+                    resultadoRamas.put({"Ruta no valida":True})
+                    
+                btn_commit.config(state="disabled")
+                resultadoRamas = queue.Queue()
+                combobranch.config(values=("Cargando ramas ...",))
+                combobranch.current(0)
+                threading.Thread(target=obtener_background).start()
+                frameCommit.after(100, verificarResultado)    
             
             def validarEntries():
                 textoTooltip = self.toolTip_GitCommit.getText()
@@ -1880,6 +1916,7 @@ class NodeSetupAppNew(ttk.Window):
                     btn_commit.config(state="disabled")
                     mensajes += 1
                     lblCommit.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblCommit.type = "warning"
                     if "-> La ruta del repositorio no puede estar vacía" not in textoTooltip:
                         self.toolTip_GitCommit.setText(f"{textoTooltip}\n-> La ruta del repositorio no puede estar vacía")
                 else:
@@ -1887,10 +1924,23 @@ class NodeSetupAppNew(ttk.Window):
                         textoTooltip = textoTooltip.replace("-> La ruta del repositorio no puede estar vacía", "").strip()
                         self.toolTip_GitCommit.setText(textoTooltip)
                 
-                if not entrymsg.get() or (entrymsg.get() == "Introduzca aqui el mensaje del commit..." and str(entrymsg["foreground"]) == "gray"):
+                if not os.path.exists(self._ruta.get()) or not isFolderInPath(".git", self._ruta.get()):
                     btn_commit.config(state="disabled")
                     mensajes += 1
                     lblCommit.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblCommit.type = "warning"
+                    if "-> La ruta del repositorio no es válida" not in textoTooltip:
+                        self.toolTip_GitCommit.setText(f"{textoTooltip}\n-> La ruta del repositorio no es válida")
+                else:
+                    if "-> La ruta del repositorio no es válida" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La ruta del repositorio no es válida", "").strip()
+                        self.toolTip_GitCommit.setText(textoTooltip)
+                
+                if not entrymsg.get() or (msgCommitVar.get() == "Introduzca aqui el mensaje del commit..." and str(entrymsg["foreground"]) == "gray"):
+                    btn_commit.config(state="disabled")
+                    mensajes += 1
+                    lblCommit.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblCommit.type = "warning"
                     if "-> El mensaje del commit no puede estar vacío" not in textoTooltip:
                         self.toolTip_GitCommit.setText(f"{textoTooltip}\n-> El mensaje del commit no puede estar vacío")
                 else:
@@ -1900,6 +1950,7 @@ class NodeSetupAppNew(ttk.Window):
                 
                 if mensajes == 0:
                     lblCommit.config(image="", compound="center", style="Selected.TLabel")
+                    lblCommit.type = "normal"
                     btn_commit.config(state="normal")
             
             def onCommit():
@@ -1919,20 +1970,24 @@ class NodeSetupAppNew(ttk.Window):
             msgCommitVar = tk.StringVar()
             ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
             entrymsg = ttk.Entry(frameCommit, textvariable=msgCommitVar, width=50)
-            entrymsg.bind("<FocusIn>", removerPlaceHolder)
-            entrymsg.bind("<FocusOut>", insertarPlaceHolder)
             entrymsg.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
+            lblinfoCommit = ttk.Label(frameCommit, image=self._imagenes["Info"], style="info.TLabel")
+            tooltipLblCommit = ToolTip(lblinfoCommit, "Introduzca el mensaje del commit en el campo de entrada")
+            lblinfoCommit.bind("<Enter>", lambda e: tooltipLblCommit.showtip("w"))
+            lblinfoCommit.bind("<Leave>", lambda e: tooltipLblCommit.hidetip())
+            lblinfoCommit.grid(row=4, column=1, padx=5, pady=5, sticky="nsew")
             
             ttk.Label(frameCommit, text="Rama", style="info.TLabel", anchor="center").grid(row=5, column=0, padx=5, pady=5, sticky="nsew")
-            combobranch = ttk.Combobox(frameCommit, width=50)
+            combobranch = ttk.Combobox(frameCommit, width=50, state="readonly")
             combobranch.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
             
             btn_commit = ttk.Button(frameCommit, text="Commit", command=onCommit, bootstyle=(INFO, OUTLINE)) # type: ignore
             btn_commit.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             
-            insertarPlaceHolder(tk.Event())
+            obtenerRamas()
             msgCommitVar.trace_add("write", lambda *args: validarEntries())
             self._ruta.trace_add("write", lambda *args: validarEntries())
+            self._ruta.trace_add("write", lambda *args: obtenerRamas())
             
             frameCommit.grid_columnconfigure(0, weight=1)
         
@@ -1967,9 +2022,14 @@ class NodeSetupAppNew(ttk.Window):
         lblInicio.bind("<Enter>", lambda e: self.toolTip_GitInicio.showtip("n"))
         lblInicio.bind("<Leave>", lambda e: self.toolTip_GitInicio.hidetip())
         
-        lblCommit = ttk.Label(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
+        
+        #lblCommit = ttk.Label(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
+        lblCommit = SelectionLabel(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
         lblCommit.grid(row=0, column=1, sticky="nsew", ipady=6)
-        lblCommit.bind("<Button-1>", onClickFrame)
+        lblCommit.onClick(callback=onClickFrame)
+        #lblCommit.bind("<Button-1>", onClickFrame)
+        
+        
         
         self.toolTip_GitCommit = ToolTip(lblCommit)
         lblCommit.bind("<Enter>", lambda e: self.toolTip_GitCommit.showtip("n"))
@@ -2035,7 +2095,8 @@ class NodeSetupAppNew(ttk.Window):
         
         # Iconos adicionales
         self._imagenes["Magnifier"] = loadImageTk((os.path.join(ruta_assets, "magnifierIcon.png")), 20, 20)
-        self._imagenes["Warning"] = loadImageTk((os.path.join(ruta_assets, "warningIcon.png")), 15, 15)
+        self._imagenes["Warning"] = loadImageTk((os.path.join(ruta_assets, "warningIcon.png")), 20, 20)
+        self._imagenes["Info"] = loadImageTk((os.path.join(ruta_assets, "infoIcon.png")), 20, 20)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")

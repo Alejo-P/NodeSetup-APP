@@ -257,6 +257,9 @@ def getGitBranches(ruta:str):
     Returns:
         _Dict[str, bool]: _Diccionario con las ramas del repositorio y si estan activas o no_
     """
+    if not ruta:
+        return {"No hay ramas": True}
+    
     resultado = runCommand([getPathOf("git"), "branch"], ruta)
     
     if isinstance(resultado, subprocess.CalledProcessError):
@@ -665,3 +668,27 @@ def ValidateOnlyFile(path:str):
         _bool_: _Indica si la ruta es un archivo o no_
     """
     return os.path.isfile(path)
+
+def isFileInPath(fileName:str, path:str):
+    """Verifica si un archivo se encuentra en una ruta.
+
+    Args:
+        fileName (str): _Nombre del archivo_
+        path (str): _Ruta donde se buscara el archivo_
+
+    Returns:
+        _bool_: _Indica si el archivo se encuentra en la ruta o no_
+    """
+    return os.path.isfile(os.path.join(path, fileName))
+
+def isFolderInPath(folderName:str, path:str):
+    """Verifica si una carpeta se encuentra en una ruta.
+
+    Args:
+        folderName (str): _Nombre de la carpeta_
+        path (str): _Ruta donde se buscara la carpeta_
+
+    Returns:
+        _bool_: _Indica si la carpeta se encuentra en la ruta o no_
+    """
+    return os.path.isdir(os.path.join(path, folderName))
