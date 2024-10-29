@@ -3,6 +3,7 @@ from email.mime import image
 import json
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import scrolledtext
 from requests import get
 from sympy import content
 import ttkbootstrap as ttk
@@ -1713,34 +1714,15 @@ class NodeSetupAppNew(ttk.Window):
                         widget.onClick(callback=onClickFrame)
                         continue
                     #TODO: Continuar con el uso de la clase personalizada (lograr mantener el color del widget cuando se seleccionen otros)
-                    
-                    if widget.type == "selected":
-                        widget.config( # type: ignore
-                            style="Selected.TLabel",
-                            cursor="arrow",
-                        )
-                        widget.deleteOnClick()
-                        continue
                 
-                
-                if str(widget.cget("style")) == "Warning.TLabel":
                     widget.config( # type: ignore
-                        style="Warning.TLabel",
-                        cursor="arrow",
+                        style="Custom.TLabel",
+                        cursor="hand2",
                     )
-                    widget.bind("<Button-1>", onClickFrame)
-                    continue
-                
-                widget.config( # type: ignore
-                    style="Custom.TLabel",
-                    cursor="hand2",
-                )
-                widget.bind("<Button-1>", onClickFrame)
-            
-            
+                    widget.onClick(callback=onClickFrame)
             
             event.widget.config(style="Selected.TLabel", cursor="arrow")
-            event.widget.unbind("<Button-1>")
+            event.widget.deleteBind("<Button-1>")
             showSelectedFrame(event.widget.cget("text"))
         
         def goToGitFrame(framename:str):
@@ -1807,6 +1789,7 @@ class NodeSetupAppNew(ttk.Window):
                     btn_clonacion.config(state="disabled")
                     mensajes += 1
                     lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblInicio.type = "warning"
                     if "-> La URL del repositorio no puede estar vacía" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La URL del repositorio no puede estar vacía")
                 else:
@@ -1820,6 +1803,7 @@ class NodeSetupAppNew(ttk.Window):
                     btn_clonacion.config(state="disabled")
                     mensajes += 1
                     lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblInicio.type = "warning"
                     if "-> La ruta de destino no puede estar vacía" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no puede estar vacía")
                 else:
@@ -1833,6 +1817,7 @@ class NodeSetupAppNew(ttk.Window):
                     btn_clonacion.config(state="disabled")
                     mensajes += 1
                     lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblInicio.type = "warning"
                     if "-> La ruta de destino no es válida" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no es válida")
                 else:
@@ -1844,6 +1829,7 @@ class NodeSetupAppNew(ttk.Window):
                 # Si no hay mensajes de advertencia, habilitar el botón
                 if mensajes == 0:
                     lblInicio.config(image="", compound="center", style="Selected.TLabel")
+                    lblInicio.type = "normal"
                     btn_clonacion.config(state="normal")
             
             ttk.Label(frameInicio, text="Ingresa la URL del repositorio:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
@@ -1953,8 +1939,62 @@ class NodeSetupAppNew(ttk.Window):
                     lblCommit.type = "normal"
                     btn_commit.config(state="normal")
             
+            def onChangeBranch():
+                ramaActual = getCurrentBrach(getGitBranches(self._ruta.get()))
+                if ramaSeleccionada.get() != ramaActual and ramaActual != "No hay ramas":
+                    if messagebox.askyesno("Advertencia", f"La rama seleccionada no es la rama actual ({ramaActual}), ¿Desea continuar?"):
+                        reultado = runCommand([self._git_path, "checkout", ramaSeleccionada.get()], self._ruta.get())
+                        
+                        if isinstance(reultado, subprocess.CalledProcessError):
+                            messagebox.showerror("Error", f"Error al cambiar de rama: {reultado.stderr}")
+                            return
+                        
+                        messagebox.showinfo("Información", "Se ha cambiado de rama correctamente")
+                    else:
+                        ramaSeleccionada.set(ramaActual) 
+            
             def onCommit():
-                pass
+                def backgroundCommit():
+                    resultado = runCommand([self._git_path, "add", "."], self._ruta.get())
+                    if isinstance(resultado, subprocess.CalledProcessError):
+                        resultado_commit.put((False, resultado.stderr))
+                        return
+                    
+                    if accion == "Commit":
+                        resultado = runCommand([self._git_path, "commit", "-m", msgCommitVar.get()], self._ruta.get())
+                        if isinstance(resultado, subprocess.CalledProcessError):
+                            resultado_commit.put((False, resultado.stderr))
+                            return
+                        resultado_commit.put((True, "Commit realizado correctamente"))
+                    elif accion == "Commit y Push":
+                        resultado = runCommand([self._git_path, "commit", "-m", msgCommitVar.get()], self._ruta.get())
+                        if isinstance(resultado, subprocess.CalledProcessError):
+                            resultado_commit.put((False, resultado.stderr))
+                            return
+                        resultado = runCommand([self._git_path, "push", "origin", ramaSeleccionada.get()], self._ruta.get())
+                        if isinstance(resultado, subprocess.CalledProcessError):
+                            resultado_commit.put((False, resultado.stderr))
+                            return
+                        resultado_commit.put((True, "Commit y Push realizado correctamente"))
+                    
+                def verificarCommit():
+                    try:
+                        exito, mensaje = resultado_commit.get_nowait()
+                        btn_commit.config(state="normal", text="Commit")
+                        if not exito:
+                            messagebox.showerror("Error", f"Error al realizar el commit: {mensaje}")
+                            return
+                        messagebox.showinfo("Información", mensaje)
+                    except:
+                        frameCommit.after(100, verificarCommit)
+                    
+                    clearQueue(resultado_commit)
+                
+                accion = accionSeleccionada.get()
+                resultado_commit = queue.Queue()
+                btn_commit.config(state="disabled", text="Realizando commit ...")
+                threading.Thread(target=backgroundCommit).start()
+                frameCommit.after(100, verificarCommit)
             
             ttk.Label(frameCommit, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryRuta = ttk.Entry(frameCommit, textvariable=self._ruta, width=50)
@@ -1967,6 +2007,11 @@ class NodeSetupAppNew(ttk.Window):
             lblmagCommit.grid(row=1, rowspan=2, column=1, padx=5, sticky="nsew")
             lblmagCommit.bind("<Button-1>", lambda e: ChangePath())
             
+            tooltiplblmag = ToolTip(lblmagCommit)
+            tooltiplblmag.setText("Seleccionar un directorio distinto")
+            lblmagCommit.bind("<Enter>", lambda e: tooltiplblmag.showtip("w"))
+            lblmagCommit.bind("<Leave>", lambda e: tooltiplblmag.hidetip())
+            
             msgCommitVar = tk.StringVar()
             ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
             entrymsg = ttk.Entry(frameCommit, textvariable=msgCommitVar, width=50)
@@ -1977,12 +2022,20 @@ class NodeSetupAppNew(ttk.Window):
             lblinfoCommit.bind("<Leave>", lambda e: tooltipLblCommit.hidetip())
             lblinfoCommit.grid(row=4, column=1, padx=5, pady=5, sticky="nsew")
             
+            ramaSeleccionada = tk.StringVar()
             ttk.Label(frameCommit, text="Rama", style="info.TLabel", anchor="center").grid(row=5, column=0, padx=5, pady=5, sticky="nsew")
-            combobranch = ttk.Combobox(frameCommit, width=50, state="readonly")
+            combobranch = ttk.Combobox(frameCommit, width=50, state="readonly", textvariable=ramaSeleccionada)
             combobranch.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
+            combobranch.bind("<<ComboboxSelected>>", lambda e: onChangeBranch())
+            
+            accionSeleccionada = tk.StringVar()
+            ttk.Label(frameCommit, text="Acciones", style="info.TLabel", anchor="center").grid(row=7, column=0, padx=5, pady=5, sticky="nsew")
+            comboAcciones = ttk.Combobox(frameCommit, values=("Commit", "Commit y Push"), state="readonly", textvariable=accionSeleccionada)
+            comboAcciones.current(0)
+            comboAcciones.grid(row=8, column=0, padx=5, pady=5, sticky="nsew")
             
             btn_commit = ttk.Button(frameCommit, text="Commit", command=onCommit, bootstyle=(INFO, OUTLINE)) # type: ignore
-            btn_commit.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            btn_commit.grid(row=9, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             
             obtenerRamas()
             msgCommitVar.trace_add("write", lambda *args: validarEntries())
@@ -1990,6 +2043,102 @@ class NodeSetupAppNew(ttk.Window):
             self._ruta.trace_add("write", lambda *args: obtenerRamas())
             
             frameCommit.grid_columnconfigure(0, weight=1)
+            
+        def contentFrameLogs():
+            def validarRuta():
+                textoTooltip = self.toolTip_GitLogs.getText()
+                mensajes = 0
+                if not self._ruta.get():
+                    btnLogs.config(state="disabled")
+                    lblLogs.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblLogs.type = "warning"
+                    mensajes += 1
+                    if "-> La ruta del repositorio no puede estar vacía" not in textoTooltip:
+                        self.toolTip_GitLogs.setText(f"{textoTooltip}\n-> La ruta del repositorio no puede estar vacía")
+                else:
+                    if "-> La ruta del repositorio no puede estar vacía" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La ruta del repositorio no puede estar vacía", "").strip()
+                        self.toolTip_GitLogs.setText(textoTooltip)
+                
+                if not ValidateOnlyPath(self._ruta.get()):
+                    btnLogs.config(state="disabled")
+                    lblLogs.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblLogs.type = "warning"
+                    mensajes += 1
+                    if "-> La ruta del repositorio no es válida" not in textoTooltip:
+                        self.toolTip_GitLogs.setText(f"{textoTooltip}\n-> La ruta del repositorio no es válida")
+                else:
+                    if "-> La ruta del repositorio no es válida" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La ruta del repositorio no es válida", "").strip()
+                        self.toolTip_GitLogs.setText(textoTooltip)
+                
+                if not isFolderInPath(".git", self._ruta.get()):
+                    btnLogs.config(state="disabled")
+                    lblLogs.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblLogs.type = "warning"
+                    mensajes += 1
+                    if "-> La ruta del repositorio no es un repositorio de Git" not in textoTooltip:
+                        self.toolTip_GitLogs.setText(f"{textoTooltip}\n-> La ruta del repositorio no es un repositorio de Git")
+                else:
+                    if "-> La ruta del repositorio no es un repositorio de Git" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> La ruta del repositorio no es un repositorio de Git", "").strip()
+                        self.toolTip_GitLogs.setText(textoTooltip)
+                
+                if mensajes == 0:
+                    lblLogs.config(image="", compound="center", style="Selected.TLabel")
+                    lblLogs.type = "normal"
+                    btnLogs.config(state="normal")
+            
+            def obtenerLogs():
+                def verificarResultado():
+                    try:
+                        logs = resultadoLogs.get_nowait()
+                        if logs:
+                            txtLogs.config(state="normal")
+                            txtLogs.delete("1.0", "end")
+                            txtLogs.insert("1.0", logs)
+                            txtLogs.config(state="disabled")
+                            return
+                        txtLogs.config(state="normal")
+                        txtLogs.delete("1.0", "end")
+                        txtLogs.insert("1.0", "No hay logs disponibles")
+                        txtLogs.config(state="disabled")
+                    except:
+                        frameLogs.after(100, verificarResultado)
+                    
+                    clearQueue(resultadoLogs)
+                
+                def obtener_background():
+                    logs = runCommand([self._git_path, "log"], self._ruta.get())
+                    if isinstance(logs, subprocess.CalledProcessError):
+                        resultadoLogs.put("")
+                        return
+                    resultadoLogs.put(logs.stdout)
+                
+                resultadoLogs = queue.Queue()
+                threading.Thread(target=obtener_background).start()
+                frameLogs.after(100, verificarResultado)
+            
+            ttk.Label(frameLogs, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            entryRuta = ttk.Entry(frameLogs, textvariable=self._ruta, style="info.TEntry", width=50)
+            entryRuta.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+            lblmagRuta = ttk.Label(frameLogs, image=self._imagenes["Magnifier"])
+            lblmagRuta.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+            lblmagRuta.bind("<Button-1>", lambda e: ChangePath())
+            
+            tooltiplblmag = ToolTip(lblmagRuta)
+            tooltiplblmag.setText("Seleccionar un directorio distinto")
+            lblmagRuta.bind("<Enter>", lambda e: tooltiplblmag.showtip("w"))
+            lblmagRuta.bind("<Leave>", lambda e: tooltiplblmag.hidetip())
+            
+            txtLogs = scrolledtext.ScrolledText(frameLogs, width=50, height=20, state="disabled")
+            txtLogs.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+            btnLogs = ttk.Button(frameLogs, text="Obtener logs", command=obtenerLogs, bootstyle=(INFO, OUTLINE), state="disabled") # type: ignore
+            btnLogs.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+            
+            self._ruta.trace_add("write", lambda *args: validarRuta())
+            frameLogs.grid_columnconfigure(0, weight=1)
+            frameLogs.grid_rowconfigure(2, weight=1)
         
         frameInformacion = ttk.LabelFrame(self.frameGit, text="Informacion", style="info.TLabelframe", name="git_info")
         ttk.Label(frameInformacion, text="Version de Git:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -2014,30 +2163,25 @@ class NodeSetupAppNew(ttk.Window):
         URLrepo = ttk.StringVar()
         
         lbl_frame = ttk.Frame(self.frameGit, style="Custom.TFrame", name="git_selector")
-        lblInicio = ttk.Label(lbl_frame, text="Inicio", style="Custom.TLabel", anchor="center")
+        lblInicio = SelectionLabel(lbl_frame, text="Inicio", style="Custom.TLabel", anchor="center")
         lblInicio.grid(row=0, column=0, sticky="nsew", ipady=6)
-        lblInicio.bind("<Button-1>", onClickFrame)
+        lblInicio.onClick(callback=onClickFrame)
         
         self.toolTip_GitInicio = ToolTip(lblInicio)
         lblInicio.bind("<Enter>", lambda e: self.toolTip_GitInicio.showtip("n"))
         lblInicio.bind("<Leave>", lambda e: self.toolTip_GitInicio.hidetip())
         
-        
-        #lblCommit = ttk.Label(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
         lblCommit = SelectionLabel(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
         lblCommit.grid(row=0, column=1, sticky="nsew", ipady=6)
         lblCommit.onClick(callback=onClickFrame)
-        #lblCommit.bind("<Button-1>", onClickFrame)
-        
-        
         
         self.toolTip_GitCommit = ToolTip(lblCommit)
         lblCommit.bind("<Enter>", lambda e: self.toolTip_GitCommit.showtip("n"))
         lblCommit.bind("<Leave>", lambda e: self.toolTip_GitCommit.hidetip())
         
-        lblLogs = ttk.Label(lbl_frame, text="Logs", style="Custom.TLabel", anchor="center")
+        lblLogs = SelectionLabel(lbl_frame, text="Logs", style="Custom.TLabel", anchor="center")
         lblLogs.grid(row=0, column=2, sticky="nsew", ipady=6)
-        lblLogs.bind("<Button-1>", onClickFrame)
+        lblLogs.onClick(callback=onClickFrame)
         
         self.toolTip_GitLogs = ToolTip(lblLogs)
         lblLogs.bind("<Enter>", lambda e: self.toolTip_GitLogs.showtip("n"))
@@ -2057,6 +2201,7 @@ class NodeSetupAppNew(ttk.Window):
         contentFrameInicio()
         contentFrameCommit()
         setGitTooltipText()
+        contentFrameLogs()
         goToGitFrame("Inicio")
     
     def _tareasFrame(self):
