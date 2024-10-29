@@ -1349,12 +1349,13 @@ class NodeSetupAppNew(ttk.Window):
             
             self.toolTipConfiguracion.setText("Configurar la aplicación")
         
-        self.title(f"Node Setup App ({appVersion})")
+        self.title(f"Node Setup App")
         self.geometry("800x600")
         self.resizable(False, False)
         
         self._imagenes = {}
         self._tareas = []
+        self._taskWidgets = []
         self._version = appVersion
         
         self._funcGoToFrame = goToFrame
@@ -2109,11 +2110,11 @@ class NodeSetupAppNew(ttk.Window):
                     clearQueue(resultadoLogs)
                 
                 def obtener_background():
-                    logs = runCommand([self._git_path, "log"], self._ruta.get())
+                    logs = runCommand([self._git_path, "log"], self._ruta.get(), retornarEn='bytes')
                     if isinstance(logs, subprocess.CalledProcessError):
                         resultadoLogs.put("")
                         return
-                    resultadoLogs.put(logs.stdout)
+                    resultadoLogs.put(logs.stdout.decode("utf-8"))
                 
                 resultadoLogs = queue.Queue()
                 threading.Thread(target=obtener_background).start()
@@ -2121,10 +2122,14 @@ class NodeSetupAppNew(ttk.Window):
             
             ttk.Label(frameLogs, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryRuta = ttk.Entry(frameLogs, textvariable=self._ruta, style="info.TEntry", width=50)
-            entryRuta.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+            entryRuta.grid(row=1, column=0, padx=5, sticky="nsew")
             lblmagRuta = ttk.Label(frameLogs, image=self._imagenes["Magnifier"])
-            lblmagRuta.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+            lblmagRuta.grid(row=1, rowspan=2, column=1, padx=5, pady=5, sticky="nsew")
             lblmagRuta.bind("<Button-1>", lambda e: ChangePath())
+            scrollEntry = ttk.Scrollbar(frameLogs, orient="horizontal", bootstyle="info-round") # type: ignore
+            entryRuta.config(xscrollcommand=scrollEntry.set)
+            scrollEntry.config(command=entryRuta.xview)
+            scrollEntry.grid(row=2, column=0, padx=5, sticky="nsew")
             
             tooltiplblmag = ToolTip(lblmagRuta)
             tooltiplblmag.setText("Seleccionar un directorio distinto")
@@ -2132,13 +2137,13 @@ class NodeSetupAppNew(ttk.Window):
             lblmagRuta.bind("<Leave>", lambda e: tooltiplblmag.hidetip())
             
             txtLogs = scrolledtext.ScrolledText(frameLogs, width=50, height=20, state="disabled")
-            txtLogs.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+            txtLogs.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             btnLogs = ttk.Button(frameLogs, text="Obtener logs", command=obtenerLogs, bootstyle=(INFO, OUTLINE), state="disabled") # type: ignore
-            btnLogs.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+            btnLogs.grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             
             self._ruta.trace_add("write", lambda *args: validarRuta())
             frameLogs.grid_columnconfigure(0, weight=1)
-            frameLogs.grid_rowconfigure(2, weight=1)
+            frameLogs.grid_rowconfigure(3, weight=1)
         
         frameInformacion = ttk.LabelFrame(self.frameGit, text="Informacion", style="info.TLabelframe", name="git_info")
         ttk.Label(frameInformacion, text="Version de Git:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -2208,10 +2213,158 @@ class NodeSetupAppNew(ttk.Window):
         ttk.Label(self.frameTareas, text="Tareas").pack()
     
     def _configuracionFrame(self):
-        ttk.Label(self.frameConfiguracion, text="Configuracion").pack()
+        masAccionesFrame = ttk.LabelFrame(self.frameConfiguracion, text="Acciones adicionales para el proyecto", style="info.TLabelframe")
+        
+        self._checkVars = []
+        
+        mensajesChkBox = [("Abrir en VS Code al finalizar", False)]
+        
+        for mensaje, check in mensajesChkBox:
+            var = tk.BooleanVar(value=check)
+            chk = ttk.Checkbutton(masAccionesFrame, text=mensaje, variable=var, style="success.TCheckbutton")
+            chk.pack(padx=5, pady=5, anchor="w")
+            self._checkVars.append({mensaje: var})
+        
+        masAccionesFrame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+        
+        pathsFrame = ttk.LabelFrame(self.frameConfiguracion, text="Rutas a ejecutables", style="info.TLabelframe")
+        
+        ttk.Label(pathsFrame, text="Ruta de Git", style="info.TLabel").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+        entryGitPath = ttk.Entry(pathsFrame, style="info.TEntry", width=50)
+        entryGitPath.insert(0, self._git_path if self._git_path else "No disponible")
+        entryGitPath.config(state="readonly")
+        entryGitPath.grid(row=1, column=0, padx=5, sticky="nsew")
+        scrollEntryGit = ttk.Scrollbar(pathsFrame, orient="horizontal", bootstyle="info-round") # type: ignore
+        entryGitPath.config(xscrollcommand=scrollEntryGit.set)
+        scrollEntryGit.config(command=entryGitPath.xview)
+        scrollEntryGit.grid(row=2, column=0, padx=5, sticky="nsew")
+        
+        lblInfoEntryGit = ttk.Label(pathsFrame, image=self._imagenes["Info"], style="info.TLabel")
+        tooltipGit = ToolTip(lblInfoEntryGit, "La ruta de Git es necesaria para realizar las acciones de Git")
+        lblInfoEntryGit.bind("<Enter>", lambda e: tooltipGit.showtip("w"))
+        lblInfoEntryGit.bind("<Leave>", lambda e: tooltipGit.hidetip())
+        lblInfoEntryGit.grid(row=1, rowspan=2, column=1, padx=5, sticky="nsew")
+        
+        ttk.Label(pathsFrame, text="Ruta de Node", style="info.TLabel").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+        entryNodePath = ttk.Entry(pathsFrame, style="info.TEntry", width=50)
+        entryNodePath.insert(0, self._node_path if self._node_path else "No disponible")
+        entryNodePath.config(state="readonly")
+        entryNodePath.grid(row=4, column=0, padx=5, sticky="nsew")
+        scrollEntryNode = ttk.Scrollbar(pathsFrame, orient="horizontal", bootstyle="info-round") # type: ignore
+        entryNodePath.config(xscrollcommand=scrollEntryNode.set)
+        scrollEntryNode.config(command=entryNodePath.xview)
+        scrollEntryNode.grid(row=5, column=0, sticky="nsew")
+        
+        lblInfoEntryNode = ttk.Label(pathsFrame, image=self._imagenes["Info"], style="info.TLabel")
+        tooltipNode = ToolTip(lblInfoEntryNode, "La ruta de Node es necesaria para realizar las acciones de Node")
+        lblInfoEntryNode.bind("<Enter>", lambda e: tooltipNode.showtip("w"))
+        lblInfoEntryNode.bind("<Leave>", lambda e: tooltipNode.hidetip())
+        lblInfoEntryNode.grid(row=4, rowspan=2, column=1, padx=5, sticky="nsew")
+        
+        ttk.Label(pathsFrame, text="Ruta de NPM", style="info.TLabel").grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
+        entryNPMPath = ttk.Entry(pathsFrame, style="info.TEntry", width=50)
+        entryNPMPath.insert(0, self._npm_path if self._npm_path else "No disponible")
+        entryNPMPath.config(state="readonly")
+        entryNPMPath.grid(row=7, column=0, padx=5, sticky="nsew")
+        scrollEntryNPM = ttk.Scrollbar(pathsFrame, orient="horizontal", bootstyle="info-round") # type: ignore
+        entryNPMPath.config(xscrollcommand=scrollEntryNPM.set)
+        scrollEntryNPM.config(command=entryNPMPath.xview)
+        scrollEntryNPM.grid(row=8, column=0, padx=5, sticky="nsew")
+        
+        lblInfoEntryNPM = ttk.Label(pathsFrame, image=self._imagenes["Info"], style="info.TLabel")
+        tooltipNPM = ToolTip(lblInfoEntryNPM, "La ruta de NPM es necesaria para la instalacion de modulos de Node")
+        lblInfoEntryNPM.bind("<Enter>", lambda e: tooltipNPM.showtip("w"))
+        lblInfoEntryNPM.bind("<Leave>", lambda e: tooltipNPM.hidetip())
+        lblInfoEntryNPM.grid(row=7, rowspan=2, column=1, padx=5, sticky="nsew")
+        
+        ttk.Label(pathsFrame, text="Ruta de VS Code", style="info.TLabel").grid(row=9, column=0, padx=5, pady=5, sticky="nsew")
+        entryVSCodePath = ttk.Entry(pathsFrame, style="info.TEntry", width=50)
+        entryVSCodePath.insert(0, self._code_path if self._code_path else "No disponible")
+        entryVSCodePath.config(state="readonly")
+        entryVSCodePath.grid(row=10, column=0, padx=5, sticky="nsew")
+        scrollEntryVSCode = ttk.Scrollbar(pathsFrame, orient="horizontal", bootstyle="info-round") # type: ignore
+        entryVSCodePath.config(xscrollcommand=scrollEntryVSCode.set)
+        scrollEntryVSCode.config(command=entryVSCodePath.xview)
+        scrollEntryVSCode.grid(row=11, column=0, padx=5, sticky="nsew")
+        
+        lblInfoEntryVSCode = ttk.Label(pathsFrame, image=self._imagenes["Info"], style="info.TLabel")
+        tooltipVSCode = ToolTip(lblInfoEntryVSCode, "La ruta de VS Code es necesaria para abrir el proyecto en VS Code\ncuando se acabe de crear")
+        lblInfoEntryVSCode.bind("<Enter>", lambda e: tooltipVSCode.showtip("w"))
+        lblInfoEntryVSCode.bind("<Leave>", lambda e: tooltipVSCode.hidetip())
+        lblInfoEntryVSCode.grid(row=10, rowspan=2, column=1, padx=5, sticky="nsew")
+        
+        pathsFrame.grid_columnconfigure(0, weight=1)
+        
+        pathsFrame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
     
+        columnas, filas = self.frameConfiguracion.grid_size()
+        for columna in range(columnas):
+            self.frameConfiguracion.grid_columnconfigure(columna, weight=1)
+        
+        for fila in range(filas):
+            self.frameConfiguracion.grid_rowconfigure(fila, weight=1)
+        
     def _creacion_proyecto(self):
-        pass
+        def conteo_tareas():
+            total_pasos = 1
+            self._tareas.clear()
+            self._taskWidgets.clear()
+            if self.CrearRutaVar.get():
+                tarea = {
+                    "accion": "Crear ruta",
+                    "estado": "Pendiente",
+                    "info": None
+                }
+                self._tareas.append(tarea.copy())
+                total_pasos += 1
+            
+            if self.EliminarContenidoVar.get():
+                tarea = {
+                    "accion": "Eliminar contenido de la carpeta",
+                    "estado": "Pendiente",
+                    "info": None
+                }
+                self._tareas.append(tarea.copy())
+                total_pasos += 1
+            
+            tarea = {
+                "accion": "Inicializar proyecto Node",
+                "estado": "Pendiente",
+                "info": None
+            }
+            self._tareas.append(tarea.copy())
+            
+            for dic in self._modulosNPM:
+                if dic["usar"] is not None and dic["usar"].get():
+                    tarea = {
+                        "accion": f"Instalar modulo {dic['nombre']} - {dic['version'].get()}",
+                        "estado": "Pendiente",
+                        "info": dic
+                    }
+                    self._tareas.append(tarea.copy())
+                    total_pasos += 1
+            
+            for dic in self._checkVars:
+                dic = dict(dic)
+                for clave, var in dic.items():
+                    if var.get() and clave == "Crear archivos adicionales":
+                        tarea = {
+                            "accion": "Crear archivos adicionales",
+                            "estado": "Pendiente",
+                            "info": None
+                        }
+                        self._tareas.append(tarea.copy())
+                        total_pasos += 1
+                    elif var.get() and clave == "Abrir en VS Code al finalizar":
+                        tareas = {
+                            "accion": "Abrir en VS Code",
+                            "estado": "Pendiente",
+                            "info": None
+                        }
+                        self._tareas.append(tareas.copy())
+                        total_pasos += 1
+            
+            return total_pasos
     
     def _cerrarVentana(self, ventana:tk.Tk | tk.Toplevel | None = None):
         if not ventana:
