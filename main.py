@@ -14,6 +14,7 @@ import time, ast, tempfile
 from typing import Literal
 from Actions import (
     ValidateOnlyPath,
+    centerWindow,
     clearQueue,
     doNothing,
     getBranchCommitsLog,
@@ -1968,20 +1969,23 @@ class NodeSetupAppNew(ttk.Window):
                                 return
                         
                         resultado_createBranch.put((True, "Rama creada correctamente"))
+                        obtenerRamas()
                     
                     def verificarCreateBranch():
                         try:
                             exito, mensaje = resultado_createBranch.get_nowait()
                             btn_createBranch.config(state="normal", text="Crar rama")
+                            popUp.protocol("WM_DELETE_WINDOW", popUp.destroy)
                             if not exito:
                                 messagebox.showerror("Error", f"Error al crear la rama: {mensaje}")
                                 return
                             messagebox.showinfo("Información", mensaje)
                         except:
+                            popUp.protocol("WM_DELETE_WINDOW", lambda: doNothing())
                             frameCommit.after(100, verificarCreateBranch)
+                            return
                         
                         clearQueue(resultado_createBranch)
-                        obtenerRamas()
                         popUp.destroy()
                     
                     if not ramaNueva.get():
@@ -1997,7 +2001,11 @@ class NodeSetupAppNew(ttk.Window):
                     messagebox.showerror("Error", "La ruta del repositorio no es válida")
                     return
                 
-                popUp = tk.Toplevel(self)
+                popUp = ttk.Toplevel()
+                popUp.title("Crear rama")
+                popUp.resizable(False, False)
+                popUp.transient(self)
+                
                 ramaNueva = tk.StringVar()
                 ttk.Label(popUp, text="Nombre de la nueva rama", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
                 entryRama = ttk.Entry(popUp, textvariable=ramaNueva, width=50)
@@ -2005,49 +2013,105 @@ class NodeSetupAppNew(ttk.Window):
                 
                 chk_cambioRamaVar = tk.BooleanVar()
                 chk_cambioRama = ttk.Checkbutton(popUp, text="Cambiar a la nueva rama", variable=chk_cambioRamaVar, style="warning-round-toggle")
-                chk_cambioRama.grid(row=1, column=1, padx=5, sticky="nsew")
+                chk_cambioRama.grid(row=2, column=0, padx=5, pady=5)
                 
                 btn_createBranch = ttk.Button(popUp, text="Crear rama", command=createBranch, bootstyle=(INFO, OUTLINE)) # type: ignore
-                btn_createBranch.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+                btn_createBranch.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+                centerWindow(popUp)
             
             def onDeleteBranch():
                 def deleteBranch():
                     def backgroundDeleteBranch():
-                        resultado = runCommand([self._git_path, "branch", "-d", ramaSeleccionada.get()], self._ruta.get())
+                        resultado = runCommand([self._git_path, "branch", "-d", combobranch.get()], self._ruta.get())
                         if isinstance(resultado, subprocess.CalledProcessError):
                             resultado_deleteBranch.put((False, resultado.stderr))
                             return
+                        
                         resultado_deleteBranch.put((True, "Rama eliminada correctamente"))
+                        obtenerRamas()
                     
                     def verificarDeleteBranch():
                         try:
                             exito, mensaje = resultado_deleteBranch.get_nowait()
-                            btn_commit.config(state="normal", text="Commit")
+                            btn_deleteBranch.config(state="normal", text="Eliminar Rama")
                             if not exito:
                                 messagebox.showerror("Error", f"Error al eliminar la rama: {mensaje}")
                                 return
                             messagebox.showinfo("Información", mensaje)
                         except:
                             frameCommit.after(100, verificarDeleteBranch)
+                            return
                         
                         clearQueue(resultado_deleteBranch)
-                        obtenerRamas() #TODO: Arreglar inconvenientes con la creacion de ramas
+                        popUp.destroy()
                     
-                    resultado_deleteBranch = queue.Queue()
-                    btn_commit.config(state="disabled", text=f"Eliminando rama {ramaSeleccionada.get()} ...")
-                    threading.Thread(target=backgroundDeleteBranch).start()
-                    frameCommit.after(100, verificarDeleteBranch)
+                    if combobranch.get() == "master" or combobranch.get() == "main":
+                        messagebox.showerror("Error", "No se puede eliminar la rama principal")
+                        return
+                    
+                    if combobranch.get() == "No hay ramas":
+                        messagebox.showerror("Error", "No hay ramas para eliminar")
+                        return
+                                        
+                    if messagebox.askyesno("Advertencia", f"¿Está seguro de eliminar la rama {combobranch.get()}?"):
+                        resultado_deleteBranch = queue.Queue()
+                        btn_deleteBranch.config(state="disabled", text="Eliminando rama ...")
+                        threading.Thread(target=backgroundDeleteBranch).start()
+                        frameCommit.after(100, verificarDeleteBranch)
+                        
+                def obtenerramas_background():
+                    if os.path.exists(self._ruta.get()) and isFolderInPath(".git", self._ruta.get()):
+                        ramas = getGitBranches(self._ruta.get())
+                        
+                        # Remover de la lista la rama seleccionada actualmente
+                        if ramaSeleccionada.get() in ramas:
+                            del ramas[ramaSeleccionada.get()]
+                        
+                        resultadoRamas.put(ramas)
+                        return
+                    resultadoRamas.put({"Ruta no valida":True})
+                
+                def verificar_resultado():
+                    try:
+                        ramas = resultadoRamas.get_nowait()
+                        btn_deleteBranch.config(state="normal")
+
+                        if (self._ruta.get() and ramas) and isFolderInPath(".git", self._ruta.get()):
+                            combobranch.config(values=list(ramas.keys()))
+                            combobranch.current(0)
+                            return
+                        combobranch.config(values=("No hay ramas",))
+                        combobranch.current(0)
+                    except:
+                        frameCommit.after(100, verificar_resultado)
+                        return
+                    
+                    clearQueue(resultadoRamas)
                 
                 if not self._ruta.get() or not isFolderInPath(".git", self._ruta.get()):
                     messagebox.showerror("Error", "La ruta del repositorio no es válida")
-                    return
+                    return 
+                    
+                popUp = ttk.Toplevel()
+                popUp.title("Eliminar rama")
+                popUp.resizable(False, False)
+                popUp.transient(self)
                 
-                if ramaSeleccionada.get() == "master" or ramaSeleccionada.get() == "main":
-                    messagebox.showerror("Error", "No se puede eliminar la rama principal")
-                    return
+                resultadoRamas = queue.Queue()
+                ttk.Label(popUp, text="Seleccione la rama a eliminar", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                combobranch = ttk.Combobox(popUp, state="readonly", width=50)
+                combobranch.config(values=("Cargando ramas ...",))
+                combobranch.current(0)
+                combobranch.grid(row=1, column=0, padx=5, sticky="nsew")
                 
-                if messagebox.askyesno("Advertencia", f"¿Está seguro de eliminar la rama {ramaSeleccionada.get()}?"):
-                    deleteBranch()  
+                threading.Thread(target=obtenerramas_background).start()
+                frameCommit.after(100, verificar_resultado)
+                
+                btn_deleteBranch = ttk.Button(popUp, text="Eliminar rama", command=deleteBranch, bootstyle=(DANGER, OUTLINE)) # type: ignore
+                btn_deleteBranch.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+                btn_deleteBranch.config(state="disabled")
+                centerWindow(popUp)
+                
             
             def onCommit():
                 def backgroundCommit():
