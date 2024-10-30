@@ -1714,7 +1714,6 @@ class NodeSetupAppNew(ttk.Window):
                         )
                         widget.onClick(callback=onClickFrame)
                         continue
-                    #TODO: Continuar con el uso de la clase personalizada (lograr mantener el color del widget cuando se seleccionen otros)
                 
                     widget.config( # type: ignore
                         style="Custom.TLabel",
@@ -1952,7 +1951,103 @@ class NodeSetupAppNew(ttk.Window):
                         
                         messagebox.showinfo("Información", "Se ha cambiado de rama correctamente")
                     else:
-                        ramaSeleccionada.set(ramaActual) 
+                        ramaSeleccionada.set(ramaActual)
+            
+            def onCreateBranch():
+                def createBranch():
+                    def backgroundCreateBranch():
+                        resultado = runCommand([self._git_path, "branch", ramaNueva.get()], self._ruta.get())
+                        if isinstance(resultado, subprocess.CalledProcessError):
+                            resultado_createBranch.put((False, resultado.stderr))
+                            return
+                        
+                        if chk_cambioRamaVar.get():
+                            resultado = runCommand([self._git_path, "checkout", ramaNueva.get()], self._ruta.get())
+                            if isinstance(resultado, subprocess.CalledProcessError):
+                                resultado_createBranch.put((False, resultado.stderr))
+                                return
+                        
+                        resultado_createBranch.put((True, "Rama creada correctamente"))
+                    
+                    def verificarCreateBranch():
+                        try:
+                            exito, mensaje = resultado_createBranch.get_nowait()
+                            btn_createBranch.config(state="normal", text="Crar rama")
+                            if not exito:
+                                messagebox.showerror("Error", f"Error al crear la rama: {mensaje}")
+                                return
+                            messagebox.showinfo("Información", mensaje)
+                        except:
+                            frameCommit.after(100, verificarCreateBranch)
+                        
+                        clearQueue(resultado_createBranch)
+                        obtenerRamas()
+                        popUp.destroy()
+                    
+                    if not ramaNueva.get():
+                        messagebox.showerror("Error", "El nombre de la rama no puede estar vacío")
+                        return
+                    
+                    resultado_createBranch = queue.Queue()
+                    btn_createBranch.config(state="disabled", text="Creando rama ...")
+                    threading.Thread(target=backgroundCreateBranch).start()
+                    frameCommit.after(100, verificarCreateBranch)
+                
+                if not self._ruta.get() or not isFolderInPath(".git", self._ruta.get()):
+                    messagebox.showerror("Error", "La ruta del repositorio no es válida")
+                    return
+                
+                popUp = tk.Toplevel(self)
+                ramaNueva = tk.StringVar()
+                ttk.Label(popUp, text="Nombre de la nueva rama", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                entryRama = ttk.Entry(popUp, textvariable=ramaNueva, width=50)
+                entryRama.grid(row=1, column=0, padx=5, sticky="nsew")
+                
+                chk_cambioRamaVar = tk.BooleanVar()
+                chk_cambioRama = ttk.Checkbutton(popUp, text="Cambiar a la nueva rama", variable=chk_cambioRamaVar, style="warning-round-toggle")
+                chk_cambioRama.grid(row=1, column=1, padx=5, sticky="nsew")
+                
+                btn_createBranch = ttk.Button(popUp, text="Crear rama", command=createBranch, bootstyle=(INFO, OUTLINE)) # type: ignore
+                btn_createBranch.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+            
+            def onDeleteBranch():
+                def deleteBranch():
+                    def backgroundDeleteBranch():
+                        resultado = runCommand([self._git_path, "branch", "-d", ramaSeleccionada.get()], self._ruta.get())
+                        if isinstance(resultado, subprocess.CalledProcessError):
+                            resultado_deleteBranch.put((False, resultado.stderr))
+                            return
+                        resultado_deleteBranch.put((True, "Rama eliminada correctamente"))
+                    
+                    def verificarDeleteBranch():
+                        try:
+                            exito, mensaje = resultado_deleteBranch.get_nowait()
+                            btn_commit.config(state="normal", text="Commit")
+                            if not exito:
+                                messagebox.showerror("Error", f"Error al eliminar la rama: {mensaje}")
+                                return
+                            messagebox.showinfo("Información", mensaje)
+                        except:
+                            frameCommit.after(100, verificarDeleteBranch)
+                        
+                        clearQueue(resultado_deleteBranch)
+                        obtenerRamas() #TODO: Arreglar inconvenientes con la creacion de ramas
+                    
+                    resultado_deleteBranch = queue.Queue()
+                    btn_commit.config(state="disabled", text=f"Eliminando rama {ramaSeleccionada.get()} ...")
+                    threading.Thread(target=backgroundDeleteBranch).start()
+                    frameCommit.after(100, verificarDeleteBranch)
+                
+                if not self._ruta.get() or not isFolderInPath(".git", self._ruta.get()):
+                    messagebox.showerror("Error", "La ruta del repositorio no es válida")
+                    return
+                
+                if ramaSeleccionada.get() == "master" or ramaSeleccionada.get() == "main":
+                    messagebox.showerror("Error", "No se puede eliminar la rama principal")
+                    return
+                
+                if messagebox.askyesno("Advertencia", f"¿Está seguro de eliminar la rama {ramaSeleccionada.get()}?"):
+                    deleteBranch()  
             
             def onCommit():
                 def backgroundCommit():
@@ -2004,7 +2099,7 @@ class NodeSetupAppNew(ttk.Window):
             entryRuta.config(xscrollcommand=scrollRuta.set)
             scrollRuta.config(command=entryRuta.xview)
             scrollRuta.grid(row=2, column=0, padx=5, sticky="nsew")
-            lblmagCommit = ttk.Label(frameCommit, image=self._imagenes["Magnifier"])
+            lblmagCommit = ttk.Label(frameCommit, image=self._imagenes["Magnifier"], anchor="center")
             lblmagCommit.grid(row=1, rowspan=2, column=1, padx=5, sticky="nsew")
             lblmagCommit.bind("<Button-1>", lambda e: ChangePath())
             
@@ -2017,7 +2112,7 @@ class NodeSetupAppNew(ttk.Window):
             ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
             entrymsg = ttk.Entry(frameCommit, textvariable=msgCommitVar, width=50)
             entrymsg.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
-            lblinfoCommit = ttk.Label(frameCommit, image=self._imagenes["Info"], style="info.TLabel")
+            lblinfoCommit = ttk.Label(frameCommit, image=self._imagenes["Info"], style="info.TLabel", anchor="center")
             tooltipLblCommit = ToolTip(lblinfoCommit, "Introduzca el mensaje del commit en el campo de entrada")
             lblinfoCommit.bind("<Enter>", lambda e: tooltipLblCommit.showtip("w"))
             lblinfoCommit.bind("<Leave>", lambda e: tooltipLblCommit.hidetip())
@@ -2028,6 +2123,24 @@ class NodeSetupAppNew(ttk.Window):
             combobranch = ttk.Combobox(frameCommit, width=50, state="readonly", textvariable=ramaSeleccionada)
             combobranch.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
             combobranch.bind("<<ComboboxSelected>>", lambda e: onChangeBranch())
+            
+            framebotonesBranch = ttk.Frame(frameCommit)
+            
+            lblAddBranch = ttk.Label(framebotonesBranch, image=self._imagenes["Add"], style="info.TLabel")
+            tooltipAddBranch = ToolTip(lblAddBranch, "Crear una nueva rama")
+            lblAddBranch.bind("<Enter>", lambda e: tooltipAddBranch.showtip("w"))
+            lblAddBranch.bind("<Leave>", lambda e: tooltipAddBranch.hidetip())
+            lblAddBranch.bind("<Button-1>", lambda e: onCreateBranch())
+            lblAddBranch.grid(row=0, column=1, padx=5, sticky="nsew")
+            
+            lblDeleteBranch = ttk.Label(framebotonesBranch, image=self._imagenes["Trash"], style="info.TLabel")
+            tooltipDeleteBranch = ToolTip(lblDeleteBranch, "Eliminar la rama seleccionada")
+            lblDeleteBranch.bind("<Enter>", lambda e: tooltipDeleteBranch.showtip("w"))
+            lblDeleteBranch.bind("<Leave>", lambda e: tooltipDeleteBranch.hidetip())
+            lblDeleteBranch.bind("<Button-1>", lambda e: onDeleteBranch())
+            lblDeleteBranch.grid(row=0, column=2, padx=5, sticky="nsew")
+            
+            framebotonesBranch.grid(row=6, column=1, padx=5, pady=5, sticky="nsew")
             
             accionSeleccionada = tk.StringVar()
             ttk.Label(frameCommit, text="Acciones", style="info.TLabel", anchor="center").grid(row=7, column=0, padx=5, pady=5, sticky="nsew")
@@ -2395,6 +2508,8 @@ class NodeSetupAppNew(ttk.Window):
         self._imagenes["Magnifier"] = loadImageTk((os.path.join(ruta_assets, "magnifierIcon.png")), 20, 20)
         self._imagenes["Warning"] = loadImageTk((os.path.join(ruta_assets, "warningIcon.png")), 20, 20)
         self._imagenes["Info"] = loadImageTk((os.path.join(ruta_assets, "infoIcon.png")), 20, 20)
+        self._imagenes["Add"] = loadImageTk((os.path.join(ruta_assets, "addIcon.png")), 20, 20)
+        self._imagenes["Trash"] = loadImageTk((os.path.join(ruta_assets, "trashIcon.png")), 20, 20)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")
