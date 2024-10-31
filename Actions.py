@@ -5,7 +5,8 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
 from typing import Any, List, Literal, overload, Union
-from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS, keywordsHTML, keywordsCSS, modulosNPM
+from colorama import init ,Fore, Back, Style
+from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS, keywordsHTML, keywordsCSS, modulosNPM, Colors, Backgrounds, Styles
 
 def getDetailedModules(excluirClaves:List[str] = [], excluirModulos:List[str] = []):
     """Detalla los modulos de NPM que se van a instalar.
@@ -115,6 +116,70 @@ def showLogInConsole(typeLog:Literal["INFO", "ERROR"]):
                     print(linea)
     except Exception as e:
         print("Error al mostrar el log:", e)
+        
+def printLog(
+    *logs: object, 
+    concat: str = " ", 
+    color: Colors = "reset", 
+    background: Backgrounds = "reset",
+    style: Styles = "normal",
+    end: str = "\n"
+):
+    """Imprime mensajes en consola con colores y estilos personalizados.
+
+    Args:
+        *logs (str): Mensajes a imprimir.
+        concat (str, optional): Caracter de concatenación de los mensajes. Defaults to " ".
+        color (Colors, optional): Color del mensaje. Defaults to "reset".
+        background (Backgrounds, optional): Color de fondo del mensaje. Defaults to "reset".
+        style (Styles, optional): Estilo del mensaje (dim, normal, bright). Defaults to "normal".
+        end (str, optional): Caracter de finalización del mensaje. Defaults to "\n".
+    """
+    # Inicializa colorama con autoreset
+    init(autoreset=True)
+
+    # Mapas para los colores y estilos
+    color_map = {
+        "red": Fore.RED,
+        "green": Fore.GREEN,
+        "yellow": Fore.YELLOW,
+        "blue": Fore.BLUE,
+        "magenta": Fore.MAGENTA,
+        "cyan": Fore.CYAN,
+        "white": Fore.WHITE,
+        "black": Fore.BLACK,
+        "reset": Fore.RESET
+    }
+
+    background_map = {
+        "red": Back.RED,
+        "green": Back.GREEN,
+        "yellow": Back.YELLOW,
+        "blue": Back.BLUE,
+        "magenta": Back.MAGENTA,
+        "cyan": Back.CYAN,
+        "white": Back.WHITE,
+        "black": Back.BLACK,
+        "reset": Back.RESET
+    }
+
+    style_map = {
+        "dim": Style.DIM,
+        "normal": Style.NORMAL,
+        "bright": Style.BRIGHT,
+        "reset": Style.RESET_ALL
+    }
+
+    # Obtener los valores de color, fondo y estilo
+    fore_color = color_map.get(color.lower(), Fore.RESET)
+    back_color = background_map.get(background.lower(), Back.RESET)
+    text_style = style_map.get(style.lower(), Style.NORMAL)
+
+    # Crear el mensaje final concatenado
+    mensaje = concat.join(map(str, logs))
+
+    # Imprimir el mensaje con los colores y estilo aplicados
+    print(f"{text_style}{fore_color}{back_color}{mensaje}{Style.RESET_ALL}", end=end)
 
 def doNothing():
     """Esta función no ejecuta ninguna accion.

@@ -24,6 +24,7 @@ from Actions import (
     isFolderInPath,
     preventCloseWindow,
     getVersionOf,
+    printLog,
     writeLog,
     getPathOf,
     runCommand,
@@ -2567,27 +2568,28 @@ class NodeSetupAppNew(ttk.Window):
             tareasCompletadaslbl.config(text=tareasCompletadas)
             tareasPendienteslbl.config(text=tareasPendientes)
             entryDescripcion.config(state="normal")
-            entryDescripcion.delete("1.0", "end")
-            entryDescripcion.insert("1.0", detalles)
+            entryDescripcion.delete(0, "end")
+            entryDescripcion.insert(0, detalles)
             entryDescripcion.config(state="readonly")
             progreso["value"] = (tareasCompletadas/len(self._tareas)) * 100
         
         def verificar_avanceTareas():
             try:
                 continuar, valores = resultado.get_nowait()
-                actualizarFrameDetalles(valores)
+                actualizarFrameDetalles(str(valores))
                 actualizarEventsFrame()
                 if not continuar:
-                    if valores == "Tareas completadas":
+                    if str(valores) == "Tareas completadas":
+                        #printLog("Tareas completadas", color="green", style="bright")
                         messagebox.showinfo("Información", "Tareas completadas")
                     
                     self._funcGoToFrame("Principal")
                     self.Tareas.config(state="disabled")
                     self._funcOnUpdateFrames()   
                     return
-            except:
                 self.frameTareas.after(100, verificar_avanceTareas)
-                return
+            except queue.Empty:
+                self.frameTareas.after(100, verificar_avanceTareas)
         
         def InicioTareas():
             for tarea in self._tareas:
@@ -2704,17 +2706,19 @@ class NodeSetupAppNew(ttk.Window):
             nonlocal totalTareas
             
             totalTareas = conteo_tareas()
+            tareasTotaleslbl.config(text=totalTareas)
             
             threading.Thread(target=InicioTareas).start()
             self.frameTareas.after(100, verificar_avanceTareas)
         
-        totalTareas = conteo_tareas()
+        totalTareas = 0
         taskWidgets = {}
         resultado = queue.Queue()
         
         frameDetalles = ttk.LabelFrame(self.frameTareas, text="Detalles de las tareas", style="info.TLabelframe")
         ttk.Label(frameDetalles, text="Total de tareas a realizar:").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-        ttk.Label(frameDetalles, text=totalTareas, style="warning.TLabel").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+        tareasTotaleslbl = ttk.Label(frameDetalles, text=totalTareas, style="warning.TLabel")
+        tareasTotaleslbl.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
         
         ttk.Label(frameDetalles, text="Tareas completadas:").grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
         tareasCompletadaslbl = ttk.Label(frameDetalles, text="0", style="warning.TLabel")
@@ -2736,13 +2740,13 @@ class NodeSetupAppNew(ttk.Window):
         frameDetalles.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
         canvas = ttk.Canvas(self.frameTareas)
-        scrollbar = ttk.Scrollbar(self.frameTareas, orient="vertical", command=canvas.yview)
+        scrollbar = ttk.Scrollbar(self.frameTareas, orient="vertical", command=canvas.yview, bootstyle="danger-round") # type: ignore
         canvas_frame = ttk.Frame(canvas)
         canvas_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=canvas_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        canvas.grid(row=1, column=0, sticky="nsew")
+        canvas.grid(row=1, column=0, sticky="nsew", padx=5)
         scrollbar.grid(row=1, column=1, sticky="ns")
         
         self._funcConteoTareas = conteo_tareas

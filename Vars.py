@@ -1,6 +1,25 @@
 import os, sys
 import queue
 from pathlib import Path
+from typing import Literal, TypeVar
+
+Colors = TypeVar(
+    "Colors", 
+    str, 
+    Literal["red", "green", "yellow", "blue", "magenta", "cyan", "white", "black", "reset"]
+)
+
+Backgrounds = TypeVar(
+    "Backgrounds",
+    str,
+    Literal["red", "green", "yellow", "blue", "magenta", "cyan", "white", "black", "reset"]
+)
+
+Styles = TypeVar(
+    "Styles",
+    str,
+    Literal["dim", "normal", "bright", "reset"]
+)
 
 listaArgumentos = [
     "",
