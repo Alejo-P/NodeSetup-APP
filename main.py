@@ -1668,6 +1668,10 @@ class NodeSetupAppNew(ttk.Window):
 
             self.protocol("WM_DELETE_WINDOW", lambda: self._cerrarVentana())
         
+        def IniciarPregarga():
+            if not listaWidgets:
+                threading.Thread(target=iniciarCarga).start()
+        
         self._modulosNPM = getDetailedModules()
         canvas = tk.Canvas(self.frameModulos)
         frame = ttk.Frame(canvas)
@@ -1710,7 +1714,7 @@ class NodeSetupAppNew(ttk.Window):
         for columna in range(columnas):
             self.frameModulos.grid_columnconfigure(columna, weight=1)
         
-        self._funcIniciarCargaModulos = lambda: threading.Thread(target=iniciarCarga).start()
+        self._funcIniciarCargaModulos = IniciarPregarga
         self.frameModulos.grid_rowconfigure(0, weight=1)
         
     def _gitFrame(self):
