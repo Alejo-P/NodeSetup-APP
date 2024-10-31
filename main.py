@@ -11,7 +11,7 @@ from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
 import queue, os, shutil, threading, subprocess
 import time, ast, tempfile
-from typing import Literal
+from typing import Any, Literal
 from Actions import (
     ValidateOnlyPath,
     centerWindow,
@@ -247,9 +247,9 @@ class NodeSetupApp(ttk.Window):
             threading.Thread(target=_ventanaEditor).start()
             self.after(100, _verificarCompletado)
             
-        self._menu = tk.Menu(self, tearoff=0)
+        self._menu = ttk.Menu(self, tearoff=0)
         
-        submenu_Herramientas = tk.Menu(self._menu, tearoff=0)
+        submenu_Herramientas = ttk.Menu(self._menu, tearoff=0)
         submenu_Herramientas.add_command(label="Editor de código", command=lambda: _iniciarVentana())
         
         self._menu.add_command(label="Opciones de la aplicación", state="disabled")
@@ -1425,11 +1425,11 @@ class NodeSetupAppNew(ttk.Window):
         
         self._loadImages()
         
+        self._configuracionFrame()
         self._principalFrame()
         self._modulosFrame()
         self._gitFrame()
         self._tareasFrame()
-        self._configuracionFrame()
         
         onUpdateFrames()
         goToFrame("Principal")
@@ -1473,6 +1473,20 @@ class NodeSetupAppNew(ttk.Window):
             for widget in frameInformacion.winfo_children():
                 if widget.winfo_class() == "TEntry":
                     widget.config(state="readonly") # type: ignore
+        
+        def crearProyecto():
+            if self._funcConteoTareas() == 0:
+                messagebox.showerror("Error", "No se ha seleccionado ningun modulo")
+                return
+
+            self.Tareas.config(state="normal")
+            self._funcOnUpdateFrames()
+            self._funcGoToFrame("Tareas")
+            self._funcInicioTareas()
+        
+        def iniciarPrecargaModulos():
+            self._funcGoToFrame("Modulos")
+            self._funcIniciarCargaModulos()
         
         #StringVars
         self._ruta = tk.StringVar()
@@ -1528,10 +1542,10 @@ class NodeSetupAppNew(ttk.Window):
         ttk.Checkbutton(self.framePrincipal, text="Parar en caso de fallo", variable=self.PararEnFalloVar, bootstyle="warning-round-toggle").grid(row=7, column=0, columnspan=2, sticky="nsew", padx=5, pady=5) # type: ignore
         
         frameBotones = ttk.Frame(self.framePrincipal)
-        btn_irModulos = ttk.Button(frameBotones, text="Seleccion de modulos", command=lambda:self._funcGoToFrame("Modulos"), bootstyle=(INFO, OUTLINE)) # type: ignore
+        btn_irModulos = ttk.Button(frameBotones, text="Seleccion de modulos", command=iniciarPrecargaModulos, bootstyle=(INFO, OUTLINE)) # type: ignore
         btn_irModulos.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
-        btn_proceder = ttk.Button(frameBotones, text="Crear el proyecto", command=self._creacion_proyecto, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
+        btn_proceder = ttk.Button(frameBotones, text="Crear el proyecto", command=crearProyecto, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
         btn_proceder.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
         
         btn_salir = ttk.Button(frameBotones, text="Salir", command=self.destroy, bootstyle=(DANGER, OUTLINE)) # type: ignore
@@ -1656,7 +1670,7 @@ class NodeSetupAppNew(ttk.Window):
         self._modulosNPM = getDetailedModules()
         canvas = tk.Canvas(self.frameModulos)
         frame = ttk.Frame(canvas)
-        scrollbar = ttk.Scrollbar(self.frameModulos, orient="vertical", command=canvas.yview)
+        scrollbar = ttk.Scrollbar(self.frameModulos, orient="vertical", command=canvas.yview, bootstyle="danger-round") # type: ignore
         canvas.config(yscrollcommand=scrollbar.set)
         
         frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
@@ -1675,14 +1689,13 @@ class NodeSetupAppNew(ttk.Window):
         for i, txt in enumerate(encabezado):
             ttk.Label(frame, text=txt, anchor="center").grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
         
-        ttk.Separator(frame, orient="horizontal").grid(row=1, column=0, columnspan=5, sticky="ew")
+        ttk.Separator(frame, orient="horizontal", bootstyle="warning").grid(row=1, column=0, columnspan=5, sticky="ew") # type: ignore
         
         # Añadir una barra de progreso
-        progress_bar = ttk.Progressbar(self.frameModulos, orient='horizontal', mode='indeterminate', length=280, style="info.TProgressbar")
+        progress_bar = ttk.Progressbar(self.frameModulos, orient='horizontal', mode='indeterminate', length=280, bootstyle="warning") # type: ignore
         msg_estado = ttk.Label(self.frameModulos, text="Para ver los modulos disponibles, inicie la carga!")
 
         msg_estado.grid(row=0, column=0, padx=5, pady=2)
-        
         
         btn_carga = ttk.Button(
             self.frameModulos,
@@ -1696,6 +1709,7 @@ class NodeSetupAppNew(ttk.Window):
         for columna in range(columnas):
             self.frameModulos.grid_columnconfigure(columna, weight=1)
         
+        self._funcIniciarCargaModulos = lambda: threading.Thread(target=iniciarCarga).start()
         self.frameModulos.grid_rowconfigure(0, weight=1)
         
     def _gitFrame(self):
@@ -1849,7 +1863,7 @@ class NodeSetupAppNew(ttk.Window):
             entryRuta.grid(row=4, column=0, padx=5, sticky="nsew")
             scrollEntry.grid(row=5, column=0, padx=5, sticky="nsew")
             
-            maglbl = ttk.Label(frameInicio, image=self._imagenes["Magnifier"])
+            maglbl = ttk.Label(frameInicio, image=self._imagenes["Magnifier"], anchor="center", cursor="hand2")
             maglbl.grid(row=4, rowspan=2, column=1, padx=5, pady=5, sticky="nsew")
             maglbl.bind("<Button-1>", lambda e: ChangePath())
             tooltipMag = ToolTip(maglbl)
@@ -2163,7 +2177,7 @@ class NodeSetupAppNew(ttk.Window):
             entryRuta.config(xscrollcommand=scrollRuta.set)
             scrollRuta.config(command=entryRuta.xview)
             scrollRuta.grid(row=2, column=0, padx=5, sticky="nsew")
-            lblmagCommit = ttk.Label(frameCommit, image=self._imagenes["Magnifier"], anchor="center")
+            lblmagCommit = ttk.Label(frameCommit, image=self._imagenes["Magnifier"], anchor="center", cursor="hand2")
             lblmagCommit.grid(row=1, rowspan=2, column=1, padx=5, sticky="nsew")
             lblmagCommit.bind("<Button-1>", lambda e: ChangePath())
             
@@ -2176,7 +2190,7 @@ class NodeSetupAppNew(ttk.Window):
             ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
             entrymsg = ttk.Entry(frameCommit, textvariable=msgCommitVar, width=50)
             entrymsg.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
-            lblinfoCommit = ttk.Label(frameCommit, image=self._imagenes["Info"], style="info.TLabel", anchor="center")
+            lblinfoCommit = ttk.Label(frameCommit, image=self._imagenes["Info"], style="info.TLabel", anchor="center", cursor="arrow")
             tooltipLblCommit = ToolTip(lblinfoCommit, "Introduzca el mensaje del commit en el campo de entrada")
             lblinfoCommit.bind("<Enter>", lambda e: tooltipLblCommit.showtip("w"))
             lblinfoCommit.bind("<Leave>", lambda e: tooltipLblCommit.hidetip())
@@ -2190,14 +2204,14 @@ class NodeSetupAppNew(ttk.Window):
             
             framebotonesBranch = ttk.Frame(frameCommit)
             
-            lblAddBranch = ttk.Label(framebotonesBranch, image=self._imagenes["Add"], style="info.TLabel")
+            lblAddBranch = ttk.Label(framebotonesBranch, image=self._imagenes["Add"], style="info.TLabel", cursor="hand2")
             tooltipAddBranch = ToolTip(lblAddBranch, "Crear una nueva rama")
             lblAddBranch.bind("<Enter>", lambda e: tooltipAddBranch.showtip("w"))
             lblAddBranch.bind("<Leave>", lambda e: tooltipAddBranch.hidetip())
             lblAddBranch.bind("<Button-1>", lambda e: onCreateBranch())
             lblAddBranch.grid(row=0, column=1, padx=5, sticky="nsew")
             
-            lblDeleteBranch = ttk.Label(framebotonesBranch, image=self._imagenes["Trash"], style="info.TLabel")
+            lblDeleteBranch = ttk.Label(framebotonesBranch, image=self._imagenes["Trash"], style="info.TLabel", cursor="hand2")
             tooltipDeleteBranch = ToolTip(lblDeleteBranch, "Eliminar la rama seleccionada")
             lblDeleteBranch.bind("<Enter>", lambda e: tooltipDeleteBranch.showtip("w"))
             lblDeleteBranch.bind("<Leave>", lambda e: tooltipDeleteBranch.hidetip())
@@ -2300,7 +2314,7 @@ class NodeSetupAppNew(ttk.Window):
             ttk.Label(frameLogs, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryRuta = ttk.Entry(frameLogs, textvariable=self._ruta, style="info.TEntry", width=50)
             entryRuta.grid(row=1, column=0, padx=5, sticky="nsew")
-            lblmagRuta = ttk.Label(frameLogs, image=self._imagenes["Magnifier"])
+            lblmagRuta = ttk.Label(frameLogs, image=self._imagenes["Magnifier"], anchor="center", cursor="hand2")
             lblmagRuta.grid(row=1, rowspan=2, column=1, padx=5, pady=5, sticky="nsew")
             lblmagRuta.bind("<Button-1>", lambda e: ChangePath())
             scrollEntry = ttk.Scrollbar(frameLogs, orient="horizontal", bootstyle="info-round") # type: ignore
@@ -2387,19 +2401,366 @@ class NodeSetupAppNew(ttk.Window):
         goToGitFrame("Inicio")
     
     def _tareasFrame(self):
-        ttk.Label(self.frameTareas, text="Tareas").pack()
+        def conteo_tareas():
+            total_pasos = 1
+            self._tareas.clear()
+            self._taskWidgets.clear()
+            if self.CrearRutaVar.get():
+                tarea = {
+                    "accion": "Crear ruta",
+                    "estado": "Pendiente",
+                    "info": None
+                }
+                self._tareas.append(tarea.copy())
+                total_pasos += 1
+            
+            if self.EliminarContenidoVar.get():
+                tarea = {
+                    "accion": "Eliminar contenido de la carpeta",
+                    "estado": "Pendiente",
+                    "info": None
+                }
+                self._tareas.append(tarea.copy())
+                total_pasos += 1
+            
+            tarea = {
+                "accion": "Inicializar proyecto Node",
+                "estado": "Pendiente",
+                "info": None
+            }
+            self._tareas.append(tarea.copy())
+            
+            for dic in self._modulosNPM:
+                if dic["usar"] is not None and dic["usar"].get():
+                    tarea = {
+                        "accion": f"Instalar modulo {dic['nombre']} - {dic['version'].get()}",
+                        "estado": "Pendiente",
+                        "info": dic
+                    }
+                    self._tareas.append(tarea.copy())
+                    total_pasos += 1
+            
+            for dic in self._checkVars:
+                dic = dict(dic)
+                for clave, var in dic.items():
+                    if var.get() and clave == "Crear directorios adicionales":
+                        tarea = {
+                            "accion": "Crear directorios adicionales",
+                            "estado": "Pendiente",
+                            "info": None
+                        }
+                        self._tareas.append(tarea.copy())
+                        total_pasos += 1
+                    elif var.get() and clave == "Abrir en VS Code al finalizar":
+                        tareas = {
+                            "accion": "Abrir en VS Code",
+                            "estado": "Pendiente",
+                            "info": None
+                        }
+                        self._tareas.append(tareas.copy())
+                        total_pasos += 1
+            
+            return total_pasos
+        
+        def borrarContenidoDirectorio():
+            archivos, carpetas = lista_archivos_directorios(self._ruta.get())
+            ruta = self._ruta.get()
+            for archivo in archivos:
+                ruta_completa = os.path.join(ruta, archivo)
+                os.remove(ruta_completa)
+            
+            for carpeta in carpetas:
+                ruta_completa = os.path.join(ruta, carpeta)
+                shutil.rmtree(ruta_completa)
+        
+        def crearDirectorios():
+            ruta = self._ruta.get() + "/src"
+            if not os.path.exists(ruta):
+                os.makedirs(ruta)
+            
+            for archivo in archivos:
+                with open(f"{ruta}/{archivo}", "w") as f:
+                    pass
+                time.sleep(2)
+            
+            for carpeta in carpetas:
+                if not os.path.exists(f"{ruta}/{carpeta}"):
+                    os.makedirs(f"{ruta}/{carpeta}")
+        
+        def crearRuta():
+            if not os.path.exists(self._ruta.get()):
+                os.makedirs(self._ruta.get())
+        
+        def InicializarNode():
+            try:
+                # Ejecutar `npm init -y` para inicializar el proyecto
+                estado = runCommand([self._npm_path, "init", "-y"], self._ruta.get())
+                
+                if isinstance(estado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {estado}")
+                    try:
+                        borrarContenidoDirectorio()
+                        return int(-1)
+                    except:
+                        return int(-1)
+                
+                return int(0)
+            except Exception as ex:
+                messagebox.showerror("Error", f"Error al inicializar el proyecto Node: {ex}")
+                try:
+                    borrarContenidoDirectorio()
+                    return int(-1)
+                except:
+                    return int(-1)
+        
+        def actualizarEventsFrame():
+            for i, tarea in enumerate(self._tareas, 1):
+                if tarea["estado"] == "Pendiente":
+                    style = WARNING
+                    icon = self._imagenes["Pending"]
+                elif tarea["estado"] == "En progreso":
+                    style = INFO
+                    icon = self._imagenes["Running"]
+                elif tarea["estado"] == "Completado":
+                    style = SUCCESS
+                    icon = self._imagenes["Check"]
+                else:
+                    style = DANGER
+                    icon = self._imagenes["Error"]
+                
+                if i not in taskWidgets:
+                    subFrame = ttk.LabelFrame(canvas_frame, text=f"Tarea {i} de {len(self._tareas)}", bootstyle=style) # type: ignore
+                    ttk.Label(subFrame, image=icon).grid(row=0, column=0, sticky="nsew", padx=3)
+                    ttk.Label(subFrame, text=tarea["accion"]).grid(row=0, column=1, sticky="nsew", padx=9)
+                    ttk.Label(subFrame, text=tarea["estado"]).grid(row=0, column=2, sticky="nsew", padx=3)
+                    
+                    columnas = subFrame.grid_size()[0]
+                    for columna in range(columnas):
+                        subFrame.grid_columnconfigure(columna, weight=1)
+
+                    subFrame.grid(row=i-1, column=0, sticky="nsew", padx=5, pady=5)
+                    taskWidgets[i] = subFrame
+                else:
+                    subFrame = taskWidgets[i]
+                    subFrame.config(text=f"Tarea {i} de {len(self._tareas)}", bootstyle=style)  # type: ignore
+                    subFrame.grid_slaves(row=0, column=0)[0].config(image=icon)
+                    subFrame.grid_slaves(row=0, column=1)[0].config(text=tarea["accion"])
+                    subFrame.grid_slaves(row=0, column=2)[0].config(text=tarea["estado"])
+
+            columnas = canvas_frame.grid_size()[0]
+            for columna in range(columnas):
+                canvas_frame.grid_columnconfigure(columna, weight=1)
+            
+            # Eliminar los frames que no se han actualizado
+            for key in list(taskWidgets.keys()):
+                if key not in range(1, len(self._tareas)+1):
+                    frame = taskWidgets.pop(key)
+                    frame.destroy()
+        
+        def actualizarFrameDetalles(detalles:str):
+            tareasCompletadas = 0
+            for tarea in self._tareas:
+                if tarea["estado"] == "Completado":
+                    tareasCompletadas += 1
+            
+            tareasPendientes = len(self._tareas) - tareasCompletadas
+            tareasCompletadaslbl.config(text=tareasCompletadas)
+            tareasPendienteslbl.config(text=tareasPendientes)
+            entryDescripcion.config(state="normal")
+            entryDescripcion.delete("1.0", "end")
+            entryDescripcion.insert("1.0", detalles)
+            entryDescripcion.config(state="readonly")
+            progreso["value"] = (tareasCompletadas/len(self._tareas)) * 100
+        
+        def verificar_avanceTareas():
+            try:
+                continuar, valores = resultado.get_nowait()
+                actualizarFrameDetalles(valores)
+                actualizarEventsFrame()
+                if not continuar:
+                    if valores == "Tareas completadas":
+                        messagebox.showinfo("Información", "Tareas completadas")
+                    
+                    self._funcGoToFrame("Principal")
+                    self.Tareas.config(state="disabled")
+                    self._funcOnUpdateFrames()   
+                    return
+            except:
+                self.frameTareas.after(100, verificar_avanceTareas)
+                return
+        
+        def InicioTareas():
+            for tarea in self._tareas:
+                if tarea["accion"] == "Crear ruta":
+                    try:
+                        tarea["estado"] = "En progreso"
+                        resultado.put((True, "Creando ruta"))
+                        crearRuta()
+                        tarea["estado"] = "Completado"
+                        resultado.put((True, "Ruta creada correctamente"))
+                    except NotADirectoryError as de:
+                        tarea["estado"] = "Error"
+                        resultado.put((False, f"Error en la ruta: {de}"))
+                        messagebox.showerror("Ruta invalida", f"Error en la ruta: {de}")
+                        return
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Error al crear la ruta: {e}")
+                        tarea["estado"] = "Error"
+                        resultado.put((False, f"Error al crear la ruta: {e}"))
+                        return
+                
+                if tarea["accion"] == "Eliminar contenido de la carpeta":
+                    if messagebox.askyesno("Advertencia", f"Se eliminara todo el contenido de la carteta actual\n {self._ruta.get()},\n ¿Desea contunuar?"):
+                        try:
+                            tarea["estado"] = "En progreso"
+                            resultado.put((True, "Eliminando contenido de la carpeta"))
+                            borrarContenidoDirectorio()
+                            tarea["estado"] = "Completado"
+                            resultado.put((True, "Contenido eliminado correctamente"))
+                        except Exception as e:
+                            messagebox.showerror("Error", f"Error al eliminar contenido de la carpeta: {e}")
+                            tarea["estado"] = "Error"
+                            resultado.put((False, f"Error al eliminar contenido de la carpeta: {e}"))
+                            return
+                    else:
+                        tarea["estado"] = "Error"
+                        resultado.put((False, "Operacion cancelada"))
+                        return
+                
+                if tarea["accion"] == "Inicializar proyecto Node":
+                    tarea["estado"] = "En progreso"
+                    resultado.put((True, "Inicializando proyecto Node"))
+                    
+                    if InicializarNode() != 0:
+                        tarea["estado"] = "Error"
+                        resultado.put((False, "Error al inicializar el proyecto Node"))
+                        return
+                    
+                    tarea["estado"] = "Completado"
+                    resultado.put((True, "Proyecto Node inicializado correctamente"))
+                
+                if tarea["accion"].startswith("Instalar modulo"):
+                    modulo = tarea["info"]
+                    if modulo["usar"] is not None and modulo["usar"].get():
+                        tarea["estado"] = "En progreso"
+                        resultado.put((True, f"Instalando {modulo['nombre']}-{modulo['version'].get()} {'globalmente' if modulo['global'].get() else ''}"))
+                        # Construir los argumentos del comando
+                        comando = [
+                            self._npm_path,
+                            "i",
+                            f"{modulo['nombre'].lower()}@{modulo['version'].get()}",
+                        ]
+                        
+                        # Añadir el argumento global si está seleccionado
+                        if modulo['global'].get():
+                            comando.append("-g")
+                        
+                        # Añadir cualquier argumento adicional
+                        argumento_adicional = modulo["argumento"].get()
+                        if argumento_adicional:
+                            comando.append(argumento_adicional)
+                        
+                        # Ejecutar el comando
+                        estado = runCommand(comando, self._ruta.get())
+                        if isinstance(estado, subprocess.CalledProcessError):
+                            messagebox.showerror("Error", f"Error instalando {modulo['nombre']}: {estado}")
+                            tarea["estado"] = "Error"
+                            resultado.put((False, f"Error al instalar {modulo['nombre']}"))
+                            if self.PararEnFalloVar.get():
+                                if self.EliminarEnFalloVar.get():
+                                    try:
+                                        borrarContenidoDirectorio()
+                                    except:
+                                        pass
+                                resultado.put((False, f"Error al instalar {modulo['nombre']}"))
+                                return
+                        else:
+                            tarea["estado"] = "Completado"
+                            resultado.put((True, f"{modulo['nombre']} instalado correctamente"))
+                
+                if tarea["accion"] == "Crear directorios adicionales":
+                    tarea["estado"] = "En progreso"
+                    resultado.put((True, "Creando archivos adicionales"))
+                    crearDirectorios()
+                    tarea["estado"] = "Completado"
+                    resultado.put((True, "Archivos adicionales creados correctamente"))
+                
+                if tarea["accion"] == "Abrir en VS Code":
+                    tarea["estado"] = "En progreso"
+                    resultado.put((True, "Abriendo en VS Code"))
+                    try:
+                        runCommand([self._code_path, self._ruta.get()], self._ruta.get())
+                        tarea["estado"] = "Completado"
+                        resultado.put((True, "Abierto en VS Code correctamente"))
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Error al abrir en VS Code: {e}")
+                        tarea["estado"] = "Error"
+                        resultado.put((False, f"Error al abrir en VS Code: {e}"))
+                        return
+            
+            resultado.put((False, "Tareas completadas"))
+        
+        def Iniciar():
+            nonlocal totalTareas
+            
+            totalTareas = conteo_tareas()
+            
+            threading.Thread(target=InicioTareas).start()
+            self.frameTareas.after(100, verificar_avanceTareas)
+        
+        totalTareas = conteo_tareas()
+        taskWidgets = {}
+        resultado = queue.Queue()
+        
+        frameDetalles = ttk.LabelFrame(self.frameTareas, text="Detalles de las tareas", style="info.TLabelframe")
+        ttk.Label(frameDetalles, text="Total de tareas a realizar:").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+        ttk.Label(frameDetalles, text=totalTareas, style="warning.TLabel").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+        
+        ttk.Label(frameDetalles, text="Tareas completadas:").grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+        tareasCompletadaslbl = ttk.Label(frameDetalles, text="0", style="warning.TLabel")
+        tareasCompletadaslbl.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+        
+        ttk.Label(frameDetalles, text="Tareas pendientes:").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+        tareasPendienteslbl = ttk.Label(frameDetalles, text=totalTareas, style="warning.TLabel")
+        tareasPendienteslbl.grid(row=2, column=1, padx=5, pady=5, sticky="nsew")
+        
+        ttk.Label(frameDetalles, text="Progreso").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+        progreso = ttk.Progressbar(frameDetalles, length=200, mode="determinate", style="success.Horizontal.TProgressbar")
+        progreso.grid(row=3, column=1, padx=5, pady=5, sticky="nsew")
+        
+        ttk.Label(frameDetalles, text="Descripcion de la tarea").grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
+        entryDescripcion = ttk.Entry(frameDetalles, style="info.TEntry", width=50)
+        entryDescripcion.grid(row=4, column=1, padx=5, pady=5, sticky="nsew")
+        
+        frameDetalles.grid_columnconfigure(1, weight=1)
+        frameDetalles.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        
+        canvas = ttk.Canvas(self.frameTareas)
+        scrollbar = ttk.Scrollbar(self.frameTareas, orient="vertical", command=canvas.yview)
+        canvas_frame = ttk.Frame(canvas)
+        canvas_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=canvas_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.grid(row=1, column=0, sticky="nsew")
+        scrollbar.grid(row=1, column=1, sticky="ns")
+        
+        self._funcConteoTareas = conteo_tareas
+        self._funcInicioTareas = Iniciar
+        self.frameTareas.grid_columnconfigure(0, weight=1)
+        self.frameTareas.grid_rowconfigure(1, weight=1)
     
     def _configuracionFrame(self):
         masAccionesFrame = ttk.LabelFrame(self.frameConfiguracion, text="Acciones adicionales para el proyecto", style="info.TLabelframe")
         
         self._checkVars = []
         
-        mensajesChkBox = [("Abrir en VS Code al finalizar", False)]
+        mensajesChkBox = [("Crear directorios adicionales", True),("Abrir en VS Code al finalizar", False)]
         
-        for mensaje, check in mensajesChkBox:
+        for i, (mensaje, check) in enumerate(mensajesChkBox):
             var = tk.BooleanVar(value=check)
             chk = ttk.Checkbutton(masAccionesFrame, text=mensaje, variable=var, style="success.TCheckbutton")
-            chk.pack(padx=5, pady=5, anchor="w")
+            chk.grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
             self._checkVars.append({mensaje: var})
         
         masAccionesFrame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
@@ -2480,68 +2841,6 @@ class NodeSetupAppNew(ttk.Window):
         
         for fila in range(filas):
             self.frameConfiguracion.grid_rowconfigure(fila, weight=1)
-        
-    def _creacion_proyecto(self):
-        def conteo_tareas():
-            total_pasos = 1
-            self._tareas.clear()
-            self._taskWidgets.clear()
-            if self.CrearRutaVar.get():
-                tarea = {
-                    "accion": "Crear ruta",
-                    "estado": "Pendiente",
-                    "info": None
-                }
-                self._tareas.append(tarea.copy())
-                total_pasos += 1
-            
-            if self.EliminarContenidoVar.get():
-                tarea = {
-                    "accion": "Eliminar contenido de la carpeta",
-                    "estado": "Pendiente",
-                    "info": None
-                }
-                self._tareas.append(tarea.copy())
-                total_pasos += 1
-            
-            tarea = {
-                "accion": "Inicializar proyecto Node",
-                "estado": "Pendiente",
-                "info": None
-            }
-            self._tareas.append(tarea.copy())
-            
-            for dic in self._modulosNPM:
-                if dic["usar"] is not None and dic["usar"].get():
-                    tarea = {
-                        "accion": f"Instalar modulo {dic['nombre']} - {dic['version'].get()}",
-                        "estado": "Pendiente",
-                        "info": dic
-                    }
-                    self._tareas.append(tarea.copy())
-                    total_pasos += 1
-            
-            for dic in self._checkVars:
-                dic = dict(dic)
-                for clave, var in dic.items():
-                    if var.get() and clave == "Crear archivos adicionales":
-                        tarea = {
-                            "accion": "Crear archivos adicionales",
-                            "estado": "Pendiente",
-                            "info": None
-                        }
-                        self._tareas.append(tarea.copy())
-                        total_pasos += 1
-                    elif var.get() and clave == "Abrir en VS Code al finalizar":
-                        tareas = {
-                            "accion": "Abrir en VS Code",
-                            "estado": "Pendiente",
-                            "info": None
-                        }
-                        self._tareas.append(tareas.copy())
-                        total_pasos += 1
-            
-            return total_pasos
     
     def _cerrarVentana(self, ventana:tk.Tk | tk.Toplevel | None = None):
         if not ventana:
@@ -2609,6 +2908,7 @@ def dividir_lista(lista, n):
         yield lista[i:i + n]
 
 if __name__ == "__main__":
+    #app = NodeSetupApp()
     app = NodeSetupAppNew()
     app.mostrar_imagenes()
     app._centrar_ventana()
