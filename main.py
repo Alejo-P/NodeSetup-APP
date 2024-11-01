@@ -1904,8 +1904,10 @@ class NodeSetupAppNew(ttk.Window):
                     if os.path.exists(self._ruta.get()) and isFolderInPath(".git", self._ruta.get()):
                         ramas = getGitBranches(self._ruta.get())
                         resultadoRamas.put(ramas)
+                        procesosFrame.put("Ramas, exitoso")
                         return
                     resultadoRamas.put({"Ruta no valida":True})
+                    procesosFrame.put("Ramas, fallido")
                     
                 btn_commit.config(state="disabled")
                 resultadoRamas = queue.Queue()
@@ -2175,7 +2177,88 @@ class NodeSetupAppNew(ttk.Window):
                 threading.Thread(target=backgroundCommit).start()
                 frameCommit.after(100, verificarCommit)
             
-            ttk.Label(frameCommit, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            def obtenerArchivosModificado():
+                def onModifyFiles():
+                    resultado = runCommand([self._git_path, "status"], self._ruta.get(), 'bytes')
+                    if isinstance(resultado, subprocess.CalledProcessError):
+                        resultadoCambios.put((False, resultado.stderr))
+                        return
+                    
+                    for linea in resultado.stdout.decode("utf-8").split("\n"):
+                        detalles = {
+                            "branch": "",
+                            "Untracked files": [],
+                            "Changes to be committed": [],
+                            "Changes not staged for commit": [],
+                        }
+                        
+                        if "On branch" in linea:
+                            detalles["branch"] = linea.split("On branch ")[1]
+                        elif "Untracked files" in linea:
+                            detalles["Untracked files"] = [archivo for archivo in linea.split(":")[1].split()]
+                        elif "Changes to be committed" in linea:
+                            detalles["Changes to be committed"] = [archivo for archivo in linea.split(":")[1].split()]
+                        elif "Changes not staged for commit" in linea:
+                            detalles["Changes not staged for commit"] = [archivo for archivo in linea.split(":")[1].split()]
+                        
+                        cambios.append(detalles)
+                    
+                    resultadoCambios.put((True, "Cambios obtenidos correctamente"))
+                
+                def actualizarFrameCambios():
+                    if cambios:
+                        for widget in frameCambios.winfo_children():
+                            widget.grid_forget()
+                        
+                        ttk.Label(frameCambios, text="Rama actual", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        ttk.Label(frameCambios, text=cambios[0]["branch"], style="info.TLabel", anchor="center").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+                        
+                        ttk.Label(frameCambios, text="Archivos sin seguimiento", style="info.TLabel", anchor="center").grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+                        for i, archivo in enumerate(cambios[0]["Untracked files"], 2):
+                            ttk.Label(frameCambios, text=archivo, style="info.TLabel", anchor="center").grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
+                        
+                        ttk.Label(frameCambios, text="Cambios a ser confirmados", style="info.TLabel", anchor="center").grid(row=2, column=1, padx=5, pady=5, sticky="nsew")
+                        for i, archivo in enumerate(cambios[0]["Changes to be committed"], 3):
+                            ttk.Label(frameCambios, text=archivo, style="info.TLabel", anchor="center").grid(row=i, column=1, padx=5, pady=5, sticky="nsew")
+                        
+                        ttk.Label(frameCambios, text="Cambios no preparados para el commit", style="info.TLabel", anchor="center").grid(row=2, column=2, padx=5, pady=5, sticky="nsew")
+                        for i, archivo in enumerate(cambios[0]["Changes not staged for commit"], 3):
+                            ttk.Label(frameCambios, text=archivo, style="info.TLabel", anchor="center").grid(row=i, column=2, padx=5, pady=5, sticky="nsew")
+                        
+                        ttk.Button(frameCambios, text="Modificar archivos", command=onModifyFiles, bootstyle=(INFO, OUTLINE)).grid(row=3, column=0, columnspan=3, padx=5, pady=5, sticky="nsew") # type: ignore
+                    else:
+                        ttk.Label(frameCambios, text="No hay cambios", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        ttk.Button(frameCambios, text="Modificar archivos", command=onModifyFiles, bootstyle=(INFO, OUTLINE)).grid(row=1, column=0, padx=5, pady=5, sticky="nsew") # type: ignore
+                    pass
+                
+                def verificarResultado():
+                    try:
+                        exito, mensaje = resultadoCambios.get_nowait()
+                        if not exito:
+                            messagebox.showerror("Error", f"Error al obtener los cambios: {mensaje}")
+                            return
+                        actualizarFrameCambios()
+                        btn_commit.config(state="normal")
+                    except queue.Empty:
+                        btn_commit.config(state="disabled")
+                        frameCommit.after(100, verificarResultado)
+                        return
+                    
+                    clearQueue(resultadoCambios)
+                
+                cambios = []
+                resultadoCambios = queue.Queue()
+                try:
+                    tarea = procesosFrame.get_nowait()
+                    if tarea == "Ramas, exitoso":
+                        threading.Thread(target=onModifyFiles).start()
+                        frameCommit.after(100, verificarResultado)
+                except queue.Empty:
+                    frameCommit.after(100, obtenerArchivosModificado)
+            
+            procesosFrame = queue.Queue()
+            
+            ttk.Label(frameCommit, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, sticky="nsew")
             entryRuta = ttk.Entry(frameCommit, textvariable=self._ruta, width=50)
             entryRuta.grid(row=1, column=0, padx=5, sticky="nsew")
             scrollRuta = ttk.Scrollbar(frameCommit, orient="horizontal", bootstyle="info-round") # type: ignore
@@ -2192,7 +2275,7 @@ class NodeSetupAppNew(ttk.Window):
             lblmagCommit.bind("<Leave>", lambda e: tooltiplblmag.hidetip())
             
             msgCommitVar = tk.StringVar()
-            ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(frameCommit, text="Mensaje de la confirmacion", style="info.TLabel", anchor="center").grid(row=3, column=0, padx=5, sticky="nsew")
             entrymsg = ttk.Entry(frameCommit, textvariable=msgCommitVar, width=50)
             entrymsg.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
             lblinfoCommit = ttk.Label(frameCommit, image=self._imagenes["Info"], style="info.TLabel", anchor="center", cursor="arrow")
@@ -2202,7 +2285,7 @@ class NodeSetupAppNew(ttk.Window):
             lblinfoCommit.grid(row=4, column=1, padx=5, pady=5, sticky="nsew")
             
             ramaSeleccionada = tk.StringVar()
-            ttk.Label(frameCommit, text="Rama", style="info.TLabel", anchor="center").grid(row=5, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(frameCommit, text="Rama", style="info.TLabel", anchor="center").grid(row=5, column=0, padx=5, sticky="nsew")
             combobranch = ttk.Combobox(frameCommit, width=50, state="readonly", textvariable=ramaSeleccionada)
             combobranch.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
             combobranch.bind("<<ComboboxSelected>>", lambda e: onChangeBranch())
@@ -2226,20 +2309,37 @@ class NodeSetupAppNew(ttk.Window):
             framebotonesBranch.grid(row=6, column=1, padx=5, pady=5, sticky="nsew")
             
             accionSeleccionada = tk.StringVar()
-            ttk.Label(frameCommit, text="Acciones", style="info.TLabel", anchor="center").grid(row=7, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(frameCommit, text="Acciones", style="info.TLabel", anchor="center").grid(row=7, column=0, padx=5, sticky="nsew")
             comboAcciones = ttk.Combobox(frameCommit, values=("Commit", "Commit y Push"), state="readonly", textvariable=accionSeleccionada)
             comboAcciones.current(0)
             comboAcciones.grid(row=8, column=0, padx=5, pady=5, sticky="nsew")
             
+            framemostrarCambios = ttk.LabelFrame(frameCommit, text="Cambios", style="warning.TLabelFrame") # type: ignore
+            canvas = tk.Canvas(framemostrarCambios)
+            scrollbar = ttk.Scrollbar(framemostrarCambios, orient="vertical", command=canvas.yview, bootstyle="info-round") # type: ignore
+            frameCambios = ttk.Frame(canvas)
+            frameCambios.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=frameCambios, anchor="nw")
+            canvas.config(yscrollcommand=scrollbar.set)
+            canvas.grid(row=0, column=0, padx=5, sticky="nsew")
+            scrollbar.grid(row=0, column=1, padx=2, sticky="nsew")
+            
+            frameCambios.grid_columnconfigure(0, weight=1)
+            framemostrarCambios.grid_columnconfigure(0, weight=1)
+            framemostrarCambios.grid_rowconfigure(0, weight=1)
+            framemostrarCambios.grid(row=9, column=0, columnspan=2, padx=5, sticky="nsew")
+            
             btn_commit = ttk.Button(frameCommit, text="Commit", command=onCommit, bootstyle=(INFO, OUTLINE)) # type: ignore
-            btn_commit.grid(row=9, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            btn_commit.grid(row=10, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             
             obtenerRamas()
             msgCommitVar.trace_add("write", lambda *args: validarEntries())
             self._ruta.trace_add("write", lambda *args: validarEntries())
             self._ruta.trace_add("write", lambda *args: obtenerRamas())
+            self._ruta.trace_add("write", lambda *args: obtenerArchivosModificado())
             
             frameCommit.grid_columnconfigure(0, weight=1)
+            frameCommit.grid_rowconfigure(9, weight=1)
             
         def contentFrameLogs():
             def validarRuta():
