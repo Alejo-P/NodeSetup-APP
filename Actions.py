@@ -391,6 +391,75 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
         })
     return listaDetalles
 
+def getModifiedFilesGit(ruta:str):
+    """Obtiene los archivos modificados de un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+    
+    Returns:
+        _List[tuple[str, str]]_: _Lista de archivos modificados y su simbolo_
+    """
+    
+    archivos:list[tuple[str, str]] = []
+    comando = [getPathOf("git"), "status", "--short"]
+    
+    resultado = runCommand(comando, ruta, "bytes")
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return [("Error", "Error al obtener los archivos modificados")]
+    
+    for archivo in resultado.stdout.decode("utf-8").split("\n"):
+        if not archivo:
+            continue
+        
+        simbolo, nombre_archivo = archivo.strip().split(" ")[0], archivo.strip().split(" ")[-1]
+        archivos.append((simbolo, nombre_archivo))
+    
+    return archivos
+
+def getGitUser(ruta:str | None = None):
+    """Obtiene el usuario de un repositorio Git.
+
+    Args:
+        ruta (str, opcional): _Ruta del repositorio Git_
+    
+    Returns:
+        _str_: _Usuario del repositorio o usuario global_
+    """
+    if not ruta:
+        # Comando git config --global user.name
+        resultado = runCommand([getPathOf("git"), "config", "--global", "--get", "user.name"])
+    else:
+        # Comando git config user.name
+        resultado = runCommand([getPathOf("git"), "config", "--get", "user.name"], ruta)
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return "Error al obtener el usuario"
+    
+    return resultado.stdout.strip()
+
+def getGitEmail(ruta:str | None = None):
+    """Obtiene el email de un repositorio Git.
+
+    Args:
+        ruta (str, opcional): _Ruta del repositorio Git_
+    
+    Returns:
+        _str_: _Email del repositorio o email global_
+    """
+    if not ruta:
+        # Comando git config --global user.email
+        resultado = runCommand([getPathOf("git"), "config", "--global", "--get", "user.email"])
+    else:
+        # Comando git config user.email
+        resultado = runCommand([getPathOf("git"), "config", "--get", "user.email"], ruta)
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return "Error al obtener el email"
+    
+    return resultado.stdout.strip()
+
 def loadInfoNPMModules(modulosCargar: List[dict[str, Any]]):
     for dic in modulosCargar:
         versionesPaquetes = runCommand([getPathOf("npm"), "show", dic["nombre"].lower(), "versions", "--depth=0"])

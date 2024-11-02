@@ -1,6 +1,7 @@
 from concurrent.futures import thread
 from email.mime import image
 import json
+from json import tool
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import scrolledtext
@@ -20,6 +21,9 @@ from Actions import (
     getBranchCommitsLog,
     getCurrentBrach,
     getFileExtension,
+    getGitEmail,
+    getGitUser,
+    getModifiedFilesGit,
     isFileInPath,
     isFolderInPath,
     preventCloseWindow,
@@ -1956,6 +1960,30 @@ class NodeSetupAppNew(ttk.Window):
                         textoTooltip = textoTooltip.replace("-> El mensaje del commit no puede estar vacío", "").strip()
                         self.toolTip_GitCommit.setText(textoTooltip)
                 
+                if not cambios:
+                    btn_commit.config(state="disabled")
+                    mensajes += 1
+                    lblCommit.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblCommit.type = "warning"
+                    if "-> No hay cambios para realizar commit" not in textoTooltip:
+                        self.toolTip_GitCommit.setText(f"{textoTooltip}\n-> No hay cambios para realizar commit")
+                else:
+                    if "-> No hay cambios para realizar commit" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> No hay cambios para realizar commit", "").strip()
+                        self.toolTip_GitCommit.setText(textoTooltip)
+                
+                if not self._userGit.get() or not self._correoGit.get():
+                    btn_commit.config(state="disabled")
+                    mensajes += 1
+                    lblCommit.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    lblCommit.type = "warning"
+                    if "-> El usuario y el correo no pueden estar vacíos" not in textoTooltip:
+                        self.toolTip_GitCommit.setText(f"{textoTooltip}\n-> El usuario y el correo no pueden estar vacíos")
+                else:
+                    if "-> El usuario y el correo no pueden estar vacíos" in textoTooltip:
+                        textoTooltip = textoTooltip.replace("-> El usuario y el correo no pueden estar vacíos", "").strip()
+                        self.toolTip_GitCommit.setText(textoTooltip)
+                
                 if mensajes == 0:
                     lblCommit.config(image="", compound="center", style="Selected.TLabel")
                     lblCommit.type = "normal"
@@ -2179,83 +2207,78 @@ class NodeSetupAppNew(ttk.Window):
             
             def obtenerArchivosModificado():
                 def onModifyFiles():
-                    resultado = runCommand([self._git_path, "status"], self._ruta.get(), 'bytes')
-                    if isinstance(resultado, subprocess.CalledProcessError):
-                        resultadoCambios.put((False, resultado.stderr))
+                    cambios.clear()
+                    if not self._ruta.get() or not isFolderInPath(".git", self._ruta.get()):
+                        resultadoCambios.put((False, "Ruta invalida"))
                         return
                     
-                    for linea in resultado.stdout.decode("utf-8").split("\n"):
-                        detalles = {
-                            "branch": "",
-                            "Untracked files": [],
-                            "Changes to be committed": [],
-                            "Changes not staged for commit": [],
-                        }
-                        
-                        if "On branch" in linea:
-                            detalles["branch"] = linea.split("On branch ")[1]
-                        elif "Untracked files" in linea:
-                            detalles["Untracked files"] = [archivo for archivo in linea.split(":")[1].split()]
-                        elif "Changes to be committed" in linea:
-                            detalles["Changes to be committed"] = [archivo for archivo in linea.split(":")[1].split()]
-                        elif "Changes not staged for commit" in linea:
-                            detalles["Changes not staged for commit"] = [archivo for archivo in linea.split(":")[1].split()]
-                        
-                        cambios.append(detalles)
+                    listaArchivos = getModifiedFilesGit(self._ruta.get())
+                    if len(listaArchivos) == 1 and  listaArchivos[0][0] == "Error":
+                        resultadoCambios.put((False, listaArchivos[0][1]))
+                        return
                     
+                    detalleSimbolos = {
+                        "??" :{"nombre":"Nuevo", "estiloLBL":INFO},
+                        "M"  :{"nombre":"Modificado", "estiloLBL":SUCCESS},
+                        "D"  :{"nombre":"Eliminado", "estiloLBL":DANGER},
+                        "A"  :{"nombre":"Añadido", "estiloLBL":INFO},
+                        "R"  :{"nombre":"Renombrado", "estiloLBL":WARNING},
+                        "C"  :{"nombre":"Copiado", "estiloLBL":WARNING},
+                        "U"  :{"nombre":"Actualizado", "estiloLBL":INFO},
+                    }
+                    
+                    for archivo in listaArchivos:
+                        simbolo, nombre = archivo
+                        cambios.append({
+                            "estado"  : detalleSimbolos[simbolo]["nombre"],
+                            "archivo" : nombre,
+                            "estilo"  : detalleSimbolos[simbolo]["estiloLBL"]
+                        })
+                        
                     resultadoCambios.put((True, "Cambios obtenidos correctamente"))
                 
                 def actualizarFrameCambios():
-                    if cambios:
-                        for widget in frameCambios.winfo_children():
-                            widget.grid_forget()
-                        
-                        ttk.Label(frameCambios, text="Rama actual", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-                        ttk.Label(frameCambios, text=cambios[0]["branch"], style="info.TLabel", anchor="center").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
-                        
-                        ttk.Label(frameCambios, text="Archivos sin seguimiento", style="info.TLabel", anchor="center").grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
-                        for i, archivo in enumerate(cambios[0]["Untracked files"], 2):
-                            ttk.Label(frameCambios, text=archivo, style="info.TLabel", anchor="center").grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
-                        
-                        ttk.Label(frameCambios, text="Cambios a ser confirmados", style="info.TLabel", anchor="center").grid(row=2, column=1, padx=5, pady=5, sticky="nsew")
-                        for i, archivo in enumerate(cambios[0]["Changes to be committed"], 3):
-                            ttk.Label(frameCambios, text=archivo, style="info.TLabel", anchor="center").grid(row=i, column=1, padx=5, pady=5, sticky="nsew")
-                        
-                        ttk.Label(frameCambios, text="Cambios no preparados para el commit", style="info.TLabel", anchor="center").grid(row=2, column=2, padx=5, pady=5, sticky="nsew")
-                        for i, archivo in enumerate(cambios[0]["Changes not staged for commit"], 3):
-                            ttk.Label(frameCambios, text=archivo, style="info.TLabel", anchor="center").grid(row=i, column=2, padx=5, pady=5, sticky="nsew")
-                        
-                        ttk.Button(frameCambios, text="Modificar archivos", command=onModifyFiles, bootstyle=(INFO, OUTLINE)).grid(row=3, column=0, columnspan=3, padx=5, pady=5, sticky="nsew") # type: ignore
-                    else:
+                    for widget in frameCambios.winfo_children():
+                        widget.grid_forget()
+                    
+                    if not self._ruta.get() or not isFolderInPath(".git", self._ruta.get()):
+                        ttk.Label(frameCambios, text="Ruta invalida", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        return
+                    
+                    if not cambios:
                         ttk.Label(frameCambios, text="No hay cambios", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
                         ttk.Button(frameCambios, text="Modificar archivos", command=onModifyFiles, bootstyle=(INFO, OUTLINE)).grid(row=1, column=0, padx=5, pady=5, sticky="nsew") # type: ignore
-                    pass
+                    
+                    for i, cambio in enumerate(cambios):
+                        detallesFrame = ttk.LabelFrame(frameCambios, text="Detalles de los cambios", bootstyle=cambio["estilo"]) # type: ignore
+                        
+                        ttk.Label(detallesFrame, text=f"Estado: {cambio['estado']}", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        ttk.Label(detallesFrame, text=f"Archivo: {cambio['archivo']}", style="info.TLabel", anchor="center").grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+                        
+                        detallesFrame.grid_columnconfigure(0, weight=1)
+                        detallesFrame.grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
+                    
+                    frameCambios.grid_columnconfigure(0, weight=1)
+                        
                 
                 def verificarResultado():
                     try:
                         exito, mensaje = resultadoCambios.get_nowait()
+                        actualizarFrameCambios()
                         if not exito:
                             messagebox.showerror("Error", f"Error al obtener los cambios: {mensaje}")
                             return
-                        actualizarFrameCambios()
-                        btn_commit.config(state="normal")
                     except queue.Empty:
-                        btn_commit.config(state="disabled")
                         frameCommit.after(100, verificarResultado)
                         return
                     
                     clearQueue(resultadoCambios)
                 
-                cambios = []
                 resultadoCambios = queue.Queue()
-                try:
-                    tarea = procesosFrame.get_nowait()
-                    if tarea == "Ramas, exitoso":
-                        threading.Thread(target=onModifyFiles).start()
-                        frameCommit.after(100, verificarResultado)
-                except queue.Empty:
-                    frameCommit.after(100, obtenerArchivosModificado)
+                threading.Thread(target=onModifyFiles).start()
+                frameCommit.after(100, verificarResultado)
             
+            cambios = []
             procesosFrame = queue.Queue()
             
             ttk.Label(frameCommit, text="Directorio del repositorio", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, sticky="nsew")
@@ -2323,6 +2346,8 @@ class NodeSetupAppNew(ttk.Window):
             canvas.config(yscrollcommand=scrollbar.set)
             canvas.grid(row=0, column=0, padx=5, sticky="nsew")
             scrollbar.grid(row=0, column=1, padx=2, sticky="nsew")
+            
+            ttk.Label(frameCambios, text="Seleccione una ruta!", style="warning.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             
             frameCambios.grid_columnconfigure(0, weight=1)
             framemostrarCambios.grid_columnconfigure(0, weight=1)
@@ -2448,12 +2473,14 @@ class NodeSetupAppNew(ttk.Window):
         entryGitV.config(state="readonly")
         entryGitV.grid(row=1, column=0, pady=5, padx=5, sticky="ew")
         
-        columnas, filas = frameInformacion.grid_size()
-        for columna in range(columnas):
-            frameInformacion.grid_columnconfigure(columna, weight=1)
+        lblEdit = ttk.Label(frameInformacion, image=self._imagenes["Edit"], cursor="hand2")
+        lblEdit.grid(row=1, column=1, pady=5, padx=5, sticky="ew")
+        toolTipEdit = ToolTip(lblEdit, "Editar usuario y correo de Git")
+        lblEdit.bind("<Enter>", lambda e: toolTipEdit.showtip("w"))
+        lblEdit.bind("<Leave>", lambda e: toolTipEdit.hidetip())
+        lblEdit.bind("<Button-1>", lambda e: self._funcCambiarIDGit())
         
-        for fila in range(filas):
-            frameInformacion.grid_rowconfigure(fila, weight=1)
+        frameInformacion.grid_columnconfigure(0, weight=1)
         
         frameInformacion.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         
@@ -2859,9 +2886,107 @@ class NodeSetupAppNew(ttk.Window):
         self.frameTareas.grid_rowconfigure(1, weight=1)
     
     def _configuracionFrame(self):
+        def cambiarIdentificacionGit():
+            def guardarCambios():
+                nonlocal modificado
+                if not entryUsuario.get():
+                    messagebox.showerror("Error", "El usuario no puede estar vacío")
+                    return
+                
+                if not entryCorreo.get():
+                    messagebox.showerror("Error", "El correo no puede estar vacío")
+                    return
+                
+                if edicionGlobal.get():
+                    resultado = runCommand([self._git_path, "config", "--global", "user.name", entryUsuario.get()], retornarEn='bytes')
+                    if isinstance(resultado, subprocess.CalledProcessError):
+                        messagebox.showerror("Error", f"Error al cambiar el usuario de Git: {resultado}")
+                        return
+                    
+                    resultado = runCommand([self._git_path, "config", "--global", "user.email", entryCorreo.get()], retornarEn='bytes')
+                    if isinstance(resultado, subprocess.CalledProcessError):
+                        messagebox.showerror("Error", f"Error al cambiar el correo de Git: {resultado}")
+                        return
+                    
+                    messagebox.showinfo("Información", "Cambios guardados correctamente")
+                    return
+                
+                resultado = runCommand([self._git_path, "config", "user.name", entryUsuario.get()], self._ruta.get(), retornarEn='bytes')
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al cambiar el usuario de Git: {resultado}")
+                    return
+                
+                resultado = runCommand([self._git_path, "config", "user.email", entryCorreo.get()], self._ruta.get(), retornarEn='bytes')
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al cambiar el correo de Git: {resultado}")
+                    return
+                
+                modificado = True
+                messagebox.showinfo("Información", "Cambios guardados correctamente")
+            
+            def validarEntradas():
+                if not entryUsuario.get() or not entryCorreo.get():
+                    btnGuardar.config(state="disabled")
+                    return
+                
+                btnGuardar.config(state="normal")
+            
+            def onClose():
+                self._userGit.trace_remove("write", trace1)
+                self._correoGit.trace_remove("write", trace2)
+                
+                if not modificado:
+                    self._userGit.set(userGitTemp)
+                    self._correoGit.set(emailGitTemp)
+                
+                popUp.destroy()
+            
+            popUp = ttk.Toplevel()
+            popUp.title("Editar usuario y correo de Git")
+            popUp.resizable(False, False)
+            popUp.transient(self)
+            popUp.protocol("WM_DELETE_WINDOW", onClose)
+            
+            modificado = False
+            userGitTemp = self._userGit.get()
+            ttk.Label(popUp, text="Usuario", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            entryUsuario = ttk.Entry(popUp, width=50, textvariable=self._userGit)
+            entryUsuario.insert(0, self._userGit.get())
+            entryUsuario.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+            entryUsuario.bind("<FocusOut>", lambda e: validarEntradas())
+            
+            emailGitTemp = self._correoGit.get()
+            ttk.Label(popUp, text="Correo", style="info.TLabel", anchor="center").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+            entryCorreo = ttk.Entry(popUp, width=50, textvariable=self._correoGit)
+            entryCorreo.insert(0, self._correoGit.get())
+            entryCorreo.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+            entryCorreo.bind("<Return>", lambda e: guardarCambios())
+            entryCorreo.bind("<FocusOut>", lambda e: validarEntradas())
+            
+            edicionGlobal = tk.BooleanVar(value=False)
+            chkGlobal = ttk.Checkbutton(popUp, text="Editar globalmente", variable=edicionGlobal, bootstyle="success-round-toggle") # type: ignore
+            chkGlobal.grid(row=4, column=0, padx=5, pady=5)
+            
+            btnGuardar = ttk.Button(popUp, text="Guardar cambios", command=guardarCambios, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
+            btnGuardar.grid(row=5, column=0, padx=5, pady=5, sticky="nsew")
+            
+            validarEntradas()
+            trace1 = self._userGit.trace_add("write", lambda *args: validarEntradas())
+            trace2 = self._correoGit.trace_add("write", lambda *args: validarEntradas())
+            
+            centerWindow(popUp)
+        
         masAccionesFrame = ttk.LabelFrame(self.frameConfiguracion, text="Acciones adicionales para el proyecto", style="info.TLabelframe")
         
         self._checkVars = []
+        self._userGit = tk.StringVar()
+        self._correoGit = tk.StringVar()
+        
+        self._funcCambiarIDGit = cambiarIdentificacionGit
+        
+        if self._git_path:
+            self._userGit.set(getGitUser())
+            self._correoGit.set(getGitEmail())
         
         mensajesChkBox = [("Crear directorios adicionales", True),("Abrir en VS Code al finalizar", False)]
         
@@ -2942,6 +3067,26 @@ class NodeSetupAppNew(ttk.Window):
         pathsFrame.grid_columnconfigure(0, weight=1)
         
         pathsFrame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+        
+        gitConfigFrame = ttk.LabelFrame(self.frameConfiguracion, text="Configuracion de Git", style="info.TLabelframe")
+        ttk.Label(gitConfigFrame, text="Usuario de Git", style="info.TLabel").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+        entryUserGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
+        entryUserGit.insert(0, self._userGit.get())
+        entryUserGit.config(state="readonly")
+        entryUserGit.grid(row=1, column=0, padx=5, sticky="nsew")
+        
+        ttk.Label(gitConfigFrame, text="Correo de Git", style="info.TLabel").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+        entryCorreoGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
+        entryCorreoGit.insert(0, self._correoGit.get())
+        entryCorreoGit.config(state="readonly")
+        entryCorreoGit.grid(row=3, column=0, padx=5, sticky="nsew")
+        
+        btnGuardar = ttk.Button(gitConfigFrame, text="Cambiar", command=cambiarIdentificacionGit, bootstyle=(WARNING, OUTLINE)) # type: ignore
+        btnGuardar.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
+        
+        gitConfigFrame.grid_columnconfigure(0, weight=1)
+        
+        gitConfigFrame.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
     
         columnas, filas = self.frameConfiguracion.grid_size()
         for columna in range(columnas):
@@ -2981,6 +3126,9 @@ class NodeSetupAppNew(ttk.Window):
         self._imagenes["Info"] = loadImageTk((os.path.join(ruta_assets, "infoIcon.png")), 20, 20)
         self._imagenes["Add"] = loadImageTk((os.path.join(ruta_assets, "addIcon.png")), 20, 20)
         self._imagenes["Trash"] = loadImageTk((os.path.join(ruta_assets, "trashIcon.png")), 20, 20)
+        self._imagenes["User"] = loadImageTk((os.path.join(ruta_assets, "userIcon.png")), 20, 20)
+        self._imagenes["Mail"] = loadImageTk((os.path.join(ruta_assets, "mailIcon.png")), 20, 20)
+        self._imagenes["Edit"] = loadImageTk((os.path.join(ruta_assets, "editIcon.png")), 20, 20)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")
