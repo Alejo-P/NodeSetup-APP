@@ -245,6 +245,9 @@ def handleRunCommandBytes(comando:List[str], directorio:str = os.getcwd(), nueva
         return resultado
     except subprocess.CalledProcessError as e:
         return e
+    except Exception as ex:
+        error = subprocess.CalledProcessError(-1, comando, stderr=str(ex))
+        return error
 
 def handleRunCommandText(comando:List[str], directorio:str = os.getcwd(), nuevaVentana=False):
     try:
@@ -260,6 +263,9 @@ def handleRunCommandText(comando:List[str], directorio:str = os.getcwd(), nuevaV
         return resultado
     except subprocess.CalledProcessError as e:
         return e
+    except Exception as ex:
+        error = subprocess.CalledProcessError(-1, comando, stderr=str(ex))
+        return error
 
 def getPathOf(elemento_ejecutable:str):
     """Obtiene la ruta de un elemento ejecutable en el sistema.

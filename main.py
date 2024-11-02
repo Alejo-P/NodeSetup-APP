@@ -1433,7 +1433,8 @@ class NodeSetupAppNew(ttk.Window):
         self._configuracionFrame()
         self._principalFrame()
         self._modulosFrame()
-        self._gitFrame()
+        if self._git_path:
+            self._gitFrame()
         self._tareasFrame()
         
         onUpdateFrames()
@@ -2247,7 +2248,6 @@ class NodeSetupAppNew(ttk.Window):
                     
                     if not cambios:
                         ttk.Label(frameCambios, text="No hay cambios", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-                        ttk.Button(frameCambios, text="Modificar archivos", command=onModifyFiles, bootstyle=(INFO, OUTLINE)).grid(row=1, column=0, padx=5, pady=5, sticky="nsew") # type: ignore
                     
                     for i, cambio in enumerate(cambios):
                         detallesFrame = ttk.LabelFrame(frameCambios, text="Detalles de los cambios", bootstyle=cambio["estilo"]) # type: ignore
@@ -2908,7 +2908,17 @@ class NodeSetupAppNew(ttk.Window):
                         messagebox.showerror("Error", f"Error al cambiar el correo de Git: {resultado}")
                         return
                     
+                    modificado = True
                     messagebox.showinfo("Información", "Cambios guardados correctamente")
+                    onClose()
+                    return
+
+                if not self._ruta.get():
+                    messagebox.showerror("Error", "La ruta del repositorio no puede estar vacía")
+                    return
+                
+                if not isFolderInPath(".git", self._ruta.get()):
+                    messagebox.showerror("Error", "La ruta del repositorio no es un repositorio de Git")
                     return
                 
                 resultado = runCommand([self._git_path, "config", "user.name", entryUsuario.get()], self._ruta.get(), retornarEn='bytes')
@@ -2923,21 +2933,56 @@ class NodeSetupAppNew(ttk.Window):
                 
                 modificado = True
                 messagebox.showinfo("Información", "Cambios guardados correctamente")
+                onClose()
             
             def validarEntradas():
-                if not entryUsuario.get() or not entryCorreo.get():
+                if not self._userGit.get() or not self._correoGit.get():
                     btnGuardar.config(state="disabled")
                     return
                 
+                if self._userGit.get() == userGitTemp and self._correoGit.get() == emailGitTemp:
+                    btnGuardar.config(state="disabled")
+                    return
+                
+                if validarEntryRuta:
+                    if not self._ruta.get():
+                        btnGuardar.config(state="disabled")
+                        return
+                    
+                    if not isFolderInPath(".git", self._ruta.get()):
+                        btnGuardar.config(state="disabled")
+                        return
+                
                 btnGuardar.config(state="normal")
+                
+            def mostrarOcultarFrameRuta():
+                nonlocal validarEntryRuta
+                if not edicionGlobal.get():
+                    validarEntryRuta = True
+                    frameRuta.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
+                else:
+                    validarEntryRuta = False
+                    frameRuta.grid_remove()
+
+                validarEntradas()
+                centerWindow(popUp, True)
+            
+            def ChangePath():
+                if ruta := filedialog.askdirectory():
+                    self._ruta.set(ruta)
+                    entryRuta.config(state="normal")
+                    entryRuta.delete(0, "end")
+                    entryRuta.insert(0, ruta)
+                    entryRuta.config(state="readonly")
+                    validarEntradas()
             
             def onClose():
-                self._userGit.trace_remove("write", trace1)
-                self._correoGit.trace_remove("write", trace2)
-                
                 if not modificado:
                     self._userGit.set(userGitTemp)
                     self._correoGit.set(emailGitTemp)
+                else:
+                    actualizarEntry(entryUserGit, self._userGit.get())
+                    actualizarEntry(entryCorreoGit, self._correoGit.get())
                 
                 popUp.destroy()
             
@@ -2949,32 +2994,52 @@ class NodeSetupAppNew(ttk.Window):
             
             modificado = False
             userGitTemp = self._userGit.get()
-            ttk.Label(popUp, text="Usuario", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(popUp, text="Usuario", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryUsuario = ttk.Entry(popUp, width=50, textvariable=self._userGit)
-            entryUsuario.insert(0, self._userGit.get())
             entryUsuario.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
             entryUsuario.bind("<FocusOut>", lambda e: validarEntradas())
             
             emailGitTemp = self._correoGit.get()
-            ttk.Label(popUp, text="Correo", style="info.TLabel", anchor="center").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(popUp, text="Correo", anchor="center").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
             entryCorreo = ttk.Entry(popUp, width=50, textvariable=self._correoGit)
-            entryCorreo.insert(0, self._correoGit.get())
             entryCorreo.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
-            entryCorreo.bind("<Return>", lambda e: guardarCambios())
             entryCorreo.bind("<FocusOut>", lambda e: validarEntradas())
             
+            frameRuta = ttk.Frame(popUp)
+            ttk.Label(frameRuta, text="Ruta del repositorio", anchor="center").grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            entryRuta = ttk.Entry(frameRuta, width=50, textvariable=self._ruta)
+            entryRuta.config(state="readonly")
+            entryRuta.grid(row=1, column=0, padx=5, sticky="nsew")
+            
+            scrollEntryRuta = ttk.Scrollbar(frameRuta, orient="horizontal", bootstyle="success-round") # type: ignore
+            entryRuta.config(xscrollcommand=scrollEntryRuta.set)
+            scrollEntryRuta.config(command=entryRuta.xview)
+            
+            lblmagEntry = ttk.Label(frameRuta, image=self._imagenes["Magnifier"], anchor="center", cursor="hand2")
+            tooltipRuta = ToolTip(lblmagEntry, "Seleccionar un directorio distinto")
+            lblmagEntry.bind("<Enter>", lambda e: tooltipRuta.showtip("w"))
+            lblmagEntry.bind("<Leave>", lambda e: tooltipRuta.hidetip())
+            lblmagEntry.bind("<Button-1>", lambda e: ChangePath())
+            scrollEntryRuta.grid(row=2, column=0, padx=5, sticky="nsew")
+            lblmagEntry.grid(row=1, rowspan=2, column=1, padx=5, pady=5, sticky="nsew")
+            
             edicionGlobal = tk.BooleanVar(value=False)
-            chkGlobal = ttk.Checkbutton(popUp, text="Editar globalmente", variable=edicionGlobal, bootstyle="success-round-toggle") # type: ignore
-            chkGlobal.grid(row=4, column=0, padx=5, pady=5)
+            validarEntryRuta = not edicionGlobal.get()
+            chkGlobal = ttk.Checkbutton(popUp, text="Editar globalmente", variable=edicionGlobal, bootstyle="success-round-toggle", command=mostrarOcultarFrameRuta) # type: ignore
+            chkGlobal.grid(row=5, column=0, padx=5, pady=5)
             
             btnGuardar = ttk.Button(popUp, text="Guardar cambios", command=guardarCambios, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
-            btnGuardar.grid(row=5, column=0, padx=5, pady=5, sticky="nsew")
+            btnGuardar.grid(row=6, column=0, padx=5, pady=5, sticky="nsew")
             
+            mostrarOcultarFrameRuta()
             validarEntradas()
-            trace1 = self._userGit.trace_add("write", lambda *args: validarEntradas())
-            trace2 = self._correoGit.trace_add("write", lambda *args: validarEntradas())
-            
             centerWindow(popUp)
+        
+        def actualizarEntry(entry, valor):
+                entry.config(state="normal")
+                entry.delete(0, "end")
+                entry.insert(0, valor)
+                entry.config(state="readonly")
         
         masAccionesFrame = ttk.LabelFrame(self.frameConfiguracion, text="Acciones adicionales para el proyecto", style="info.TLabelframe")
         
@@ -3068,25 +3133,25 @@ class NodeSetupAppNew(ttk.Window):
         
         pathsFrame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
         
-        gitConfigFrame = ttk.LabelFrame(self.frameConfiguracion, text="Configuracion de Git", style="info.TLabelframe")
-        ttk.Label(gitConfigFrame, text="Usuario de Git", style="info.TLabel").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-        entryUserGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
-        entryUserGit.insert(0, self._userGit.get())
-        entryUserGit.config(state="readonly")
-        entryUserGit.grid(row=1, column=0, padx=5, sticky="nsew")
+        if self._git_path:
+            gitConfigFrame = ttk.LabelFrame(self.frameConfiguracion, text="Configuracion de Git", style="info.TLabelframe")
+            ttk.Label(gitConfigFrame, text="Usuario de Git", style="info.TLabel").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            entryUserGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
+            entryUserGit.insert(0, self._userGit.get())
+            entryUserGit.config(state="readonly")
+            entryUserGit.grid(row=1, column=0, padx=5, sticky="nsew")
+            
+            ttk.Label(gitConfigFrame, text="Correo de Git", style="info.TLabel").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+            entryCorreoGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
+            entryCorreoGit.insert(0, self._correoGit.get())
+            entryCorreoGit.config(state="readonly")
+            entryCorreoGit.grid(row=3, column=0, padx=5, sticky="nsew")
+            
+            btnGuardar = ttk.Button(gitConfigFrame, text="Cambiar", command=cambiarIdentificacionGit, bootstyle=(WARNING, OUTLINE)) # type: ignore
+            btnGuardar.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
         
-        ttk.Label(gitConfigFrame, text="Correo de Git", style="info.TLabel").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
-        entryCorreoGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
-        entryCorreoGit.insert(0, self._correoGit.get())
-        entryCorreoGit.config(state="readonly")
-        entryCorreoGit.grid(row=3, column=0, padx=5, sticky="nsew")
-        
-        btnGuardar = ttk.Button(gitConfigFrame, text="Cambiar", command=cambiarIdentificacionGit, bootstyle=(WARNING, OUTLINE)) # type: ignore
-        btnGuardar.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
-        
-        gitConfigFrame.grid_columnconfigure(0, weight=1)
-        
-        gitConfigFrame.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            gitConfigFrame.grid_columnconfigure(0, weight=1)
+            gitConfigFrame.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
     
         columnas, filas = self.frameConfiguracion.grid_size()
         for columna in range(columnas):
