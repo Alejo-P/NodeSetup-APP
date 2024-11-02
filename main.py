@@ -2799,7 +2799,8 @@ class NodeSetupAppNew(ttk.Window):
                     
                     self._funcGoToFrame("Principal")
                     self.Tareas.config(state="disabled")
-                    self._funcOnUpdateFrames()   
+                    self._funcOnUpdateFrames()
+                    self.protocol("WM_DELETE_WINDOW", self._cerrarVentana)
                     return
                 self.frameTareas.after(100, verificar_avanceTareas)
             except queue.Empty:
@@ -2922,6 +2923,7 @@ class NodeSetupAppNew(ttk.Window):
             totalTareas = conteo_tareas()
             tareasTotaleslbl.config(text=totalTareas)
             
+            self.protocol("WM_DELETE_WINDOW", doNothing)
             threading.Thread(target=InicioTareas).start()
             self.frameTareas.after(100, verificar_avanceTareas)
         
