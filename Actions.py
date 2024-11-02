@@ -466,6 +466,32 @@ def getGitEmail(ruta:str | None = None):
     
     return resultado.stdout.strip()
 
+def getGitRemotes(ruta:str):
+    """Obtiene los remotos de un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+    
+    Returns:
+        _List[dict]_: _Lista de remotos del repositorio_
+    """
+    resultado = runCommand([getPathOf("git"), "remote", "-v"], ruta)
+    remotos:list[dict] = []
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return ["Error al obtener los remotos"]
+    
+    detalle_remoto = [remoto.replace("\t", " ") for remoto in resultado.stdout.strip().split("\n")]
+    if len(detalle_remoto) < 2:
+        return ["No hay remotos en el repositorio"]
+
+    for remoto in detalle_remoto:
+        partes = remoto.split()
+        nombre, url = partes[0], partes[1]
+        modo = partes[2] if len(partes) > 2 else "fetch"
+        remotos.append({"nombre": nombre, "url": url, "modo": modo})
+
+    return remotos
+
 def loadInfoNPMModules(modulosCargar: List[dict[str, Any]]):
     for dic in modulosCargar:
         versionesPaquetes = runCommand([getPathOf("npm"), "show", dic["nombre"].lower(), "versions", "--depth=0"])
@@ -832,3 +858,7 @@ def isFolderInPath(folderName:str, path:str):
         _bool_: _Indica si la carpeta se encuentra en la ruta o no_
     """
     return os.path.isdir(os.path.join(path, folderName))
+
+
+if __name__ == "__main__":
+    print(getGitRemotes(os.getcwd()))

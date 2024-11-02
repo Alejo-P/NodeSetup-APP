@@ -22,6 +22,7 @@ from Actions import (
     getCurrentBrach,
     getFileExtension,
     getGitEmail,
+    getGitRemotes,
     getGitUser,
     getModifiedFilesGit,
     isFileInPath,
@@ -1641,6 +1642,7 @@ class NodeSetupAppNew(ttk.Window):
                 print(f"Error al mostrar widgets: {e}")
         
         def iniciarCarga():
+            nonlocal cargando
             n_listas = 6
             progress_bar.grid(row=2, column=0, columnspan=len(encabezado), padx=5, pady=10)
             progress_bar.start()
@@ -1648,6 +1650,7 @@ class NodeSetupAppNew(ttk.Window):
             btn_carga.grid_forget()
 
             if not listaWidgets:
+                cargando = True
                 self.protocol("WM_DELETE_WINDOW", lambda: doNothing())
                 for sublistas in dividir_lista(self._modulosNPM, n_listas):
                     hilo = threading.Thread(target=CargarInfoModulos, args=(sublistas,))
@@ -1665,6 +1668,7 @@ class NodeSetupAppNew(ttk.Window):
                     msg_estado.grid_forget()
 
                 Registro_hilos.clear()
+                cargando = False
             
             CrearWidgets(self._modulosNPM)
 
@@ -1674,7 +1678,7 @@ class NodeSetupAppNew(ttk.Window):
             self.protocol("WM_DELETE_WINDOW", lambda: self._cerrarVentana())
         
         def IniciarPregarga():
-            if not listaWidgets:
+            if not listaWidgets and not cargando:
                 threading.Thread(target=iniciarCarga).start()
         
         self._modulosNPM = getDetailedModules()
@@ -1695,6 +1699,7 @@ class NodeSetupAppNew(ttk.Window):
         ]
         
         listaWidgets = []
+        cargando = False
         
         for i, txt in enumerate(encabezado):
             ttk.Label(frame, text=txt, anchor="center").grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
@@ -1857,6 +1862,80 @@ class NodeSetupAppNew(ttk.Window):
                     lblInicio.type = "normal"
                     btn_clonacion.config(state="normal")
             
+            def onClickRemotos():
+                def obtener_remotos_background():
+                    remotos = getGitRemotes(self._ruta.get())
+                    if not remotos:
+                        resultado_remotos.put("No hay remotos en el repositorio")
+                        return
+                    resultado_remotos.put(remotos)
+                
+                def verificar_remotos():
+                    nonlocal idPopAfter
+                    try:
+                        remotos = resultado_remotos.get_nowait()
+                        if isinstance(remotos, str):
+                            comboRemotos.config(values=[remotos])
+                            comboRemotos.current(0)
+                            return
+                        
+                        if remotos[0] == "No hay remotos en el repositorio":
+                            comboRemotos.config(values=[remotos[0]])
+                            comboRemotos.current(0)
+                            idPopAfter = None
+                            return
+                        
+                        setURLs = set([remoto["url"] for remoto in remotos])
+                        comboRemotos.config(values=tuple(setURLs))
+                        comboRemotos.current(0)
+                        btn_seleccion.config(state="normal")
+                        idPopAfter = None
+                    except queue.Empty:
+                        idPopAfter = frameInicio.after(100, verificar_remotos)
+                
+                def guardar_remoto_seleccionado():
+                    if comboRemotos.get() == "No hay remotos en el repositorio":
+                        messagebox.showerror("Error", "No hay remotos en el repositorio")
+                        return
+                    
+                    URLrepo.set(comboRemotos.get())
+                    onCloseRemotos()
+                    
+                def onCloseRemotos():
+                    if idPopAfter:
+                        frameInicio.after_cancel(idPopAfter)
+                    
+                    popUp.destroy()
+                
+                if not self._ruta.get():
+                    messagebox.showerror("Error", "La ruta del repositorio no puede estar vacía")
+                    return
+                
+                if not isFolderInPath(".git", self._ruta.get()):
+                    messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
+                    return
+                
+                resultado_remotos = queue.Queue()
+                popUp = ttk.Toplevel()
+                popUp.title("Remotos")
+                popUp.resizable(False, False)
+                popUp.transient(self)
+                popUp.protocol("WM_DELETE_WINDOW", onCloseRemotos)
+                
+                ttk.Label(popUp, text="Repositorios remotos:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                comboRemotos = ttk.Combobox(popUp, width=50, state="readonly")
+                comboRemotos.config(values=("Cargando remotos ...",))
+                comboRemotos.current(0)
+                comboRemotos.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+                
+                btn_seleccion = ttk.Button(popUp, text="Seleccionar", command=guardar_remoto_seleccionado, bootstyle=(SUCCESS, OUTLINE), state="disabled") # type: ignore
+                btn_seleccion.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+                
+                threading.Thread(target=obtener_remotos_background).start()
+                idPopAfter = popUp.after(100, verificar_remotos)
+                
+                centerWindow(popUp)
+            
             ttk.Label(frameInicio, text="Ingresa la URL del repositorio:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryURL = ttk.Entry(frameInicio, textvariable=URLrepo, width=50)
             scrollEntryURL = ttk.Scrollbar(frameInicio, orient="horizontal", bootstyle="info-round") # type: ignore
@@ -1864,6 +1943,13 @@ class NodeSetupAppNew(ttk.Window):
             scrollEntryURL.config(command=entryURL.xview)
             entryURL.grid(row=1, column=0, padx=5, sticky="nsew")
             scrollEntryURL.grid(row=2, column=0, padx=5, sticky="nsew")
+            
+            lblRemotos = ttk.Label(frameInicio, image=self._imagenes["Link"], anchor="center")
+            lblRemotos.grid(row=1, rowspan=2, column=1, padx=5, pady=5, sticky="nsew")
+            tooltipRemotos = ToolTip(lblRemotos, text="Ver los repositorios remotos")
+            lblRemotos.bind("<Enter>", lambda e: tooltipRemotos.showtip("w"))
+            lblRemotos.bind("<Leave>", lambda e: tooltipRemotos.hidetip())
+            lblRemotos.bind("<Button-1>", lambda e: onClickRemotos())
             
             ttk.Label(frameInicio, text="Directorio de destino:", anchor="center").grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
             entryRuta = ttk.Entry(frameInicio, textvariable=self._ruta, width=50)
@@ -2263,11 +2349,8 @@ class NodeSetupAppNew(ttk.Window):
                 
                 def verificarResultado():
                     try:
-                        exito, mensaje = resultadoCambios.get_nowait()
+                        resultadoCambios.get_nowait()
                         actualizarFrameCambios()
-                        if not exito:
-                            messagebox.showerror("Error", f"Error al obtener los cambios: {mensaje}")
-                            return
                     except queue.Empty:
                         frameCommit.after(100, verificarResultado)
                         return
@@ -2798,7 +2881,6 @@ class NodeSetupAppNew(ttk.Window):
                         if isinstance(estado, subprocess.CalledProcessError):
                             messagebox.showerror("Error", f"Error instalando {modulo['nombre']}: {estado}")
                             tarea["estado"] = "Error"
-                            resultado.put((False, f"Error al instalar {modulo['nombre']}"))
                             if self.PararEnFalloVar.get():
                                 if self.EliminarEnFalloVar.get():
                                     try:
@@ -2807,6 +2889,7 @@ class NodeSetupAppNew(ttk.Window):
                                         pass
                                 resultado.put((False, f"Error al instalar {modulo['nombre']}"))
                                 return
+                            resultado.put((True, f"Error al instalar {modulo['nombre']}"))
                         else:
                             tarea["estado"] = "Completado"
                             resultado.put((True, f"{modulo['nombre']} instalado correctamente"))
@@ -3135,20 +3218,32 @@ class NodeSetupAppNew(ttk.Window):
         
         if self._git_path:
             gitConfigFrame = ttk.LabelFrame(self.frameConfiguracion, text="Configuracion de Git", style="info.TLabelframe")
-            ttk.Label(gitConfigFrame, text="Usuario de Git", style="info.TLabel").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(gitConfigFrame, text="Usuario de Git", style="info.TLabel").grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             entryUserGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
             entryUserGit.insert(0, self._userGit.get())
             entryUserGit.config(state="readonly")
             entryUserGit.grid(row=1, column=0, padx=5, sticky="nsew")
             
-            ttk.Label(gitConfigFrame, text="Correo de Git", style="info.TLabel").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+            lblinfoUserEntry = ttk.Label(gitConfigFrame, image=self._imagenes["User"], style="info.TLabel")
+            tooltipUser = ToolTip(lblinfoUserEntry, "El usuario de Git con el que se realizaran las acciones de Git")
+            lblinfoUserEntry.bind("<Enter>", lambda e: tooltipUser.showtip("w"))
+            lblinfoUserEntry.bind("<Leave>", lambda e: tooltipUser.hidetip())
+            lblinfoUserEntry.grid(row=1, column=1, padx=5, sticky="nsew")
+            
+            ttk.Label(gitConfigFrame, text="Correo de Git", style="info.TLabel").grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             entryCorreoGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
             entryCorreoGit.insert(0, self._correoGit.get())
             entryCorreoGit.config(state="readonly")
             entryCorreoGit.grid(row=3, column=0, padx=5, sticky="nsew")
             
+            lblinfoCorreoEntry = ttk.Label(gitConfigFrame, image=self._imagenes["Mail"], style="info.TLabel")
+            tooltipCorreo = ToolTip(lblinfoCorreoEntry, "El correo de Git con el que se realizaran las acciones de Git")
+            lblinfoCorreoEntry.bind("<Enter>", lambda e: tooltipCorreo.showtip("w"))
+            lblinfoCorreoEntry.bind("<Leave>", lambda e: tooltipCorreo.hidetip())
+            lblinfoCorreoEntry.grid(row=3, column=1, padx=5, sticky="nsew")
+            
             btnGuardar = ttk.Button(gitConfigFrame, text="Cambiar", command=cambiarIdentificacionGit, bootstyle=(WARNING, OUTLINE)) # type: ignore
-            btnGuardar.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
+            btnGuardar.grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
             gitConfigFrame.grid_columnconfigure(0, weight=1)
             gitConfigFrame.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
@@ -3194,6 +3289,7 @@ class NodeSetupAppNew(ttk.Window):
         self._imagenes["User"] = loadImageTk((os.path.join(ruta_assets, "userIcon.png")), 20, 20)
         self._imagenes["Mail"] = loadImageTk((os.path.join(ruta_assets, "mailIcon.png")), 20, 20)
         self._imagenes["Edit"] = loadImageTk((os.path.join(ruta_assets, "editIcon.png")), 20, 20)
+        self._imagenes["Link"] = loadImageTk((os.path.join(ruta_assets, "linkIcon.png")), 20, 20)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")
