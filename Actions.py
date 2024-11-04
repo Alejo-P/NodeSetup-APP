@@ -1,4 +1,4 @@
-import ast, copy
+import ast, copy, validators
 from collections.abc import Callable
 import os, queue, re, subprocess, tkinter as tk
 import ttkbootstrap as ttk
@@ -492,6 +492,65 @@ def getGitRemotes(ruta:str):
 
     return remotos
 
+def addGitRemote(ruta:str, nombre:str, url:str):
+    """Agrega un remoto a un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+        nombre (str): _Nombre del remoto_
+        url (str): _URL del remoto_
+    """
+    resultado = runCommand([getPathOf("git"), "remote", "add", nombre, url], ruta)
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return False
+    
+    return True
+
+def removeGitRemote(ruta:str, nombre:str):
+    """Elimina un remoto de un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+        nombre (str): _Nombre del remoto_
+    """
+    resultado = runCommand([getPathOf("git"), "remote", "remove", nombre], ruta)
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return False
+    
+    return True
+
+def setGitRemote(ruta:str, nombre:str, url:str):
+    """Establece la URL de un remoto en un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+        nombre (str): _Nombre del remoto_
+        url (str): _URL del remoto_
+    """
+    resultado = runCommand([getPathOf("git"), "remote", "set-url", nombre, url], ruta)
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return False
+    
+    return True
+
+def renameGitRemote(ruta:str, nombre:str, nuevoNombre:str):
+    """Renombra un remoto de un repositorio Git.
+
+    Args:
+        ruta (str): _Ruta del repositorio Git_
+        nombre (str): _Nombre del remoto_
+        nuevoNombre (str): _Nuevo nombre del remoto_
+    """
+    resultado = runCommand([getPathOf("git"), "remote", "rename", nombre, nuevoNombre], ruta)
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        return False
+    
+    return True
+
 def loadInfoNPMModules(modulosCargar: List[dict[str, Any]]):
     for dic in modulosCargar:
         versionesPaquetes = runCommand([getPathOf("npm"), "show", dic["nombre"].lower(), "versions", "--depth=0"])
@@ -858,6 +917,63 @@ def isFolderInPath(folderName:str, path:str):
         _bool_: _Indica si la carpeta se encuentra en la ruta o no_
     """
     return os.path.isdir(os.path.join(path, folderName))
+
+def getFilesInPath(path:str):
+    """Obtiene los archivos de una ruta.
+
+    Args:
+        path (str): _Ruta de la cual se obtendran los archivos_
+
+    Returns:
+        _List[str]_: _Lista de archivos de la ruta_
+    """
+    return [file for file in os.listdir(path) if os.path.isfile(os.path.join(path, file))]
+
+def getFoldersInPath(path:str):
+    """Obtiene las carpetas de una ruta.
+
+    Args:
+        path (str): _Ruta de la cual se obtendran las carpetas_
+
+    Returns:
+        _List[str]_: _Lista de carpetas de la ruta_
+    """
+    return [folder for folder in os.listdir(path) if os.path.isdir(os.path.join(path, folder))]
+
+# ____________________________________Validaciones____________________________________#
+def isValidURL(url:str):
+    """Valida si una URL es válida.
+
+    Args:
+        url (str): _URL a validar_
+
+    Returns:
+        _bool_: _Indica si la URL es válida o no_
+    """
+    try:
+        result = validators.url(url)
+        if not isinstance(result, bool):
+            return False
+        return result
+    except:
+        return False
+
+def isValidEmail(email:str):
+    """Valida si un email es válido.
+
+    Args:
+        email (str): _Email a validar_
+
+    Returns:
+        _bool_: _Indica si el email es válido o no_
+    """
+    try:
+        result = validators.email(email)
+        if not isinstance(result, bool):
+            return False
+        return result
+    except:
+        return False
 
 
 if __name__ == "__main__":

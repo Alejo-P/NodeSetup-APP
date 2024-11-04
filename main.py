@@ -1,12 +1,7 @@
-from concurrent.futures import thread
-from email.mime import image
 import json
-from json import tool
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import scrolledtext
-from requests import get
-from sympy import content
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
@@ -15,6 +10,7 @@ import time, ast, tempfile
 from typing import Any, Literal
 from Actions import (
     ValidateOnlyPath,
+    addGitRemote,
     centerWindow,
     clearQueue,
     doNothing,
@@ -27,6 +23,7 @@ from Actions import (
     getModifiedFilesGit,
     isFileInPath,
     isFolderInPath,
+    isValidURL,
     preventCloseWindow,
     getVersionOf,
     printLog,
@@ -1900,6 +1897,87 @@ class NodeSetupAppNew(ttk.Window):
                     
                     URLrepo.set(comboRemotos.get())
                     onCloseRemotos()
+                
+                def onClickAddRemoto():
+                    def agregar_remoto_background():
+                        resultado = addGitRemote(self._ruta.get(), entryNombreRemoto.get(), entryURLRemoto.get())
+                        if not resultado:
+                            resultado_agrego.put((False, "Error al agregar el remoto"))
+                            return
+                        resultado_agrego.put((True, "Remoto agregado correctamente"))
+                    
+                    def verificar_agrego():
+                        nonlocal idPopAfter
+                        try:
+                            continuar, resultado = resultado_agrego.get_nowait()
+                            if not continuar:
+                                messagebox.showerror("Error", resultado)
+                                btnAgregarRemoto.config(state="normal", text="Agregar")
+                                idPopAfter = None
+                                return
+                            messagebox.showinfo("Información", resultado)
+                            btnAgregarRemoto.config(state="normal", text="Agregar")
+                            idPopAfter = None
+                        except queue.Empty:
+                            idPopAfter = popUpAgregar.after(100, verificar_agrego)
+                    
+                    def iniciar_agrego():
+                        nonlocal idPopAfter
+                        if not entryNombreRemoto.get():
+                            messagebox.showerror("Error", "El nombre del remoto no puede estar vacío")
+                            return
+                        if not entryNombreRemoto.get().isidentifier():
+                            messagebox.showerror("Error", "El nombre del remoto no es válido")
+                            return
+                        
+                        btnAgregarRemoto.config(state="disabled", text="Agregando...")
+                        threading.Thread(target=agregar_remoto_background).start()
+                        idPopAfter = popUpAgregar.after(100, verificar_agrego)
+                    
+                    def ValidarEntries():
+                        if not entryNombreRemoto.get():
+                            messagebox.showerror("Error", "El nombre del remoto no puede estar vacío")
+                            return
+                        
+                        if not entryNombreRemoto.get().isidentifier():
+                            messagebox.showerror("Error", "El nombre del remoto no es válido")
+                            return
+                        
+                        if not entryURLRemoto.get():
+                            messagebox.showerror("Error", "La URL del remoto no puede estar vacía")
+                            return
+                        
+                        #TODO: Continuar con las validaciones para el boton "Agregar Remoto"
+                        if not isValidURL(entryURLRemoto.get()):
+                            messagebox.showerror("Error", "La URL del remoto no es válida")
+                            return
+                        
+                    
+                    def onClosePopUp():
+                        if idPopAfter:
+                            popUpAgregar.after_cancel(idPopAfter)
+                        popUpAgregar.destroy()
+                    
+                    resultado_agrego = queue.Queue()
+                    idPopAfter = None
+                    popUpAgregar = ttk.Toplevel()
+                    popUpAgregar.title("Agregar remoto")
+                    popUpAgregar.protocol("WM_DELETE_WINDOW", onClosePopUp)
+                    popUpAgregar.resizable(False, False)
+                    popUpAgregar.transient(self)
+                    
+                    nombreRemotoVar = tk.StringVar()
+                    ttk.Label(popUpAgregar, text="Nombre del remoto:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                    entryNombreRemoto = ttk.Entry(popUpAgregar, width=50, textvariable=nombreRemotoVar)
+                    entryNombreRemoto.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+                    
+                    urlRemotoVar = tk.StringVar()
+                    ttk.Label(popUpAgregar, text="URL del remoto:", anchor="center").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
+                    entryURLRemoto = ttk.Entry(popUpAgregar, width=50, textvariable=urlRemotoVar)
+                    entryURLRemoto.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+                    
+                    btnAgregarRemoto = ttk.Button(popUpAgregar, text="Agregar", command=iniciar_agrego, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
+                    btnAgregarRemoto.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
                     
                 def onCloseRemotos():
                     if idPopAfter:
@@ -1917,7 +1995,7 @@ class NodeSetupAppNew(ttk.Window):
                 
                 resultado_remotos = queue.Queue()
                 popUp = ttk.Toplevel()
-                popUp.title("Remotos")
+                popUp.title("Administrar remotos")
                 popUp.resizable(False, False)
                 popUp.transient(self)
                 popUp.protocol("WM_DELETE_WINDOW", onCloseRemotos)
@@ -1927,6 +2005,12 @@ class NodeSetupAppNew(ttk.Window):
                 comboRemotos.config(values=("Cargando remotos ...",))
                 comboRemotos.current(0)
                 comboRemotos.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+                
+                lbladdRemoto = ttk.Label(popUp, image=self._imagenes["Add"], anchor="center", cursor="hand2")
+                lbladdRemoto.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+                tooltipAddRemoto = ToolTip(lbladdRemoto, text="Agregar un nuevo remoto")
+                lbladdRemoto.bind("<Enter>", lambda e: tooltipAddRemoto.showtip("w"))
+                lbladdRemoto.bind("<Leave>", lambda e: tooltipAddRemoto.hidetip())
                 
                 btn_seleccion = ttk.Button(popUp, text="Seleccionar", command=guardar_remoto_seleccionado, bootstyle=(SUCCESS, OUTLINE), state="disabled") # type: ignore
                 btn_seleccion.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
