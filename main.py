@@ -34,7 +34,7 @@ from Actions import (
     getGitBranches,
     getDetailedModules
 )
-from CustomWidgets import SelectionLabel
+from CustomWidgets import MultiChoice, SelectionLabel
 from Tools import ToolTip
 from Vars import (
     listaArgumentos,
@@ -1600,17 +1600,18 @@ class NodeSetupAppNew(ttk.Window):
                 for dic in listaModulos:
                     check_usar = ttk.Checkbutton(frame, variable=dic["usar"], bootstyle="success-round-toggle", padding=4) # type: ignore
                     label_nombre = ttk.Label(frame, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
-                    entry_argumento = ttk.Combobox(frame, values=listaArgumentos, textvariable=dic["argumento"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                    multiChoice_argumento = MultiChoice(frame, listaArgumentos, dic["argumento"],  border=1, relief="solid")
+                    #entry_argumento = ttk.Combobox(frame, values=listaArgumentos, textvariable=dic["argumento"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
                     combo_version = ttk.Combobox(frame, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
                     check_global = ttk.Checkbutton(frame, variable=dic["global"], bootstyle="warning-round-toggle", padding=4) # type: ignore
 
-                    listaWidgets.append([check_usar, label_nombre, entry_argumento, combo_version, check_global])
+                    listaWidgets.append([check_usar, label_nombre, multiChoice_argumento, combo_version, check_global])
         
         def mostrar_widgets():
             try:
                 for i, widget_list in enumerate(listaWidgets, 2):
                     for j, widget in enumerate(widget_list):
-                        if isinstance(widget, (ttk.Checkbutton, ttk.Combobox)):
+                        if isinstance(widget, (ttk.Checkbutton, ttk.Combobox, MultiChoice)):
                             widget.grid(row=i, column=j % len(encabezado), padx=5, pady=2)
                         elif isinstance(widget, ttk.Label):
                             widget.grid(row=i, column=j % len(encabezado), padx=5, pady=2, sticky="w")
