@@ -1,18 +1,7 @@
-import ttkbootstrap as ttk
-import CustomWidgets as cw
+from main import NodeSetupApp
 
-root = ttk.Window()
-root.geometry("300x300")
-root.title("ScrolledFrame")
-root.config(padx=10, pady=10)
-
-sf = cw.ScrolledFrame(root, positionYBar="right", positionXBar="Top")
-sf_frame = sf.getScrollableFrame()
-
-for i in range(100):
-    ttk.Label(sf_frame, text=f"Label {i}").pack()
-
-sf.pack(fill="both", expand=True)
-
-root.mainloop()
-
+if __name__ == "__main__":
+    app = NodeSetupApp()
+    app.mostrar_imagenes()
+    app._centrar_ventana()
+    app.Iniciar()

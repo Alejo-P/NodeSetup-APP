@@ -81,7 +81,10 @@ modulosNPM = sorted([
     "Morgan",
     "Sequelize",
     "Nodemon",
+    "Express-validator",
     "Nodemailer",
+    "Swagger-jsdoc",
+    "Swagger-ui-express"
 ], key=str.lower)
 
 Registro_hilos = []
