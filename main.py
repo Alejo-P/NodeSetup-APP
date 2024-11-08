@@ -3005,22 +3005,19 @@ class NodeSetupAppNew(ttk.Window):
                     modulo = tarea["info"]
                     if modulo["usar"] is not None and modulo["usar"].get():
                         tarea["estado"] = "En progreso"
-                        resultado.put((True, f"Instalando {modulo['nombre']}-{modulo['version'].get()} {'globalmente' if modulo['global'].get() else ''}"))
+                        resultado.put((True, f"Instalando {modulo['nombre']}-{modulo['version'].get()}"))
                         # Construir los argumentos del comando
                         comando = [
                             self._npm_path,
-                            "i",
-                            f"{modulo['nombre'].lower()}@{modulo['version'].get()}",
+                            "i"
                         ]
                         
-                        # Añadir el argumento global si está seleccionado
-                        if modulo['global'].get():
-                            comando.append("-g")
+                        if modulo["argumento"].get():
+                            #Ejemplo del valor de argumento.get() -> "-S, -D, -O, --no-save, --production, --only=dev, --only=prod"
+                            argumentos = " ".join(modulo["argumento"].get().split(", "))
+                            comando.append(argumentos)
                         
-                        # Añadir cualquier argumento adicional
-                        argumento_adicional = modulo["argumento"].get()
-                        if argumento_adicional:
-                            comando.append(argumento_adicional)
+                        comando.append(f"{modulo['nombre'].lower()}@{modulo['version'].get()}")  # Agregar el nombre del modulo y la version
                         
                         # Ejecutar el comando
                         estado = runCommand(comando, self._ruta.get())
