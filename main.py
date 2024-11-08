@@ -3385,6 +3385,8 @@ class NodeSetupAppNew(ttk.Window):
             lambda *args: btn_verArchivos.config(state="normal" if self._checkVars[0]["Crear directorios adicionales"].get() else "disabled")
         )
         
+        masAccionesFrame.grid_columnconfigure(0, weight=1)
+        
         masAccionesFrame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         
         pathsFrame = ttk.LabelFrame(self.frameConfiguracion, text="Rutas a ejecutables", style="info.TLabelframe")
