@@ -2846,6 +2846,11 @@ class NodeSetupAppNew(ttk.Window):
             for carpeta in carpetas:
                 if not os.path.exists(f"{ruta}/{carpeta}"):
                     os.makedirs(f"{ruta}/{carpeta}")
+                    
+            for archivo, contenido in archivos_p:
+                with open(f"{self._ruta.get()}/{archivo}", "w") as f:
+                    f.write(contenido)
+                time.sleep(2)
         
         def crearRuta():
             if not os.path.exists(self._ruta.get()):
@@ -3268,6 +3273,90 @@ class NodeSetupAppNew(ttk.Window):
                 entry.insert(0, valor)
                 entry.config(state="readonly")
         
+        def verArchivos():
+            def onClosePopup():
+                if modificado:
+                    if not messagebox.askyesno("Advertencia", "Hay cambios sin guardar, ¿Desea salir sin guardar?"):
+                        return
+                
+                for widget in canvas_frame.winfo_children():
+                    widget.destroy()
+                
+                popUp_archivos.destroy()
+            
+            def onChangeText(nombre_archivo):
+                nonlocal modificado
+                
+                modificado = False
+                for archivo, contenido in archivos_p:
+                    if archivo == nombre_archivo:
+                        contenidoTXT = temporal[archivo].get("1.0", "end").strip() 
+                        if contenidoTXT != contenido:
+                            modificado = True
+                            break
+                
+                btn_guardarCambios.config(state="normal" if modificado else "disabled")
+            
+            def guardarCambios():
+                nonlocal modificado
+                for i in range(len(archivos_p)):
+                    nombre_archivo = archivos_p[i][0]
+                    contenido_archivo = temporal[nombre_archivo].get("1.0", "end").strip()
+                    
+                    if contenido_archivo != archivos_p[i][1]:
+                        archivos_p[i] = (nombre_archivo, contenido_archivo)
+                
+                modificado = False
+                btn_guardarCambios.config(state="disabled")
+            
+            popUp_archivos = ttk.Toplevel()
+            popUp_archivos.title("Archivos del proyecto")
+            popUp_archivos.resizable(False, False)
+            popUp_archivos.transient(self)
+            popUp_archivos.protocol("WM_DELETE_WINDOW", onClosePopup)
+            popUp_archivos.grab_set()
+            
+            modificado = False
+            
+            canvas = ttk.Canvas(popUp_archivos)
+            scrollbar = ttk.Scrollbar(popUp_archivos, orient="vertical", command=canvas.yview, bootstyle="danger-round") # type: ignore
+            canvas_frame = ttk.Frame(canvas)
+            canvas.create_window((0, 0), window=canvas_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            ttk.Label(canvas_frame, text="Nombre del archivo", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(canvas_frame, text="Contenido del archivo", anchor="center").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+            ttk.Separator(canvas_frame, orient="horizontal", bootstyle="success").grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew") # type: ignore
+            
+            temporal = {}
+            for i, (nombre_archivo, contenido_archivo) in enumerate(archivos_p, 2):
+                ttk.Label(canvas_frame, text=nombre_archivo, anchor="center").grid(row=i, column=0, padx=5, sticky="n")
+                txt = scrolledtext.ScrolledText(canvas_frame, height=10)
+                txt.insert("1.0", contenido_archivo)
+                txt.grid(row=i, column=1, padx=5, pady=5, sticky="nsew")
+                txt.bind("<KeyRelease>", lambda e, nombre=nombre_archivo: onChangeText(nombre))
+                
+                temporal[nombre_archivo] = txt
+                
+            canvas_frame.grid_columnconfigure(1, weight=1)
+            canvas_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.grid(row=2, column=0, sticky="nsew", padx=5)
+            scrollbar.grid(row=2, column=1, sticky="ns")
+            
+            btn_guardarCambios = ttk.Button(popUp_archivos, text="Guardar cambios", command=guardarCambios, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
+            btn_guardarCambios.config(state="disabled")
+            btn_guardarCambios.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            
+            canvas_frame.update_idletasks()
+            canvas.update_idletasks()
+            canvas.config(scrollregion=canvas.bbox("all"))
+            ancho_canvas = canvas_frame.winfo_reqwidth() + scrollbar.winfo_reqwidth()
+            
+            popUp_archivos.geometry(f"{ancho_canvas + 10}x300")
+            popUp_archivos.grid_columnconfigure(0, weight=1)
+            
+            centerWindow(popUp_archivos)
+        
         masAccionesFrame = ttk.LabelFrame(self.frameConfiguracion, text="Acciones adicionales para el proyecto", style="info.TLabelframe")
         
         self._checkVars = []
@@ -3287,6 +3376,14 @@ class NodeSetupAppNew(ttk.Window):
             chk = ttk.Checkbutton(masAccionesFrame, text=mensaje, variable=var, style="success.TCheckbutton")
             chk.grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
             self._checkVars.append({mensaje: var})
+            
+        btn_verArchivos = ttk.Button(masAccionesFrame, text="Ver archivos", command=verArchivos, bootstyle=(INFO, OUTLINE)) # type: ignore
+        btn_verArchivos.grid(row=i+1, column=0, padx=5, pady=5, sticky="nsew")
+        
+        self._checkVars[0]["Crear directorios adicionales"].trace_add(
+            "write",
+            lambda *args: btn_verArchivos.config(state="normal" if self._checkVars[0]["Crear directorios adicionales"].get() else "disabled")
+        )
         
         masAccionesFrame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         

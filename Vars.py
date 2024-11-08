@@ -51,9 +51,9 @@ carpetas = [
 ]
 
 archivos_p = [
-    ".env",
-    ".env.example",
-    ".gitignore"
+    (".env", "PORT=3000\nDB_URI=mongodb://localhost:27017/DB_NAME\nSECRET_KEY=SECRET_KEY"),
+    (".env.example", "PORT=3000\nDB_URI=mongodb://localhost:27017/DB_NAME\nSECRET_KEY=SECRET_KEY"),
+    (".gitignore", "node_modules\n.env\n.DS_Store\n.vscode\n.idea\n__pycache__\n*.pyc\n*.pyo\n*.pyd\n*.log\n*.out\n*.pid\n*.pidlock\n*.lock\n*.sqlite\n*.db\n*.sqlite3\n*.sql\n*.bak\n*.tar\n*.gz\n*.zip\n*.rar\n*.7z\n*.tgz\n*.tar.gz\n*.tar.bz2\n*.tar.xz\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.xz\n*.tar.Z\n*.tar.zst\n*.tar.lz\n*.tar.lz4\n*.tar.lzma\n*.tar.x")
 ]
 
 archivos = [
