@@ -1591,9 +1591,6 @@ class NodeSetupAppNew(ttk.Window):
                 "i"
             ]
             
-            if infoModulo["global"].get():
-                comando.append("-g")
-            
             if infoModulo["argumento"].get():
                 #Ejemplo del valor de argumento.get() -> "-S, -D, -O, --no-save, --production, --only=dev, --only=prod"
                 argumentos = " ".join(infoModulo["argumento"].get().split(", "))
@@ -1603,24 +1600,25 @@ class NodeSetupAppNew(ttk.Window):
             
             popUp_prompt = ttk.Toplevel()
             popUp_prompt.title("Prompt")
-            popUp_prompt.geometry("400x200")
             popUp_prompt.resizable(False, False)
             popUp_prompt.protocol("WM_DELETE_WINDOW", onClosePopUp)
+            popUp_prompt.transient(self)
+            popUp_prompt.grab_set()
             
             ttk.Label(popUp_prompt, text="Comando a ejecutar:").grid(row=0, column=0, padx=5, pady=5)
-            entryComando = ttk.Entry(popUp_prompt, width=50)
+            entryComando = ttk.Entry(popUp_prompt, width=70)
             entryComando.insert(0, " ".join(comando))
             entryComando.config(state="readonly")
-            entryComando.grid(row=1, column=0, padx=5, pady=5)
+            entryComando.grid(row=1, column=0, padx=5)
             
             scrollEntry = ttk.Scrollbar(popUp_prompt, orient="horizontal", bootstyle="info-round") # type: ignore
             entryComando.config(xscrollcommand=scrollEntry.set)
             scrollEntry.config(command=entryComando.xview)
-            scrollEntry.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+            scrollEntry.grid(row=2, column=0, padx=5, sticky="ew")
             
             frame_botones = ttk.Frame(popUp_prompt)
-            ttk.Button(frame_botones, text="Copiar", command=onCopy).grid(row=0, column=0, padx=5, pady=5)
-            ttk.Button(popUp_prompt, text="Cerrar", command=onClosePopUp).grid(row=0, column=1, padx=5, pady=5)
+            ttk.Button(frame_botones, text="Copiar", command=onCopy, bootstyle=(SUCCESS, OUTLINE)).grid(row=0, column=0, padx=5, pady=5, sticky="nsew") # type: ignore
+            ttk.Button(frame_botones, text="Cerrar", command=onClosePopUp, bootstyle=(DANGER, OUTLINE)).grid(row=0, column=1, padx=5, pady=5, sticky="nsew") # type: ignore
             
             columnas = frame_botones.grid_size()[0]
             for columna in range(columnas):
@@ -1629,11 +1627,11 @@ class NodeSetupAppNew(ttk.Window):
             frame_botones.grid(row=3, column=0, padx=5, pady=5)
             
             popUp_prompt.grid_columnconfigure(0, weight=1)
+            centerWindow(popUp_prompt)
         
         def RestablecerSeleccion():
             for dic in self._modulosNPM:
                 dic["usar"].set(False)
-                dic["global"].set(False)
                 dic["argumento"].set("")
                 dic["version"].set(dic["versiones"][-1] if dic["versiones"] else "Ocurrió un error")
         
@@ -1648,8 +1646,6 @@ class NodeSetupAppNew(ttk.Window):
 
                 if not dic["usar"]:
                     dic["usar"] = tk.BooleanVar(value=False)
-                if not dic["global"]:
-                    dic["global"] = tk.BooleanVar(value=False)
                 if not dic["argumento"]:
                     dic["argumento"] = tk.StringVar(value="")
                 if not dic["version"]:
@@ -1662,11 +1658,10 @@ class NodeSetupAppNew(ttk.Window):
                     label_nombre = ttk.Label(frame, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
                     multiChoice_argumento = MultiChoice(frame, listaArgumentos, dic["argumento"],  border=1, relief="solid") # type: ignore
                     combo_version = ttk.Combobox(frame, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
-                    check_global = ttk.Checkbutton(frame, variable=dic["global"], bootstyle="warning-round-toggle", padding=4) # type: ignore
                     label_prompt = ttk.Label(frame, image=self._imagenes["Info"], anchor="center")
                     label_prompt.bind("<Button-1>", lambda e, dic=dic: onClickPrompt(dic))
 
-                    listaWidgets.append([check_usar, label_nombre, multiChoice_argumento, combo_version, check_global, label_prompt])
+                    listaWidgets.append([check_usar, label_nombre, multiChoice_argumento, combo_version, label_prompt])
         
         def mostrar_widgets():
             try:
@@ -1758,7 +1753,6 @@ class NodeSetupAppNew(ttk.Window):
             "Nombre",
             "Argumentos",
             "Version",
-            "Global",
             "Ver comando"
         ]
         

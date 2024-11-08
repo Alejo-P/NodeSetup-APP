@@ -22,6 +22,7 @@ Styles = TypeVar(
 )
 
 listaArgumentos = [
+    "-g", # --global
     "-S", # --save
     "-D", # --save-dev
     "-O", # --save-optional

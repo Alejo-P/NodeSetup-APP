@@ -30,7 +30,6 @@ def getDetailedModules(excluirClaves:List[str] = [], excluirModulos:List[str] = 
             "argumento": "",
             "version": None,
             "versiones": None,
-            "global": None
         }
         
         for clave in excluirClaves:
