@@ -22,18 +22,17 @@ Styles = TypeVar(
 )
 
 listaArgumentos = [
-    "",
-    "-S",
-    "-D",
-    "-O",
+    "-S", # --save
+    "-D", # --save-dev
+    "-O", # --save-optional
     "--no-save",
     "--production",
     "--only=dev",
     "--only=prod",
-    "-E",
-    "-f",
+    "-E", # --exact
+    "-f", # --force
     "--no-optional",
-    "-P",
+    "-P", # --peer
     "--dry-run",
     "--legacy-peer-deps",
     "--strict-peer-deps",

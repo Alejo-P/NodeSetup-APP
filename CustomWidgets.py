@@ -52,7 +52,6 @@ class MultiChoice(ttk.Frame):
         # Almacenar valores y selecciones
         self.list_values = values
         self.selected_values: List[str] = []
-        self._ListVar = tk.StringVar()
         self._textVariable = textVar if textVar else tk.StringVar()
         
         # Asociar la función de limpieza cuando `self._textVariable` cambia
@@ -63,7 +62,7 @@ class MultiChoice(ttk.Frame):
         self._selected_values_frame.grid(row=0, column=0, sticky="nsew")
         
         # Canvas para desplazamiento horizontal
-        self._canvas = tk.Canvas(self._selected_values_frame, height=30, width=170)
+        self._canvas = ttk.Canvas(self._selected_values_frame, height=30, width=170)
         self._xScroll = ttk.Scrollbar(self._selected_values_frame, orient="horizontal", command=self._canvas.xview, bootstyle="info-rounded") # type: ignore
         self._canvas.config(xscrollcommand=self._xScroll.set)
         
@@ -86,7 +85,8 @@ class MultiChoice(ttk.Frame):
         self._add_values_lbl = ttk.Label(self, text="+", style="Custom.TLabel")
         self._add_values_lbl.grid(row=0, column=1, sticky="nsew")
         self._add_values_lbl.bind("<Button-1>", lambda e: self.showList() if self._add_values_lbl.cget("text") == "+" else self.hideList())
-        self.bind("<FocusOut>", lambda e: self.hideList())
+        
+        self._canvas.bind("<Button-1>", lambda e: self.showList() if self._add_values_lbl.cget("text") == "+" else self.hideList())
         
         # Configurar el grid principal
         self.grid_columnconfigure(0, weight=1)
@@ -96,7 +96,6 @@ class MultiChoice(ttk.Frame):
         # Obtener el área total del contenido dentro del canvas
         content_bbox = self._canvas.bbox("all")
 
-        print(content_bbox, self._canvas.winfo_width())
         # Si el contenido excede el ancho visible del canvas, mostrar el scrollbar
         if content_bbox and content_bbox[2] > self._canvas.winfo_width():
             self._xScroll.grid() # Mostrar el scrollbar
@@ -114,11 +113,14 @@ class MultiChoice(ttk.Frame):
         return
     
     def showList(self):
-        self._add_values_lbl.config(text=" - ")
+        self._add_values_lbl.config(text="×")
         
         # Mostrar la lista de opciones en un Toplevel
-        self.top_level_list = tk.Toplevel(self)
+        self.top_level_list = ttk.Toplevel()
         self.top_level_list.wm_overrideredirect(True)
+        
+        # Vincula el evento FocusOut para que oculte la lista al perder el foco
+        self.top_level_list.bind("<FocusOut>", lambda e: self.hideList())
         
         # Obtener la posición de la ventana principal y el tamaño de la pantalla
         widget_x, widget_y = self.winfo_rootx(), self.winfo_rooty()
@@ -127,8 +129,8 @@ class MultiChoice(ttk.Frame):
         screen_height = self.winfo_screenheight()
         
         # Dimensiones del Toplevel
-        top_level_width = 200
-        top_level_height = 150
+        top_level_width = self.winfo_width()
+        top_level_height = 160
 
         # Calcula la posición inicial del Toplevel
         x_position = widget_x
@@ -146,8 +148,8 @@ class MultiChoice(ttk.Frame):
         self.top_level_list.geometry(f"{top_level_width}x{top_level_height}+{x_position}+{y_position}")
         
         # Listbox con selección múltiple
-        listbox = tk.Listbox(self.top_level_list, selectmode="multiple", listvariable=self._ListVar, height=10, exportselection=False)
-        self._listboxScroll = ttk.Scrollbar(self.top_level_list, orient="vertical", command=listbox.yview)
+        listbox = tk.Listbox(self.top_level_list, selectmode="multiple", exportselection=False)
+        self._listboxScroll = ttk.Scrollbar(self.top_level_list, orient="vertical", command=listbox.yview, bootstyle="info-rounded") # type: ignore
         listbox.config(yscrollcommand=self._listboxScroll.set)
         
         for value in self.list_values:
@@ -156,13 +158,20 @@ class MultiChoice(ttk.Frame):
         listbox.grid(row=0, column=0, sticky="nsew")
         self._listboxScroll.grid(row=0, rowspan=2, column=1, sticky="ns")
         
+        # Vincular el evento de Enter para confirmar la selección
+        listbox.bind("<Return>", lambda e: self.update_selection(listbox))
+        
         # Botón para confirmar selección
-        confirm_button = ttk.Button(self.top_level_list, text="Seleccionar", command=lambda: self.update_selection(listbox), width=10)
-        confirm_button.grid(row=1, column=0, sticky="ew")
+        info_frame = ttk.Frame(self.top_level_list)
+        ttk.Label(info_frame, text="Presiona Enter para confirmar\nla seleccion", anchor="center", style="warning.TLabel").pack(side="left", padx=5)
+        info_frame.grid(row=1, column=0, sticky="ew")
         
         # Configurar el grid del Toplevel
         self.top_level_list.grid_columnconfigure(0, weight=1)
         self.top_level_list.grid_rowconfigure(0, weight=1)
+        
+        # Darle el foco al Toplevel para que capture eventos FocusOut
+        self.top_level_list.focus_set()
 
     def update_selection(self, listbox):
         # Obtener los índices seleccionados
@@ -209,14 +218,15 @@ class MultiChoice(ttk.Frame):
         # Limpiar la lista de valores seleccionados
         self.selected_values = []
         
-        self._show_selection_frame.grid_rowconfigure(0, weight=1)
-        self._canvas.grid_columnconfigure(0, weight=1)
+        # Restablecer la región de desplazamiento a un área mínima
+        self._show_selection_frame.config(width=1)
+        self._show_selection_frame.update_idletasks()  # Asegúrate de que se haya procesado la eliminación
         
-        # Actualizar el área de desplazamiento del canvas
-        self._canvas.update_idletasks()
-        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
-        
-        # Verificar si el scroll debe mostrarse
+        # Ajusta el tamaño del frame interno a un valor mínimo
+        self._canvas.configure(scrollregion=(0, 0, 1, 1))
+        self._canvas.update_idletasks()  # Actualiza el canvas para reflejar los cambios
+
+        # Ajusta el scroll_visibility después de limpiar
         self._update_scroll_visibility()
     
     def setValues(self, values: List[str]):

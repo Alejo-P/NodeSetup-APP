@@ -1570,11 +1570,71 @@ class NodeSetupAppNew(ttk.Window):
             self.framePrincipal.grid_columnconfigure(columna, weight=1)
 
     def _modulosFrame(self):
+        def onClickPrompt(infoModulo:dict):
+            def onClosePopUp():
+                for widget in popUp_prompt.winfo_children():
+                    widget.destroy()
+                
+                popUp_prompt.destroy()
+            
+            def onCopy():
+                self.clipboard_clear()
+                self.clipboard_append(entryComando.get())
+                self.update()
+            
+            if not infoModulo["usar"].get():
+                messagebox.showwarning("Advertencia", "Debe seleccionar el modulo para poder mostrar el comando a ejecutar")
+                return
+            
+            comando = [
+                self._npm_path,
+                "i"
+            ]
+            
+            if infoModulo["global"].get():
+                comando.append("-g")
+            
+            if infoModulo["argumento"].get():
+                #Ejemplo del valor de argumento.get() -> "-S, -D, -O, --no-save, --production, --only=dev, --only=prod"
+                argumentos = " ".join(infoModulo["argumento"].get().split(", "))
+                comando.append(argumentos)
+            
+            comando.append(f"{infoModulo['nombre'].lower()}@{infoModulo['version'].get()}")
+            
+            popUp_prompt = ttk.Toplevel()
+            popUp_prompt.title("Prompt")
+            popUp_prompt.geometry("400x200")
+            popUp_prompt.resizable(False, False)
+            popUp_prompt.protocol("WM_DELETE_WINDOW", onClosePopUp)
+            
+            ttk.Label(popUp_prompt, text="Comando a ejecutar:").grid(row=0, column=0, padx=5, pady=5)
+            entryComando = ttk.Entry(popUp_prompt, width=50)
+            entryComando.insert(0, " ".join(comando))
+            entryComando.config(state="readonly")
+            entryComando.grid(row=1, column=0, padx=5, pady=5)
+            
+            scrollEntry = ttk.Scrollbar(popUp_prompt, orient="horizontal", bootstyle="info-round") # type: ignore
+            entryComando.config(xscrollcommand=scrollEntry.set)
+            scrollEntry.config(command=entryComando.xview)
+            scrollEntry.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+            
+            frame_botones = ttk.Frame(popUp_prompt)
+            ttk.Button(frame_botones, text="Copiar", command=onCopy).grid(row=0, column=0, padx=5, pady=5)
+            ttk.Button(popUp_prompt, text="Cerrar", command=onClosePopUp).grid(row=0, column=1, padx=5, pady=5)
+            
+            columnas = frame_botones.grid_size()[0]
+            for columna in range(columnas):
+                frame_botones.grid_columnconfigure(columna, weight=1)
+            
+            frame_botones.grid(row=3, column=0, padx=5, pady=5)
+            
+            popUp_prompt.grid_columnconfigure(0, weight=1)
+        
         def RestablecerSeleccion():
             for dic in self._modulosNPM:
                 dic["usar"].set(False)
                 dic["global"].set(False)
-                dic["argumento"].set(listaArgumentos[0])
+                dic["argumento"].set("")
                 dic["version"].set(dic["versiones"][-1] if dic["versiones"] else "Ocurrió un error")
         
         def CargarInfoModulos(listaModulos):
@@ -1591,7 +1651,7 @@ class NodeSetupAppNew(ttk.Window):
                 if not dic["global"]:
                     dic["global"] = tk.BooleanVar(value=False)
                 if not dic["argumento"]:
-                    dic["argumento"] = tk.StringVar(value=listaArgumentos[0])
+                    dic["argumento"] = tk.StringVar(value="")
                 if not dic["version"]:
                     dic["version"] = tk.StringVar(value=dic["versiones"][-1] if dic["versiones"] else "Ocurrió un error")
         
@@ -1600,12 +1660,13 @@ class NodeSetupAppNew(ttk.Window):
                 for dic in listaModulos:
                     check_usar = ttk.Checkbutton(frame, variable=dic["usar"], bootstyle="success-round-toggle", padding=4) # type: ignore
                     label_nombre = ttk.Label(frame, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
-                    multiChoice_argumento = MultiChoice(frame, listaArgumentos, dic["argumento"],  border=1, relief="solid")
-                    #entry_argumento = ttk.Combobox(frame, values=listaArgumentos, textvariable=dic["argumento"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                    multiChoice_argumento = MultiChoice(frame, listaArgumentos, dic["argumento"],  border=1, relief="solid") # type: ignore
                     combo_version = ttk.Combobox(frame, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
                     check_global = ttk.Checkbutton(frame, variable=dic["global"], bootstyle="warning-round-toggle", padding=4) # type: ignore
+                    label_prompt = ttk.Label(frame, image=self._imagenes["Info"], anchor="center")
+                    label_prompt.bind("<Button-1>", lambda e, dic=dic: onClickPrompt(dic))
 
-                    listaWidgets.append([check_usar, label_nombre, multiChoice_argumento, combo_version, check_global])
+                    listaWidgets.append([check_usar, label_nombre, multiChoice_argumento, combo_version, check_global, label_prompt])
         
         def mostrar_widgets():
             try:
@@ -1613,8 +1674,12 @@ class NodeSetupAppNew(ttk.Window):
                     for j, widget in enumerate(widget_list):
                         if isinstance(widget, (ttk.Checkbutton, ttk.Combobox, MultiChoice)):
                             widget.grid(row=i, column=j % len(encabezado), padx=5, pady=2)
-                        elif isinstance(widget, ttk.Label):
-                            widget.grid(row=i, column=j % len(encabezado), padx=5, pady=2, sticky="w")
+                        elif isinstance(widget, ttk.Label):   
+                            widget.grid(
+                                row=i, column=j % len(encabezado), 
+                                padx=5, pady=2, 
+                                sticky="w" if not str(widget.cget("image")) else ""
+                            )
 
                 canvas.grid(row=0, column=0, sticky="nsew")
                 scrollbar.grid(row=0, column=1, sticky="ns")
@@ -1693,7 +1758,8 @@ class NodeSetupAppNew(ttk.Window):
             "Nombre",
             "Argumentos",
             "Version",
-            "Global"
+            "Global",
+            "Ver comando"
         ]
         
         listaWidgets = []
@@ -1702,7 +1768,7 @@ class NodeSetupAppNew(ttk.Window):
         for i, txt in enumerate(encabezado):
             ttk.Label(frame, text=txt, anchor="center").grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
         
-        ttk.Separator(frame, orient="horizontal", bootstyle="warning").grid(row=1, column=0, columnspan=5, sticky="ew") # type: ignore
+        ttk.Separator(frame, orient="horizontal", bootstyle="warning").grid(row=1, column=0, columnspan=len(encabezado), sticky="ew") # type: ignore
         
         # Añadir una barra de progreso
         progress_bar = ttk.Progressbar(self.frameModulos, orient='horizontal', mode='indeterminate', length=280, bootstyle="warning") # type: ignore
@@ -3377,6 +3443,7 @@ class NodeSetupAppNew(ttk.Window):
         self._imagenes["Mail"] = loadImageTk((os.path.join(ruta_assets, "mailIcon.png")), 20, 20)
         self._imagenes["Edit"] = loadImageTk((os.path.join(ruta_assets, "editIcon.png")), 20, 20)
         self._imagenes["Link"] = loadImageTk((os.path.join(ruta_assets, "linkIcon.png")), 20, 20)
+        self._imagenes["Prompt"] = loadImageTk((os.path.join(ruta_assets, "promptIcon.png")), 20, 20)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")
