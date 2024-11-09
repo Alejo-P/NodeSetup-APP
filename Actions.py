@@ -305,7 +305,6 @@ def loadImageTk(path:str, width:int = 50, height:int = 50):
         path (str): _Ruta de la imagen a cargar_}
         width (int, optional): _Ancho de la imagen_. Defaults to 50.
         height (int, optional): _Alto de la imagen_. Defaults to 50.
-        name (str, optional): _Nombre de la imagen_. Defaults to "".
 
     Returns:
         _PhotoImage_: _Imagen en formato Tkinter_
@@ -316,7 +315,7 @@ def loadImageTk(path:str, width:int = 50, height:int = 50):
         return imagenTk
     except Exception as e:
         print("Error al cargar la imagen:", e)
-        return None
+        return str("")
 
 def getGitBranches(ruta:str):
     """Obtiene las ramas de un repositorio Git.
@@ -362,7 +361,8 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
     Returns:
         _List[dict[str, Any]]_: _Lista de commits del repositorio_
     """
-    comando = [getPathOf("git"), "log", "--oneline", "--decorate", "--all"]
+    formato = r"%h; %an - %ae; %ad; %s; %D"
+    comando = [getPathOf("git"), "log", "--pretty=format:"+formato]
     
     resultado = runCommand(comando, ruta, "bytes")
     listaDetalles:list[dict[str, Any]] = []
@@ -370,29 +370,29 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
     
     if isinstance(resultado, subprocess.CalledProcessError):
         return [{
-            "id": "0",
-            "rama": "Error",
-            "mensaje": resultado.stderr.decode("utf-8")
+            "hash": "Error",
+            "autor": "Error al obtener los commits",
+            "fecha": "Error al obtener los commits",
+            "mensaje": "Error al obtener los commits",
+            "rama": "Error al obtener los commits"
         }]
     
-    for item in resultado.stdout.decode("utf-8").split("\n")[:-1]:
-        commit = item.split(" ", 1)
+    for commit in resultado.stdout.decode("utf-8").split("\n"):
+        if not commit:
+            continue
         
-        if commit[1].startswith("("):
-            indiceInicio = commit[1].find("(") + 1
-            indiceFin = commit[1].find(")")
-            if "origin/" in commit[1]:
-                nombreRama = commit[1][indiceInicio:indiceFin].split(",")[-1].strip().replace("origin/","")
-                commit[1] = commit[1][indiceFin+2:]
-            
-            if "HEAD -> " in commit[1]:
-                nombreRama = commit[1][indiceInicio:indiceFin].split(",")[-1].strip().replace("HEAD -> ","")
-                commit[1] = commit[1][indiceFin+2:]
-                
+        partes = commit.split(";")
+        hash_commit, autor, fecha, mensaje, rama = partes if len(partes) == 5 else partes + ["head"]
+        if rama.strip():
+            print("Rama ->",rama)
+            nombreRama = rama.split(",")[-1]
+        
         listaDetalles.append({
-            "id": commit[0],
-            "rama": nombreRama,
-            "mensaje": commit[1]
+            "hash": hash_commit.strip(),
+            "autor": autor.strip(),
+            "fecha": fecha.strip(),
+            "mensaje": mensaje.strip(),
+            "rama": nombreRama.strip()
         })
     return listaDetalles
 
@@ -976,4 +976,4 @@ def isValidEmail(email:str):
 
 
 if __name__ == "__main__":
-    print(getGitRemotes(os.getcwd()))
+    print(getBranchCommitsLog(os.getcwd()))

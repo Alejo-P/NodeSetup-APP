@@ -2039,7 +2039,22 @@ class NodeSetupAppNew(ttk.Window):
                     
                     btnAgregarRemoto = ttk.Button(popUpAgregar, text="Agregar", command=iniciar_agrego, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
                     btnAgregarRemoto.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
+                
+                def onClickInitGit():
+                    if not isFolderInPath(".git", self._ruta.get()):
+                        messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
+                        return
                     
+                    if not os.path.exists(os.path.join(self._ruta.get(), ".git")):
+                        messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
+                        return
+                    
+                    if not os.path.exists(os.path.join(self._ruta.get(), ".git", "config")):
+                        messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
+                        return
+                    
+                    self._funcGoToFrame("Git")
+                
                 def onCloseRemotos():
                     if idPopAfter:
                         frameInicio.after_cancel(idPopAfter)
@@ -2115,7 +2130,7 @@ class NodeSetupAppNew(ttk.Window):
             URLrepo.trace_add("write", lambda *args: ValidarEntries())
             self._ruta.trace_add("write", lambda *args: ValidarEntries())
             
-            btn_clonacion = ttk.Button(frameInicio, text="Clonar", command=onClonarRepositorio, bootstyle=(INFO, OUTLINE)) # type: ignore
+            btn_clonacion = ttk.Button(frameInicio, text="Clonar", command=onClonarRepositorio, bootstyle=(INFO, OUTLINE), state="disabled") # type: ignore
             btn_clonacion.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
             frameInicio.grid_columnconfigure(0, weight=1)
