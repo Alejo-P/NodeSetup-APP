@@ -4,7 +4,7 @@ import os, queue, re, subprocess, tkinter as tk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from tkinter import messagebox as mssg
-from typing import Any, List, Literal, overload, Union
+from typing import Any, Dict, List, Literal, overload, Union
 from colorama import init ,Fore, Back, Style
 from Vars import ruta, Registro_eventos, keywordsPY, keywordsJS, keywordsHTML, keywordsCSS, modulosNPM, Colors, Backgrounds, Styles
 
@@ -352,21 +352,20 @@ def getCurrentBrach(ramas:dict[str, bool]):
         
     return "No hay rama actual"
 
-def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
+def getBranchCommitsLog(ruta:str) -> List[Dict[str, str]]:
     """Obtiene los commits de un repositorio Git.
 
     Args:
         ruta (str): _Ruta del repositorio Git_
     
     Returns:
-        _List[dict[str, Any]]_: _Lista de commits del repositorio_
+        _List[dict[str, str]]_: _Lista de commits del repositorio_
     """
     formato = r"%h; %an - %ae; %ad; %s; %D"
-    comando = [getPathOf("git"), "log", "--pretty=format:"+formato]
+    comando = [getPathOf("git"), "log", f"--pretty=format:{formato}"]
     
     resultado = runCommand(comando, ruta, "bytes")
-    listaDetalles:list[dict[str, Any]] = []
-    nombreRama = ""
+    listaDetalles:List[Dict[str, str]] = []
     
     if isinstance(resultado, subprocess.CalledProcessError):
         return [{
@@ -382,17 +381,18 @@ def getBranchCommitsLog(ruta:str) -> List[dict[str, Any]]:
             continue
         
         partes = commit.split(";")
-        hash_commit, autor, fecha, mensaje, rama = partes if len(partes) == 5 else partes + ["head"]
-        if rama.strip():
-            print("Rama ->",rama)
-            nombreRama = rama.split(",")[-1]
+        hash_commit, autor, fecha, mensaje, ramas = partes[:5] if len(partes) == 5 else partes + ["HEAD"]
+        
+        nombre_rama = ""
+        if ramas.strip():
+            nombre_rama = ramas.split(",")[-1].strip()
         
         listaDetalles.append({
             "hash": hash_commit.strip(),
             "autor": autor.strip(),
             "fecha": fecha.strip(),
             "mensaje": mensaje.strip(),
-            "rama": nombreRama.strip()
+            "rama": nombre_rama.strip()
         })
     return listaDetalles
 
@@ -976,4 +976,5 @@ def isValidEmail(email:str):
 
 
 if __name__ == "__main__":
-    print(getBranchCommitsLog(os.getcwd()))
+    for dic in getBranchCommitsLog(os.getcwd()):
+        print(dic)

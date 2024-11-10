@@ -237,7 +237,88 @@ class MultiChoice(ttk.Frame):
             return [""]
         
         return self.selected_values
+
+class ScrolledFrame(ttk.Frame):
+    def __init__(self, master=None, style_sc_bars:str="info-rounded", **kwargs):
+        super().__init__(master, **kwargs)
+        
+        # Crear el Canvas y los Scrollbars
+        self._canvas = tk.Canvas(self, background="#f0f0f0")  # Usamos Canvas de `tk`
+        self._scrollbarY = ttk.Scrollbar(self, orient="vertical", command=self._canvas.yview, bootstyle=style_sc_bars) # type: ignore
+        self._scrollbarX = ttk.Scrollbar(self, orient="horizontal", command=self._canvas.xview, bootstyle=style_sc_bars) # type: ignore
+        
+        # Frame interno desplazable
+        self._frame = ttk.Frame(self._canvas)
+        
+        # Configurar el Canvas para mostrar el Frame interno y scrollbars
+        self._canvas.create_window((0, 0), window=self._frame, anchor="nw")
+        self._canvas.config(yscrollcommand=self._scrollbarY.set, xscrollcommand=self._scrollbarX.set)
+        
+        # Posicionar los elementos en la geometría
+        self._canvas.grid(row=0, column=0, sticky="nsew")
+        self._scrollbarY.grid(row=0, column=1, sticky="ns")
+        self._scrollbarX.grid(row=1, column=0, sticky="ew")
+        self._scrollbarX.grid_remove()  # Ocultar el scrollbar inicialmente
+        
+        # Configurar el grid principal
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        
+        # Vincular el ajuste de scroll al tamaño del Frame interno
+        self._frame.bind("<Configure>", lambda e: self._canvas.config(scrollregion=self._canvas.bbox("all")))
+        self._canvas.bind("<Configure>", lambda e: self._update_scroll_visibility)
+
+    def grid_adjust(self):
+        """Ajustar los widgets dentro del frame y ajustar la región de desplazamiento."""
+        # Configurar el grid del Frame interno
+        self._frame.config(width=self._canvas.winfo_reqwidth())
+        self._frame.update_idletasks()
+        
+        columnas, filas = self._frame.grid_size()
+        if (columnas, filas) == (0, 0):
+            self._frame.grid_columnconfigure(0, weight=1)
+            self._frame.grid_rowconfigure(0, weight=1)
+        else:
+            for i in range(columnas):
+                self._frame.grid_columnconfigure(i, weight=1)
+                
+            for j in range(filas):
+                self._frame.grid_rowconfigure(j, weight=1)
+        
+        self._canvas.update_idletasks()
+        
+        columnas, filas = self._canvas.grid_size()
+        if (columnas, filas) == (0, 0):
+            self._canvas.grid_columnconfigure(0, weight=1)
+            self._canvas.grid_rowconfigure(0, weight=1)
+        else:
+            for i in range(columnas):
+                self._canvas.grid_columnconfigure(i, weight=1)
+                
+            for j in range(filas):
+                self._canvas.grid_rowconfigure(j, weight=1)
+        
+        # Actualizar la región de desplazamiento
+        self._canvas.config(scrollregion=self._canvas.bbox("all"))
+        
+        self._update_scroll_visibility()
+
+    def _update_scroll_visibility(self, event=None):
+        """Actualiza la visibilidad del scrollbar según el tamaño del contenido."""
+        # Obtener el área total del contenido dentro del canvas
+        self._canvas.update_idletasks()
+        content_bbox = self._canvas.bbox("all")
+        print(content_bbox, self._canvas.winfo_reqwidth(), self._scrollbarX.winfo_reqwidth())
+        # Si el contenido excede el ancho visible del canvas, mostrar el scrollbar
+        if content_bbox and content_bbox[2] > self._canvas.winfo_reqwidth():
+            self._scrollbarX.grid() # Mostrar el scrollbar
+        else:
+            self._scrollbarX.grid_remove()  # Ocultar el scrollbar
     
+    def get_frame(self):
+        """Devuelve el Frame interno para añadir widgets."""
+        return self._frame
+
 if __name__ == "__main__":
     def limpiar():
         seleccion.set("")
@@ -245,14 +326,17 @@ if __name__ == "__main__":
     root = ttk.Window(themename="superhero")
     seleccion = ttk.StringVar()
     
-    label = MultiChoice(root, textVar=seleccion, border=1, relief="solid")
-    label.setValues(listaArgumentos)
-    label.pack()
+    sc_frame = ScrolledFrame(root, "danger-rounded")
+    sc_frame.pack(fill="both", expand=True)
     
-    btn_mostrar = ttk.Button(root, text="Mostrar selección", command=lambda: print(seleccion.get()))
-    btn_mostrar.pack()
+    frame = sc_frame.get_frame()
     
-    btn_limpiar = ttk.Button(root, text="Limpiar selección", command=limpiar)
-    btn_limpiar.pack()
+    lbl_frame = ttk.LabelFrame(frame, text="Seleccionar elementos")
+    for i in range(100):
+        ttk.Label(lbl_frame, text=f"Elemento {i}").grid(row=i//4, column=i%4, padx=5, pady=5)
+    
+    lbl_frame.grid(row=0, column=0, padx=10, pady=10)
+    
+    sc_frame.grid_adjust()
     
     root.mainloop()

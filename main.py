@@ -3430,7 +3430,7 @@ class NodeSetupAppNew(ttk.Window):
         scrollEntryNode = ttk.Scrollbar(pathsFrame, orient="horizontal", bootstyle="info-round") # type: ignore
         entryNodePath.config(xscrollcommand=scrollEntryNode.set)
         scrollEntryNode.config(command=entryNodePath.xview)
-        scrollEntryNode.grid(row=5, column=0, sticky="nsew")
+        scrollEntryNode.grid(row=5, column=0, padx=5, sticky="nsew")
         
         lblInfoEntryNode = ttk.Label(pathsFrame, image=self._imagenes["Info"], style="info.TLabel")
         tooltipNode = ToolTip(lblInfoEntryNode, "La ruta de Node es necesaria para realizar las acciones de Node")
