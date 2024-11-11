@@ -245,6 +245,13 @@ class ScrolledFrame(Widget):
         self._frame = ttk.Frame(master, **kwargs)  # Este es el Frame principal del contenedor
         sizegrip_style = elements_style.split("-")[0]
         
+        # Configurar el grid para que el contenedor se expanda
+        self._master.grid_rowconfigure(0, weight=1)
+        self._master.grid_columnconfigure(0, weight=1)
+        
+        # Establecer el tamaño inicial del ScrolledFrame
+        self._frame.grid(sticky="nsew")  # Hacer que el ScrolledFrame se expanda para llenar el espacio
+        
         # Crear el Canvas y los Scrollbars
         self._canvas = ttk.Canvas(self._frame, background="#f0f0f0")
         self._scrollbarY = ttk.Scrollbar(self._frame, orient="vertical", command=self._canvas.yview, bootstyle=elements_style) #type: ignore

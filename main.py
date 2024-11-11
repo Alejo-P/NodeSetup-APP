@@ -34,7 +34,7 @@ from Actions import (
     getGitBranches,
     getDetailedModules
 )
-from CustomWidgets import MultiChoice, SelectionLabel
+from CustomWidgets import MultiChoice, ScrolledFrame, SelectionLabel
 from Tools import ToolTip
 from Vars import (
     listaArgumentos,
@@ -2909,7 +2909,7 @@ class NodeSetupAppNew(ttk.Window):
                     icon = self._imagenes["Error"]
                 
                 if i not in taskWidgets:
-                    subFrame = ttk.LabelFrame(canvas_frame, text=f"Tarea {i} de {len(self._tareas)}", bootstyle=style) # type: ignore
+                    subFrame = ttk.LabelFrame(scrolled_frame, text=f"Tarea {i} de {len(self._tareas)}", bootstyle=style) # type: ignore
                     ttk.Label(subFrame, image=icon).grid(row=0, column=0, sticky="nsew", padx=3)
                     ttk.Label(subFrame, text=tarea["accion"]).grid(row=0, column=1, sticky="nsew", padx=9)
                     ttk.Label(subFrame, text=tarea["estado"]).grid(row=0, column=2, sticky="nsew", padx=3)
@@ -2927,9 +2927,10 @@ class NodeSetupAppNew(ttk.Window):
                     subFrame.grid_slaves(row=0, column=1)[0].config(text=tarea["accion"])
                     subFrame.grid_slaves(row=0, column=2)[0].config(text=tarea["estado"])
 
-            columnas = canvas_frame.grid_size()[0]
+            columnas = scrolled_frame.grid_size()[0]
+            print(columnas)
             for columna in range(columnas):
-                canvas_frame.grid_columnconfigure(columna, weight=1)
+                scrolled_frame.grid_columnconfigure(columna, weight=1)
             
             # Eliminar los frames que no se han actualizado
             for key in list(taskWidgets.keys()):
@@ -3117,15 +3118,14 @@ class NodeSetupAppNew(ttk.Window):
         frameDetalles.grid_columnconfigure(1, weight=1)
         frameDetalles.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
-        canvas = ttk.Canvas(self.frameTareas)
-        scrollbar = ttk.Scrollbar(self.frameTareas, orient="vertical", command=canvas.yview, bootstyle="danger-round") # type: ignore
-        canvas_frame = ttk.Frame(canvas)
-        canvas_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=canvas_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        frameDetalles.update_idletasks()
+        ancho_widget = frameDetalles.winfo_width()
+        print(ancho_widget)
         
-        canvas.grid(row=1, column=0, sticky="nsew", padx=5)
-        scrollbar.grid(row=1, column=1, sticky="ns")
+        #TODO: Ajustar el ScrollFrame al ancho del frame
+        
+        scrolled_frame = ScrolledFrame(self.frameTareas, "info-rounded", height=300, width=ancho_widget)
+        scrolled_frame.grid(row=1, column=0, sticky="nsew", padx=5)
         
         self._funcConteoTareas = conteo_tareas
         self._funcInicioTareas = Iniciar
@@ -3294,7 +3294,7 @@ class NodeSetupAppNew(ttk.Window):
                     if not messagebox.askyesno("Advertencia", "Hay cambios sin guardar, ¿Desea salir sin guardar?"):
                         return
                 
-                for widget in canvas_frame.winfo_children():
+                for widget in scrolled_frame.winfo_children():
                     widget.destroy()
                 
                 popUp_archivos.destroy()
@@ -3333,42 +3333,34 @@ class NodeSetupAppNew(ttk.Window):
             
             modificado = False
             
-            canvas = ttk.Canvas(popUp_archivos)
-            scrollbar = ttk.Scrollbar(popUp_archivos, orient="vertical", command=canvas.yview, bootstyle="danger-round") # type: ignore
-            canvas_frame = ttk.Frame(canvas)
-            canvas.create_window((0, 0), window=canvas_frame, anchor="nw")
-            canvas.configure(yscrollcommand=scrollbar.set)
+            scrolled_frame = ScrolledFrame(popUp_archivos, "success-rounded")
             
-            ttk.Label(canvas_frame, text="Nombre del archivo", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-            ttk.Label(canvas_frame, text="Contenido del archivo", anchor="center").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
-            ttk.Separator(canvas_frame, orient="horizontal", bootstyle="success").grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew") # type: ignore
+            ttk.Label(scrolled_frame, text="Nombre del archivo", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(scrolled_frame, text="Contenido del archivo", anchor="center").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+            ttk.Separator(scrolled_frame, orient="horizontal", bootstyle="success").grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew") # type: ignore
             
             temporal = {}
             for i, (nombre_archivo, contenido_archivo) in enumerate(archivos_p, 2):
-                ttk.Label(canvas_frame, text=nombre_archivo, anchor="center").grid(row=i, column=0, padx=5, sticky="n")
-                txt = scrolledtext.ScrolledText(canvas_frame, height=10)
+                ttk.Label(scrolled_frame, text=nombre_archivo, anchor="center").grid(row=i, column=0, padx=5, sticky="n")
+                txt = scrolledtext.ScrolledText(scrolled_frame, height=10)
                 txt.insert("1.0", contenido_archivo)
                 txt.grid(row=i, column=1, padx=5, pady=5, sticky="nsew")
                 txt.bind("<KeyRelease>", lambda e, nombre=nombre_archivo: onChangeText(nombre))
                 
                 temporal[nombre_archivo] = txt
-                
-            canvas_frame.grid_columnconfigure(1, weight=1)
-            canvas_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-            canvas.grid(row=2, column=0, sticky="nsew", padx=5)
-            scrollbar.grid(row=2, column=1, sticky="ns")
+            
+            scrolled_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             
             btn_guardarCambios = ttk.Button(popUp_archivos, text="Guardar cambios", command=guardarCambios, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
             btn_guardarCambios.config(state="disabled")
-            btn_guardarCambios.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            btn_guardarCambios.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
             
-            canvas_frame.update_idletasks()
-            canvas.update_idletasks()
-            canvas.config(scrollregion=canvas.bbox("all"))
-            ancho_canvas = canvas_frame.winfo_reqwidth() + scrollbar.winfo_reqwidth()
+            scrolled_frame.update_idletasks()
+            ancho_canvas = scrolled_frame.winfo_reqwidth()
             
-            popUp_archivos.geometry(f"{ancho_canvas + 10}x300")
+            popUp_archivos.geometry(f"{ancho_canvas + 25}x300")
             popUp_archivos.grid_columnconfigure(0, weight=1)
+            popUp_archivos.grid_rowconfigure(0, weight=1)
             
             centerWindow(popUp_archivos)
         
