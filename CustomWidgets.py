@@ -1,10 +1,10 @@
 from collections.abc import Callable
 import tkinter as tk
+from tkinter import Widget
 from typing import List, Literal
 import ttkbootstrap as ttk
 
-from Actions import doNothing
-from Vars import listaArgumentos
+from Actions import doNothing, loadImageTk
 
 no_callback = lambda x: doNothing()
 
@@ -238,105 +238,144 @@ class MultiChoice(ttk.Frame):
         
         return self.selected_values
 
-class ScrolledFrame(ttk.Frame):
-    def __init__(self, master=None, style_sc_bars:str="info-rounded", **kwargs):
-        super().__init__(master, **kwargs)
+class ScrolledFrame(Widget):
+    def __init__(self, master: tk.Misc, elements_style: str = "info-rounded", resizable:bool=False, **kwargs):
+        # Crear el Frame contenedor (composición en lugar de herencia)
+        self._master = master
+        self._frame = ttk.Frame(master, **kwargs)  # Este es el Frame principal del contenedor
+        sizegrip_style = elements_style.split("-")[0]
         
         # Crear el Canvas y los Scrollbars
-        self._canvas = tk.Canvas(self, background="#f0f0f0")  # Usamos Canvas de `tk`
-        self._scrollbarY = ttk.Scrollbar(self, orient="vertical", command=self._canvas.yview, bootstyle=style_sc_bars) # type: ignore
-        self._scrollbarX = ttk.Scrollbar(self, orient="horizontal", command=self._canvas.xview, bootstyle=style_sc_bars) # type: ignore
+        self._canvas = ttk.Canvas(self._frame, background="#f0f0f0")
+        self._scrollbarY = ttk.Scrollbar(self._frame, orient="vertical", command=self._canvas.yview, bootstyle=elements_style) #type: ignore
+        self._scrollbarX = ttk.Scrollbar(self._frame, orient="horizontal", command=self._canvas.xview, bootstyle=elements_style) #type: ignore
         
-        # Frame interno desplazable
-        self._frame = ttk.Frame(self._canvas)
+        # Crear el Frame interno en el Canvas
+        self._inner_frame = ttk.Frame(self._canvas)  # Este es el Frame desplazable
         
         # Configurar el Canvas para mostrar el Frame interno y scrollbars
-        self._canvas.create_window((0, 0), window=self._frame, anchor="nw")
+        self._canvas.create_window((0, 0), window=self._inner_frame, anchor="nw")
         self._canvas.config(yscrollcommand=self._scrollbarY.set, xscrollcommand=self._scrollbarX.set)
-        
-        # Posicionar los elementos en la geometría
+
+        # Posicionar los elementos en el Grid
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._scrollbarY.grid(row=0, column=1, sticky="ns")
         self._scrollbarX.grid(row=1, column=0, sticky="ew")
+        
+        # Agregar tamaño redimensionable si `resizable` es True
+        self._resizable = resizable
+        if resizable:
+            self._sizegrip = ttk.Sizegrip(self._frame, style=sizegrip_style)
+            self._sizegrip.grid(row=1, column=1, sticky="se")
+            self._sizegrip.bind("<B1-Motion>", self._on_resize)
+        
+        self._scrollbarY.grid_remove()  # Ocultar el scrollbar inicialmente
         self._scrollbarX.grid_remove()  # Ocultar el scrollbar inicialmente
-        
-        # Configurar el grid principal
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-        
-        # Vincular el ajuste de scroll al tamaño del Frame interno
-        self._frame.bind("<Configure>", lambda e: self._canvas.config(scrollregion=self._canvas.bbox("all")))
-        self._canvas.bind("<Configure>", lambda e: self._update_scroll_visibility)
 
-    def grid_adjust(self):
-        """Ajustar los widgets dentro del frame y ajustar la región de desplazamiento."""
-        # Configurar el grid del Frame interno
-        self._frame.config(width=self._canvas.winfo_reqwidth())
-        self._frame.update_idletasks()
-        
-        columnas, filas = self._frame.grid_size()
-        if (columnas, filas) == (0, 0):
-            self._frame.grid_columnconfigure(0, weight=1)
-            self._frame.grid_rowconfigure(0, weight=1)
-        else:
-            for i in range(columnas):
-                self._frame.grid_columnconfigure(i, weight=1)
-                
-            for j in range(filas):
-                self._frame.grid_rowconfigure(j, weight=1)
-        
-        self._canvas.update_idletasks()
-        
-        columnas, filas = self._canvas.grid_size()
-        if (columnas, filas) == (0, 0):
-            self._canvas.grid_columnconfigure(0, weight=1)
-            self._canvas.grid_rowconfigure(0, weight=1)
-        else:
-            for i in range(columnas):
-                self._canvas.grid_columnconfigure(i, weight=1)
-                
-            for j in range(filas):
-                self._canvas.grid_rowconfigure(j, weight=1)
-        
-        # Actualizar la región de desplazamiento
+        # Configurar el grid del Frame contenedor
+        self._frame.grid_rowconfigure(0, weight=1)
+        self._frame.grid_columnconfigure(0, weight=1)
+        self._frame.grid_propagate(False)  # Evita que el Frame cambie de tamaño automáticamente
+
+        # Vincular eventos de redimensionamiento
+        self._inner_frame.bind("<Configure>", self._on_frame_configure)
+        self._canvas.bind("<Configure>", self._on_canvas_configure)
+
+    def _on_frame_configure(self, event=None):
+        """Actualizar la región de desplazamiento del Canvas según el tamaño del Frame interno."""
         self._canvas.config(scrollregion=self._canvas.bbox("all"))
-        
         self._update_scroll_visibility()
 
-    def _update_scroll_visibility(self, event=None):
+    def _on_canvas_configure(self, event=None):
+        """Llamar a la actualización de scroll cuando el Canvas se redimensiona."""
+        self._update_scroll_visibility()
+
+    def _update_scroll_visibility(self):
         """Actualiza la visibilidad del scrollbar según el tamaño del contenido."""
-        # Obtener el área total del contenido dentro del canvas
         self._canvas.update_idletasks()
         content_bbox = self._canvas.bbox("all")
-        print(content_bbox, self._canvas.winfo_reqwidth(), self._scrollbarX.winfo_reqwidth())
-        # Si el contenido excede el ancho visible del canvas, mostrar el scrollbar
-        if content_bbox and content_bbox[2] > self._canvas.winfo_reqwidth():
-            self._scrollbarX.grid() # Mostrar el scrollbar
+        canvas_width = self._canvas.winfo_width()
+        canvas_height = self._canvas.winfo_height()
+
+        # Mostrar u ocultar el scrollbar horizontal
+        if content_bbox and content_bbox[2] > canvas_width:
+            self._scrollbarX.grid()
         else:
-            self._scrollbarX.grid_remove()  # Ocultar el scrollbar
-    
-    def get_frame(self):
-        """Devuelve el Frame interno para añadir widgets."""
-        return self._frame
+            self._scrollbarX.grid_remove()
+
+        # Mostrar u ocultar el scrollbar vertical
+        if content_bbox and content_bbox[3] > canvas_height:
+            self._scrollbarY.grid()
+        else:
+            self._scrollbarY.grid_remove()
+
+    def _on_resize(self, event):
+        """Redimensiona solo el ScrolledFrame según el movimiento del Sizegrip."""
+        # Obtener las dimensiones actuales del contenedor (sin exceder estas dimensiones)
+        max_width = self._master.winfo_width()
+        max_height = self._master.winfo_height()
+
+        # Calcular nuevas dimensiones para el ScrolledFrame basadas en el evento de arrastre
+        new_width = min(max_width, self._frame.winfo_width() + event.x)
+        new_height = min(max_height, self._frame.winfo_height() + event.y)
+
+        # Establecer las nuevas dimensiones del ScrolledFrame
+        self._frame.config(width=new_width, height=new_height)
+        self.grid_adjust()  # Ajustar la región de desplazamiento y visibilidad de scrollbars
+
+    def _on_master_resize(self, event):
+        """Redimensionar el ScrolledFrame dentro del tamaño del contenedor."""
+        max_width = self._master.winfo_width()
+        max_height = self._master.winfo_height()
+        self._frame.config(width=min(self._frame.winfo_reqwidth(), max_width),
+                           height=min(self._frame.winfo_reqheight(), max_height))
+        self.grid_adjust()
+
+    def grid_adjust(self):
+        """Ajustar la región de desplazamiento y visibilidad de scrollbars."""
+        self._canvas.config(scrollregion=self._canvas.bbox("all"))
+        self._update_scroll_visibility()
+
+    def add_widget(self, widget, *args, **kwargs):
+        """Método que permite agregar widgets al Frame interno de forma directa."""
+        widget.grid(*args, **kwargs)  # Usar `grid` en el Frame interno
+
+    # Redefinir los métodos para acceder a los atributos del Frame interno
+    def __getattr__(self, attr):
+        """Permite acceder a los métodos y atributos del Frame interno."""
+        return getattr(self._inner_frame, attr)
+
+    def __getitem__(self, item):
+        """Permite acceder a los elementos del Frame interno."""
+        return self._inner_frame.__getitem__(item)
+
+    def winfo_children(self):
+        # Devolver los hijos del Frame interno
+        return self._inner_frame.winfo_children()
+
+    def grid(self, *args, **kwargs):
+        """Posiciona el Frame contenedor usando grid."""
+        self._frame.grid(*args, **kwargs)
 
 if __name__ == "__main__":
     def limpiar():
         seleccion.set("")
     
     root = ttk.Window(themename="superhero")
+    root.title("Ejemplo de ScrolledFrame")
+    root.geometry("400x400")
+    root.resizable(False, False)
     seleccion = ttk.StringVar()
     
     sc_frame = ScrolledFrame(root, "danger-rounded")
-    sc_frame.pack(fill="both", expand=True)
     
-    frame = sc_frame.get_frame()
+    ttk.Label(sc_frame, text="Selecciona los elementos").grid(row=0, column=0, pady=5)
+    for i in range(1, 101):
+        ttk.Label(sc_frame, text=f"Elemento {i}").grid(row=i//7, column=i%7, padx=5, pady=5)
     
-    lbl_frame = ttk.LabelFrame(frame, text="Seleccionar elementos")
-    for i in range(100):
-        ttk.Label(lbl_frame, text=f"Elemento {i}").grid(row=i//4, column=i%4, padx=5, pady=5)
+    sc_frame.grid(row=0, column=0, sticky="nsew")
     
-    lbl_frame.grid(row=0, column=0, padx=10, pady=10)
-    
-    sc_frame.grid_adjust()
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_columnconfigure(0, weight=1)
     
     root.mainloop()
