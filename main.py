@@ -2485,18 +2485,18 @@ class NodeSetupAppNew(ttk.Window):
                     resultadoCambios.put((True, "Cambios obtenidos correctamente"))
                 
                 def actualizarFrameCambios():
-                    for widget in frameCambios.winfo_children():
+                    for widget in scrolled_frame.winfo_children():
                         widget.grid_forget()
                     
                     if not self._ruta.get() or not isFolderInPath(".git", self._ruta.get()):
-                        ttk.Label(frameCambios, text="Ruta invalida", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        ttk.Label(scrolled_frame, text="Ruta invalida", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
                         return
                     
                     if not cambios:
-                        ttk.Label(frameCambios, text="No hay cambios", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        ttk.Label(scrolled_frame, text="No hay cambios", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
                     
                     for i, cambio in enumerate(cambios):
-                        detallesFrame = ttk.LabelFrame(frameCambios, text="Detalles de los cambios", bootstyle=cambio["estilo"]) # type: ignore
+                        detallesFrame = ttk.LabelFrame(scrolled_frame, text="Detalles de los cambios", bootstyle=cambio["estilo"]) # type: ignore
                         
                         ttk.Label(detallesFrame, text=f"Estado: {cambio['estado']}", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
                         ttk.Label(detallesFrame, text=f"Archivo: {cambio['archivo']}", style="info.TLabel", anchor="center").grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
@@ -2504,7 +2504,7 @@ class NodeSetupAppNew(ttk.Window):
                         detallesFrame.grid_columnconfigure(0, weight=1)
                         detallesFrame.grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
                     
-                    frameCambios.grid_columnconfigure(0, weight=1)
+                    scrolled_frame.grid_columnconfigure(0, weight=1)
                         
                 
                 def verificarResultado():
@@ -2581,18 +2581,20 @@ class NodeSetupAppNew(ttk.Window):
             comboAcciones.grid(row=8, column=0, padx=5, pady=5, sticky="nsew")
             
             framemostrarCambios = ttk.LabelFrame(frameCommit, text="Cambios", style="warning.TLabelFrame") # type: ignore
-            canvas = tk.Canvas(framemostrarCambios)
-            scrollbar = ttk.Scrollbar(framemostrarCambios, orient="vertical", command=canvas.yview, bootstyle="info-round") # type: ignore
-            frameCambios = ttk.Frame(canvas)
-            frameCambios.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-            canvas.create_window((0, 0), window=frameCambios, anchor="nw")
-            canvas.config(yscrollcommand=scrollbar.set)
-            canvas.grid(row=0, column=0, padx=5, sticky="nsew")
-            scrollbar.grid(row=0, column=1, padx=2, sticky="nsew")
+            scrolled_frame = ScrolledFrame(framemostrarCambios, "warning-rounded")
+            scrolled_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            # canvas = tk.Canvas(framemostrarCambios)
+            # scrollbar = ttk.Scrollbar(framemostrarCambios, orient="vertical", command=canvas.yview, bootstyle="info-round") # type: ignore
+            # frameCambios = ttk.Frame(canvas)
+            # frameCambios.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            # canvas.create_window((0, 0), window=frameCambios, anchor="nw")
+            # canvas.config(yscrollcommand=scrollbar.set)
+            # canvas.grid(row=0, column=0, padx=5, sticky="nsew")
+            # scrollbar.grid(row=0, column=1, padx=2, sticky="nsew")
             
-            ttk.Label(frameCambios, text="Seleccione una ruta!", style="warning.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            ttk.Label(scrolled_frame, text="Seleccione una ruta!", style="warning.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             
-            frameCambios.grid_columnconfigure(0, weight=1)
+            scrolled_frame.grid_columnconfigure(0, weight=1)
             framemostrarCambios.grid_columnconfigure(0, weight=1)
             framemostrarCambios.grid_rowconfigure(0, weight=1)
             framemostrarCambios.grid(row=9, column=0, columnspan=2, padx=5, sticky="nsew")
