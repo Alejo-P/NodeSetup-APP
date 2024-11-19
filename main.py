@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import scrolledtext
 import ttkbootstrap as ttk
+from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.constants import * # type: ignore
 from tkinter import messagebox
 import queue, os, shutil, threading, subprocess
@@ -1437,6 +1438,10 @@ class NodeSetupAppNew(ttk.Window):
         
         onUpdateFrames()
         goToFrame("Principal")
+        
+    def _sendNotification(self, title:str, message:str, duration:int=3000, **kwargs):
+        toast = ToastNotification(title=title, message=message, duration=duration, **kwargs)
+        toast.show_toast() 
     
     def _principalFrame(self):
         def abrir_ruta():
@@ -2916,7 +2921,6 @@ class NodeSetupAppNew(ttk.Window):
                     subFrame.grid_slaves(row=0, column=2)[0].config(text=tarea["estado"])
 
             columnas = scrolled_frame.grid_size()[0]
-            print(columnas)
             for columna in range(columnas):
                 scrolled_frame.grid_columnconfigure(columna, weight=1)
             
@@ -2947,14 +2951,11 @@ class NodeSetupAppNew(ttk.Window):
                 actualizarFrameDetalles(str(valores))
                 actualizarEventsFrame()
                 if not continuar:
-                    if str(valores) == "Tareas completadas":
-                        #printLog("Tareas completadas", color="green", style="bright")
-                        messagebox.showinfo("Información", "Tareas completadas")
-                    
                     self._funcGoToFrame("Principal")
                     self.Tareas.config(state="disabled")
                     self._funcOnUpdateFrames()
                     self.protocol("WM_DELETE_WINDOW", self._cerrarVentana)
+                    self._sendNotification("Informacion", f"{valores}")
                     return
                 self.frameTareas.after(100, verificar_avanceTareas)
             except queue.Empty:
