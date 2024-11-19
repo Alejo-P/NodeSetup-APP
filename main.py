@@ -1654,11 +1654,11 @@ class NodeSetupAppNew(ttk.Window):
         def CrearWidgets(listaModulos):
             if not listaWidgets:
                 for dic in listaModulos:
-                    check_usar = ttk.Checkbutton(frame, variable=dic["usar"], bootstyle="success-round-toggle", padding=4) # type: ignore
-                    label_nombre = ttk.Label(frame, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
-                    multiChoice_argumento = MultiChoice(frame, listaArgumentos, dic["argumento"],  border=1, relief="solid") # type: ignore
-                    combo_version = ttk.Combobox(frame, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
-                    label_prompt = ttk.Label(frame, image=self._imagenes["Info"], anchor="center")
+                    check_usar = ttk.Checkbutton(scrolledModulos, variable=dic["usar"], bootstyle="success-round-toggle", padding=4) # type: ignore
+                    label_nombre = ttk.Label(scrolledModulos, text=dic["nombre"], bootstyle=LIGHT, padding=4) # type: ignore
+                    multiChoice_argumento = MultiChoice(scrolledModulos, listaArgumentos, dic["argumento"],  border=1, relief="solid") # type: ignore
+                    combo_version = ttk.Combobox(scrolledModulos, values=dic["versiones"], textvariable=dic["version"], state="readonly", bootstyle=SECONDARY, width=25) # type: ignore
+                    label_prompt = ttk.Label(scrolledModulos, image=self._imagenes["Info"], anchor="center")
                     label_prompt.bind("<Button-1>", lambda e, dic=dic: onClickPrompt(dic))
 
                     listaWidgets.append([check_usar, label_nombre, multiChoice_argumento, combo_version, label_prompt])
@@ -1676,10 +1676,9 @@ class NodeSetupAppNew(ttk.Window):
                                 sticky="w" if not str(widget.cget("image")) else ""
                             )
 
-                canvas.grid(row=0, column=0, sticky="nsew")
-                scrollbar.grid(row=0, column=1, sticky="ns")
+                scrolledModulos.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
                 frame_botones = ttk.Frame(self.frameModulos, width=100)
-                frame_botones.grid(row=1, column=0, columnspan=2, pady=5, sticky="nsew")
+                frame_botones.grid(row=1, column=0, pady=5, sticky="nsew")
 
                 frame_botones.grid_columnconfigure(0, weight=1)
                 frame_botones.grid_columnconfigure(1, weight=1)
@@ -1687,12 +1686,12 @@ class NodeSetupAppNew(ttk.Window):
                 ttk.Button(frame_botones, text="Regresar", command=lambda: self._funcGoToFrame("Principal"), style="info.TButton").grid(row=0, column=0, padx=10, sticky="nsew")
                 ttk.Button(frame_botones, text="Restablecer", command=RestablecerSeleccion, style="warning.TButton").grid(row=0, column=1, padx=10, sticky="nsew")
                 
-                columnas, filas = frame.grid_size()
+                columnas, filas = scrolledModulos.grid_size()
                 for columna in range(columnas):
-                    frame.grid_columnconfigure(columna, weight=1)
+                    scrolledModulos.grid_columnconfigure(columna, weight=1)
                 
                 for fila in range(filas):
-                    frame.grid_rowconfigure(fila, weight=1)
+                    scrolledModulos.grid_rowconfigure(fila, weight=1)
                 
                 self.frameModulos.grid_columnconfigure(0, weight=1)
                 self.frameModulos.grid_rowconfigure(0, weight=1)
@@ -1740,13 +1739,8 @@ class NodeSetupAppNew(ttk.Window):
                 threading.Thread(target=iniciarCarga).start()
         
         self._modulosNPM = getDetailedModules()
-        canvas = tk.Canvas(self.frameModulos)
-        frame = ttk.Frame(canvas)
-        scrollbar = ttk.Scrollbar(self.frameModulos, orient="vertical", command=canvas.yview, bootstyle="danger-round") # type: ignore
-        canvas.config(yscrollcommand=scrollbar.set)
         
-        frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=frame, anchor="nw")
+        scrolledModulos = ScrolledFrame(self.frameModulos, "warning-rounded")
         
         encabezado = [
             "Seleccionar",
@@ -1760,9 +1754,9 @@ class NodeSetupAppNew(ttk.Window):
         cargando = False
         
         for i, txt in enumerate(encabezado):
-            ttk.Label(frame, text=txt, anchor="center").grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
+            ttk.Label(scrolledModulos, text=txt, anchor="center").grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
         
-        ttk.Separator(frame, orient="horizontal", bootstyle="warning").grid(row=1, column=0, columnspan=len(encabezado), sticky="ew") # type: ignore
+        ttk.Separator(scrolledModulos, orient="horizontal", bootstyle="warning").grid(row=1, column=0, columnspan=len(encabezado), sticky="ew") # type: ignore
         
         # Añadir una barra de progreso
         progress_bar = ttk.Progressbar(self.frameModulos, orient='horizontal', mode='indeterminate', length=280, bootstyle="warning") # type: ignore
@@ -2583,14 +2577,6 @@ class NodeSetupAppNew(ttk.Window):
             framemostrarCambios = ttk.LabelFrame(frameCommit, text="Cambios", style="warning.TLabelFrame") # type: ignore
             scrolled_frame = ScrolledFrame(framemostrarCambios, "warning-rounded")
             scrolled_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-            # canvas = tk.Canvas(framemostrarCambios)
-            # scrollbar = ttk.Scrollbar(framemostrarCambios, orient="vertical", command=canvas.yview, bootstyle="info-round") # type: ignore
-            # frameCambios = ttk.Frame(canvas)
-            # frameCambios.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-            # canvas.create_window((0, 0), window=frameCambios, anchor="nw")
-            # canvas.config(yscrollcommand=scrollbar.set)
-            # canvas.grid(row=0, column=0, padx=5, sticky="nsew")
-            # scrollbar.grid(row=0, column=1, padx=2, sticky="nsew")
             
             ttk.Label(scrolled_frame, text="Seleccione una ruta!", style="warning.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             
@@ -3122,9 +3108,6 @@ class NodeSetupAppNew(ttk.Window):
         
         frameDetalles.update_idletasks()
         ancho_widget = frameDetalles.winfo_width()
-        print(ancho_widget)
-        
-        #TODO: Ajustar el ScrollFrame al ancho del frame
         
         scrolled_frame = ScrolledFrame(self.frameTareas, "info-rounded", height=300, width=ancho_widget)
         scrolled_frame.grid(row=1, column=0, sticky="nsew", padx=5)
