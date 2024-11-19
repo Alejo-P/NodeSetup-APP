@@ -243,11 +243,11 @@ class ScrolledFrame(Widget):
         # Crear el Frame contenedor (composición en lugar de herencia)
         self._master = master
         self._minwidth = None
-        self._frame = ttk.Frame(master, **kwargs)  # Este es el Frame principal del contenedor
+        self._frame = ttk.Frame(master, **kwargs) # Este es el Frame principal del contenedor
         sizegrip_style = elements_style.split("-")[0]
         
         # Crear el Canvas y los Scrollbars
-        self._canvas = ttk.Canvas(self._frame) #type: ignore
+        self._canvas = ttk.Canvas(self._frame)
         self._scrollbarY = ttk.Scrollbar(self._frame, orient="vertical", command=self._canvas.yview, bootstyle=elements_style) #type: ignore
         self._scrollbarX = ttk.Scrollbar(self._frame, orient="horizontal", command=self._canvas.xview, bootstyle=elements_style) #type: ignore
         
@@ -318,6 +318,7 @@ class ScrolledFrame(Widget):
         new_height = max(canvas_height, required_height)
         self._canvas.itemconfig(self.int_creation_window, width=new_width, height=new_height)
         self._inner_frame.update_idletasks()  # Actualizar el frame interno
+        self._canvas.config(scrollregion=self._canvas.bbox("all"))
 
         # Mostrar/ocultar scrollbars
         self._update_scroll_visibility()
@@ -328,8 +329,9 @@ class ScrolledFrame(Widget):
         self._update_scroll_visibility()
 
     def add_widget(self, widget, *args, **kwargs):
-        """Método que permite agregar widgets al Frame interno de forma directa."""
-        widget.grid(*args, **kwargs)  # Usar `grid` en el Frame interno
+        """Agrega un widget al Frame interno y ajusta scrollbars."""
+        widget.grid(*args, **kwargs)  # Usa grid para colocar el widget en el Frame interno
+        self._adjust_frame_and_scrollbars()  # Ajustar tamaño del Frame interno y scrollbars
 
     # Redefinir los métodos para acceder a los atributos del Frame interno
     def __getattr__(self, attr):
@@ -351,32 +353,46 @@ class ScrolledFrame(Widget):
     def grid(self, *args, **kwargs):
         """Posiciona el Frame contenedor usando grid."""
         self._frame.grid(*args, **kwargs)
+        self._canvas.update_idletasks()
+        self.grid_adjust()
 
 if __name__ == "__main__":
     def limpiar():
         seleccion.set("")
+        
+    def agregar_elemento():
+        texto = seleccion.get()
+        if not texto:
+            return
+        
+        # Crear y agregar el nuevo widget al ScrolledFrame
+        nueva_etiqueta = ttk.Label(sc_frame, text=texto)
+        sc_frame.add_widget(nueva_etiqueta, padx=5, pady=5)  # Usar add_widget para gestionar dinámicamente
+        seleccion.set("")
+        
+        columnas, filas = sc_frame.grid_size()
+        for i in range(columnas):
+            sc_frame.grid_columnconfigure(i, weight=1)
+            
+        for i in range(filas):
+            sc_frame.grid_rowconfigure(i, weight=1)
     
     root = ttk.Window(themename="superhero")
     root.title("Ejemplo de ScrolledFrame")
     root.geometry("400x400")
-    # root.resizable(False, False)
     seleccion = ttk.StringVar()
     
     sc_frame = ScrolledFrame(root, "danger-rounded")
     
     ttk.Label(sc_frame, text="Selecciona los elementos").grid(row=0, column=0, pady=5)
-    for i in range(1, 101):
-        ttk.Label(sc_frame, text=f"Elemento {i}").grid(row=i//7, column=i%7, padx=5, pady=5)
-        
-    columnas, filas = sc_frame.grid_size()
-    for i in range(columnas):
-        sc_frame.grid_columnconfigure(i, weight=1)
-        
-    for i in range(filas):
-        sc_frame.grid_rowconfigure(i, weight=1)
     
-    sc_frame.pack(expand=True, fill="both")
+    sc_frame.grid(row=0, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
     
+    ttk.Entry(root, textvariable=seleccion).grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
+    
+    ttk.Button(root, text="Limpiar", command=limpiar).grid(row=2, column=0, pady=5)
+    ttk.Button(root, text="Agregar elemento", command=agregar_elemento).grid(row=2, column=1, pady=5)
+        
     root.grid_rowconfigure(0, weight=1)
     root.grid_columnconfigure(0, weight=1)
     

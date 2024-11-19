@@ -3108,9 +3108,8 @@ class NodeSetupAppNew(ttk.Window):
         frameDetalles.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
         frameDetalles.update_idletasks()
-        ancho_widget = frameDetalles.winfo_width()
         
-        scrolled_frame = ScrolledFrame(self.frameTareas, "info-rounded", height=300, width=ancho_widget)
+        scrolled_frame = ScrolledFrame(self.frameTareas, "success-rounded")
         scrolled_frame.grid(row=1, column=0, sticky="nsew", padx=5)
         
         self._funcConteoTareas = conteo_tareas
