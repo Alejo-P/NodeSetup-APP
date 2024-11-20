@@ -367,6 +367,27 @@ class ScrolledFrame(Widget):
         self._canvas.update_idletasks()
         self.grid_adjust()
 
+class DndFrame(ttk.Frame):
+    def __init__(self, master=None, **kwargs):
+        super().__init__(master, **kwargs)
+        self._drag_data = {"x": 0, "y": 0, "item": None}
+        self._drag_data["item"] = self
+        self._bindsSecuences = {}
+        self.type = "normal"
+    
+    def onDrag(self, callback:Callable[[tk.Event], None] = no_callback):
+        self._bindsSecuences["<B1-Motion>"] = self.bind("<B1-Motion>", callback)
+    
+    def onDrop(self, callback:Callable[[tk.Event], None] = no_callback):
+        self._bindsSecuences["<ButtonRelease-1>"] = self.bind("<ButtonRelease-1>", callback)
+    
+    def getBinds(self):
+        return self._bindsSecuences
+        
+    def deleteBind(self, sequence:str = "<B1-Motion>"):
+        self.unbind(sequence)
+        self._bindsSecuences.pop(sequence)
+
 if __name__ == "__main__":
     def limpiar():
         seleccion.set("")

@@ -45,7 +45,8 @@ from Vars import (
     Registro_hilos,
     respuestas,
     registro_commits,
-    ruta_assets
+    ruta_assets,
+    GitRemotes_args
 )
 from serverWindow import ServerWindow
 from version import __version__ as appVersion
@@ -1877,6 +1878,7 @@ class NodeSetupAppNew(ttk.Window):
                     btn_clonacion.config(state="disabled")
                     mensajes += 1
                     lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    btnInitGit.config(state="normal")
                     lblInicio.type = "warning"
                     if "-> La URL del repositorio no puede estar vacía" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La URL del repositorio no puede estar vacía")
@@ -1891,6 +1893,7 @@ class NodeSetupAppNew(ttk.Window):
                     btn_clonacion.config(state="disabled")
                     mensajes += 1
                     lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
+                    btnInitGit.config(state="disabled")
                     lblInicio.type = "warning"
                     if "-> La ruta de destino no puede estar vacía" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no puede estar vacía")
@@ -1906,6 +1909,7 @@ class NodeSetupAppNew(ttk.Window):
                     mensajes += 1
                     lblInicio.config(image=self._imagenes["Warning"], compound="left", style="Warning.TLabel")
                     lblInicio.type = "warning"
+                    btnInitGit.config(state="disabled")
                     if "-> La ruta de destino no es válida" not in textoTooltip:
                         self.toolTip_GitInicio.setText(f"{textoTooltip}\n-> La ruta de destino no es válida")
                 else:
@@ -1919,6 +1923,7 @@ class NodeSetupAppNew(ttk.Window):
                     lblInicio.config(image="", compound="center", style="Selected.TLabel")
                     lblInicio.type = "normal"
                     btn_clonacion.config(state="normal")
+                    btnInitGit.config(state="disabled")
             
             def onClickRemotos():
                 def obtener_remotos_background():
@@ -1959,155 +1964,69 @@ class NodeSetupAppNew(ttk.Window):
                     URLrepo.set(comboRemotos.get())
                     onCloseRemotos()
                 
-                def onClickAddRemoto():
-                    def agregar_remoto_background():
-                        resultado = addGitRemote(self._ruta.get(), entryNombreRemoto.get(), entryURLRemoto.get())
-                        if not resultado:
-                            resultado_agrego.put((False, "Error al agregar el remoto"))
-                            return
-                        resultado_agrego.put((True, "Remoto agregado correctamente"))
+                def onClickManageRemotes():
+                    def onContinue():
+                        pass
                     
-                    def verificar_agrego():
-                        nonlocal idPopAfter
-                        try:
-                            continuar, resultado = resultado_agrego.get_nowait()
-                            if not continuar:
-                                messagebox.showerror("Error", resultado)
-                                btnAgregarRemoto.config(state="normal", text="Agregar")
-                                idPopAfter = None
-                                return
-                            messagebox.showinfo("Información", resultado)
-                            btnAgregarRemoto.config(state="normal", text="Agregar")
-                            idPopAfter = None
-                        except queue.Empty:
-                            idPopAfter = popUpAgregar.after(100, verificar_agrego)
-                    
-                    def iniciar_agrego():
-                        nonlocal idPopAfter
-                        if not entryNombreRemoto.get():
-                            messagebox.showerror("Error", "El nombre del remoto no puede estar vacío")
-                            return
-                        if not entryNombreRemoto.get().isidentifier():
-                            messagebox.showerror("Error", "El nombre del remoto no es válido")
+                    def validar_entradas():
+                        if not entry_name.get():
+                            boton_continuar.config(state="disabled")
                             return
                         
-                        btnAgregarRemoto.config(state="disabled", text="Agregando...")
-                        threading.Thread(target=agregar_remoto_background).start()
-                        idPopAfter = popUpAgregar.after(100, verificar_agrego)
-                    
-                    def ValidarEntries():
-                        if not entryNombreRemoto.get():
-                            messagebox.showerror("Error", "El nombre del remoto no puede estar vacío")
+                        if not entry_url.get():
+                            boton_continuar.config(state="disabled")
                             return
                         
-                        if not entryNombreRemoto.get().isidentifier():
-                            messagebox.showerror("Error", "El nombre del remoto no es válido")
-                            return
+                        boton_continuar.config(state="normal")
+                    
+                    def onChangeAccion():
+                        if combo_args.get()  == "add":
+                            entry_name.config(state="normal")
+                            entry_url.config(state="normal")
+                            validar_entradas()
+                        elif combo_args.get() == "remove":
+                            entry_name.config(state="normal")
+                            entry_url.config(state="readonly")
+                            validar_entradas()
+                        elif combo_args.get() == "rename":
+                            entry_name.config(state="normal")
+                            entry_url.config(state="normal")
+                            validar_entradas()
+                        elif combo_args.get() == "prune":
+                            entry_name.config(state="readonly")
+                            entry_url.config(state="readonly")
+                            boton_continuar.config(state="normal")
+                    
+                    def onClose():
+                        for widget in popUp_manage.winfo_children():
+                            widget.destroy()
                         
-                        if not entryURLRemoto.get():
-                            messagebox.showerror("Error", "La URL del remoto no puede estar vacía")
-                            return
-                        
-                        #TODO: Continuar con las validaciones para el boton "Agregar Remoto"
-                        if not isValidURL(entryURLRemoto.get()):
-                            messagebox.showerror("Error", "La URL del remoto no es válida")
-                            return
-                        
+                        popUp_manage.destroy()
                     
-                    def onClosePopUp():
-                        if idPopAfter:
-                            popUpAgregar.after_cancel(idPopAfter)
-                        popUpAgregar.destroy()
+                    popUp_manage = ttk.Toplevel()
+                    popUp_manage.title("Administrar remotos")
+                    popUp_manage.resizable(False, False)
+                    popUp_manage.transient(self)
+                    popUp_manage.protocol("WM_DELETE_WINDOW", onClose)
+                    popUp_manage.grab_set()
                     
-                    resultado_agrego = queue.Queue()
-                    idPopAfter = None
-                    popUpAgregar = ttk.Toplevel()
-                    popUpAgregar.title("Agregar remoto")
-                    popUpAgregar.protocol("WM_DELETE_WINDOW", onClosePopUp)
-                    popUpAgregar.resizable(False, False)
-                    popUpAgregar.transient(self)
+                    ttk.Label(popUp_manage, text="Accion:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                    combo_args = ttk.Combobox(popUp_manage, values=GitRemotes_args, state="readonly")
+                    combo_args.current(0)
+                    combo_args.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
                     
-                    nombreRemotoVar = tk.StringVar()
-                    ttk.Label(popUpAgregar, text="Nombre del remoto:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-                    entryNombreRemoto = ttk.Entry(popUpAgregar, width=50, textvariable=nombreRemotoVar)
-                    entryNombreRemoto.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+                    ttk.Label(popUp_manage, text="Nombre del remoto:", anchor="center").grid(row=1, column=0, padx=5, sticky="nsew")
+                    entry_name = ttk.Entry(popUp_manage, width=50)
+                    entry_name.grid(row=1, column=1, padx=5, sticky="nsew")
                     
-                    urlRemotoVar = tk.StringVar()
-                    ttk.Label(popUpAgregar, text="URL del remoto:", anchor="center").grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
-                    entryURLRemoto = ttk.Entry(popUpAgregar, width=50, textvariable=urlRemotoVar)
-                    entryURLRemoto.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
+                    ttk.Label(popUp_manage, text="URL del remoto:", anchor="center").grid(row=2, column=0, padx=5, sticky="nsew")
+                    entry_url = ttk.Entry(popUp_manage, width=50)
+                    entry_url.grid(row=2, column=1, padx=5, sticky="nsew")
                     
-                    btnAgregarRemoto = ttk.Button(popUpAgregar, text="Agregar", command=iniciar_agrego, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
-                    btnAgregarRemoto.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
-                
-                def onClickDeleteRemote():
-                    def delete_remote_background():
-                        resultado = removeGitRemote(self._ruta.get(), comboRemotos.get())
-                        if not resultado:
-                            resultado_delete.put((False, "Error al eliminar el remoto"))
-                            return
-                        resultado_delete.put((True, "Remoto eliminado correctamente"))
-                    
-                    def verificar_delete():
-                        nonlocal idPopAfter
-                        try:
-                            continuar, resultado = resultado_delete.get_nowait()
-                            if not continuar:
-                                messagebox.showerror("Error", resultado)
-                                btnEliminarRemoto.config(state="normal", text="Eliminar")
-                                idPopAfter = None
-                                return
-                            messagebox.showinfo("Información", resultado)
-                            btnEliminarRemoto.config(state="normal", text="Eliminar")
-                            idPopAfter = None
-                        except queue.Empty:
-                            idPopAfter = popUpEliminar.after(100, verificar_delete)
-                    
-                    def iniciar_delete():
-                        nonlocal idPopAfter
-                        if not comboRemotos.get():
-                            messagebox.showerror("Error", "No hay remotos para eliminar")
-                            return
-                        
-                        btnEliminarRemoto.config(state="disabled", text="Eliminando...")
-                        threading.Thread(target=delete_remote_background).start()
-                        idPopAfter = popUpEliminar.after(100, verificar_delete)
-                        
-                    def onClosePopUp():
-                        if idPopAfter:
-                            popUpEliminar.after_cancel(idPopAfter)
-                        popUpEliminar.destroy()
-                        
-                    resultado_delete = queue.Queue()
-                    idPopAfter = None
-                    popUpEliminar = ttk.Toplevel()
-                    popUpEliminar.title("Eliminar remoto")
-                    popUpEliminar.protocol("WM_DELETE_WINDOW", onClosePopUp)
-                    popUpEliminar.resizable(False, False)
-                    
-                    ttk.Label(popUpEliminar, text="¿Estás seguro de eliminar el remoto seleccionado?", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
-                    btnEliminarRemoto = ttk.Button(popUpEliminar, text="Eliminar", command=iniciar_delete, bootstyle=(DANGER, OUTLINE)) # type: ignore
-                    btnEliminarRemoto.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
-                    
-                    centerWindow(popUpEliminar)
-                
-                #TODO: Continuar con la implementacion de agregar, editar y eliminar remotos
-                
-                def onClickInitGit():
-                    if not isFolderInPath(".git", self._ruta.get()):
-                        messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
-                        return
-                    
-                    if not os.path.exists(os.path.join(self._ruta.get(), ".git")):
-                        messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
-                        return
-                    
-                    if not os.path.exists(os.path.join(self._ruta.get(), ".git", "config")):
-                        messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
-                        return
-                    
-                    self._funcGoToFrame("Git")
-                
+                    boton_continuar = ttk.Button(popUp_manage, text="Ejecutar accion", command=lambda: addRemote(entry_name.get(), entry_url.get()), bootstyle=(SUCCESS, OUTLINE)) # type: ignore
+                    boton_continuar.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+                    centerWindow(popUp_manage)
+               
                 def onCloseRemotos():
                     if idPopAfter:
                         frameInicio.after_cancel(idPopAfter)
@@ -2128,6 +2047,7 @@ class NodeSetupAppNew(ttk.Window):
                 popUp.resizable(False, False)
                 popUp.transient(self)
                 popUp.protocol("WM_DELETE_WINDOW", onCloseRemotos)
+                popUp.grab_set()
                 
                 ttk.Label(popUp, text="Repositorios remotos:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
                 comboRemotos = ttk.Combobox(popUp, width=50, state="readonly")
@@ -2135,11 +2055,12 @@ class NodeSetupAppNew(ttk.Window):
                 comboRemotos.current(0)
                 comboRemotos.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
                 
-                lbladdRemoto = ttk.Label(popUp, image=self._imagenes["Add"], anchor="center", cursor="hand2")
+                lbladdRemoto = ttk.Label(popUp, image=self._imagenes["Edit"], anchor="center", cursor="hand2")
                 lbladdRemoto.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
-                tooltipAddRemoto = ToolTip(lbladdRemoto, text="Agregar un nuevo remoto")
+                tooltipAddRemoto = ToolTip(lbladdRemoto, text="Administrar remotos")
                 lbladdRemoto.bind("<Enter>", lambda e: tooltipAddRemoto.showtip("w"))
                 lbladdRemoto.bind("<Leave>", lambda e: tooltipAddRemoto.hidetip())
+                lbladdRemoto.bind("<Button-1>", lambda e: onClickManageRemotes())
                 
                 btn_seleccion = ttk.Button(popUp, text="Seleccionar", command=guardar_remoto_seleccionado, bootstyle=(SUCCESS, OUTLINE), state="disabled") # type: ignore
                 btn_seleccion.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
@@ -2148,6 +2069,29 @@ class NodeSetupAppNew(ttk.Window):
                 idPopAfter = popUp.after(100, verificar_remotos)
                 
                 centerWindow(popUp)
+            
+            def onClickInitGit():
+                archivos_git = [
+                    "config",
+                    "description",
+                    "HEAD",
+                    "hooks",
+                    "info",
+                    "objects",
+                    "refs"
+                ]
+                
+                for archivo in archivos_git:
+                    if os.path.exists(os.path.join(self._ruta.get(), ".git", archivo)):
+                        messagebox.showerror("Error", "La ruta seleccionada ya es un repositorio de Git")
+                        return
+                
+                resultado = runCommand([self._git_path, "init"], self._ruta.get())
+                if isinstance(resultado, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al iniciar Git: {resultado.stderr}")
+                    return
+                
+                self._sendNotification("Git iniciado", "Se ha iniciado Git en la ruta seleccionada", icon=str(self._imagenes["git"]))
             
             ttk.Label(frameInicio, text="Ingresa la URL del repositorio:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryURL = ttk.Entry(frameInicio, textvariable=URLrepo, width=50)
@@ -2183,8 +2127,22 @@ class NodeSetupAppNew(ttk.Window):
             URLrepo.trace_add("write", lambda *args: ValidarEntries())
             self._ruta.trace_add("write", lambda *args: ValidarEntries())
             
-            btn_clonacion = ttk.Button(frameInicio, text="Clonar", command=onClonarRepositorio, bootstyle=(INFO, OUTLINE), state="disabled") # type: ignore
-            btn_clonacion.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            frame_botones = ttk.Frame(frameInicio)
+            
+            btn_clonacion = ttk.Button(frame_botones, text="Clonar", command=onClonarRepositorio, bootstyle=(INFO, OUTLINE), state="disabled") # type: ignore
+            btn_clonacion.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+            
+            ttk.Label(frame_botones, text="o", anchor="center").grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+            
+            btnInitGit = ttk.Button(frame_botones, text="Iniciar Git", command=onClickInitGit, bootstyle=(SUCCESS, OUTLINE), state="disabled") # type: ignore
+            btnInitGit.grid(row=0, column=2, padx=5, pady=5, sticky="nsew")
+            
+            columnas = frame_botones.grid_size()[0]
+            for columna in range(columnas):
+                if columna %2 == 0:
+                    frame_botones.grid_columnconfigure(columna, weight=1)
+                
+            frame_botones.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
             frameInicio.grid_columnconfigure(0, weight=1)
         
@@ -3577,6 +3535,7 @@ class NodeSetupAppNew(ttk.Window):
         self._imagenes["Warning"] = loadImageTk((os.path.join(ruta_assets, "warningIcon.png")), 20, 20)
         self._imagenes["Info"] = loadImageTk((os.path.join(ruta_assets, "infoIcon.png")), 20, 20)
         self._imagenes["Add"] = loadImageTk((os.path.join(ruta_assets, "addIcon.png")), 20, 20)
+        self._imagenes["Minus"] = loadImageTk((os.path.join(ruta_assets, "minusIcon.png")), 20, 20)
         self._imagenes["Trash"] = loadImageTk((os.path.join(ruta_assets, "trashIcon.png")), 20, 20)
         self._imagenes["User"] = loadImageTk((os.path.join(ruta_assets, "userIcon.png")), 20, 20)
         self._imagenes["Mail"] = loadImageTk((os.path.join(ruta_assets, "mailIcon.png")), 20, 20)

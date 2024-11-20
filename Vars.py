@@ -87,6 +87,15 @@ modulosNPM = sorted([
     "Swagger-ui-express"
 ], key=str.lower)
 
+GitRemotes_args = [
+    "add",
+    "remove",
+    "rename",
+    "set-url",
+    "show",
+    "prune"
+]
+
 Registro_hilos = []
 
 Registro_eventos = []
