@@ -332,6 +332,17 @@ class ScrolledFrame(Widget):
         """Agrega un widget al Frame interno y ajusta scrollbars."""
         widget.grid(*args, **kwargs)  # Usa grid para colocar el widget en el Frame interno
         self._adjust_frame_and_scrollbars()  # Ajustar tamaño del Frame interno y scrollbars
+    
+    def remove_widget(self, widget):
+        """Elimina un widget del Frame interno y ajusta scrollbars."""
+        widget.grid_forget()  # Eliminar el widget del Frame interno
+        self._adjust_frame_and_scrollbars()  # Ajustar tamaño del Frame interno y scrollbars
+    
+    def clear_widgets(self):
+        """Eliminar todos los widgets del Frame interno y ajustar scrollbars."""
+        for widget in self.winfo_children():
+            widget.grid_forget()  # Eliminar cada widget del Frame interno
+        self._adjust_frame_and_scrollbars()  # Ajustar tamaño del Frame interno y scrollbars
 
     # Redefinir los métodos para acceder a los atributos del Frame interno
     def __getattr__(self, attr):

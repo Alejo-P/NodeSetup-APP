@@ -2773,6 +2773,8 @@ class NodeSetupAppNew(ttk.Window):
             total_pasos = 1
             self._tareas.clear()
             self._taskWidgets.clear()
+            taskWidgets.clear()
+            scrolled_frame.clear_widgets()
             if self.CrearRutaVar.get():
                 tarea = {
                     "accion": "Crear ruta",
@@ -2911,7 +2913,8 @@ class NodeSetupAppNew(ttk.Window):
                     for columna in range(columnas):
                         subFrame.grid_columnconfigure(columna, weight=1)
 
-                    subFrame.grid(row=i-1, column=0, sticky="nsew", padx=5, pady=5)
+                    #subFrame.grid(row=i-1, column=0, sticky="nsew", padx=5, pady=5)
+                    scrolled_frame.add_widget(subFrame, row=i-1, column=0, padx=5, pady=5, sticky="nsew")
                     taskWidgets[i] = subFrame
                 else:
                     subFrame = taskWidgets[i]
