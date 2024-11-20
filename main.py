@@ -2039,6 +2039,59 @@ class NodeSetupAppNew(ttk.Window):
                     btnAgregarRemoto = ttk.Button(popUpAgregar, text="Agregar", command=iniciar_agrego, bootstyle=(SUCCESS, OUTLINE)) # type: ignore
                     btnAgregarRemoto.grid(row=4, column=0, padx=5, pady=5, sticky="nsew")
                 
+                def onClickDeleteRemote():
+                    def delete_remote_background():
+                        resultado = deleteGitRemote(self._ruta.get(), comboRemotos.get())
+                        if not resultado:
+                            resultado_delete.put((False, "Error al eliminar el remoto"))
+                            return
+                        resultado_delete.put((True, "Remoto eliminado correctamente"))
+                    
+                    def verificar_delete():
+                        nonlocal idPopAfter
+                        try:
+                            continuar, resultado = resultado_delete.get_nowait()
+                            if not continuar:
+                                messagebox.showerror("Error", resultado)
+                                btnEliminarRemoto.config(state="normal", text="Eliminar")
+                                idPopAfter = None
+                                return
+                            messagebox.showinfo("Información", resultado)
+                            btnEliminarRemoto.config(state="normal", text="Eliminar")
+                            idPopAfter = None
+                        except queue.Empty:
+                            idPopAfter = popUpEliminar.after(100, verificar_delete)
+                    
+                    def iniciar_delete():
+                        nonlocal idPopAfter
+                        if not comboRemotos.get():
+                            messagebox.showerror("Error", "No hay remotos para eliminar")
+                            return
+                        
+                        btnEliminarRemoto.config(state="disabled", text="Eliminando...")
+                        threading.Thread(target=delete_remote_background).start()
+                        idPopAfter = popUpEliminar.after(100, verificar_delete)
+                        
+                    def onClosePopUp():
+                        if idPopAfter:
+                            popUpEliminar.after_cancel(idPopAfter)
+                        popUpEliminar.destroy()
+                        
+                    resultado_delete = queue.Queue()
+                    idPopAfter = None
+                    popUpEliminar = ttk.Toplevel()
+                    popUpEliminar.title("Eliminar remoto")
+                    popUpEliminar.protocol("WM_DELETE_WINDOW", onClosePopUp)
+                    popUpEliminar.resizable(False, False)
+                    
+                    ttk.Label(popUpEliminar, text="¿Estás seguro de eliminar el remoto seleccionado?", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                    btnEliminarRemoto = ttk.Button(popUpEliminar, text="Eliminar", command=iniciar_delete, bootstyle=(DANGER, OUTLINE)) # type: ignore
+                    btnEliminarRemoto.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+                    
+                    centerWindow(popUpEliminar)
+                
+                #TODO: Continuar con la implementacion de agregar, editar y eliminar remotos
+                
                 def onClickInitGit():
                     if not isFolderInPath(".git", self._ruta.get()):
                         messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
