@@ -28,6 +28,7 @@ from Actions import (
     preventCloseWindow,
     getVersionOf,
     printLog,
+    removeGitRemote,
     writeLog,
     getPathOf,
     runCommand,
@@ -2041,7 +2042,7 @@ class NodeSetupAppNew(ttk.Window):
                 
                 def onClickDeleteRemote():
                     def delete_remote_background():
-                        resultado = deleteGitRemote(self._ruta.get(), comboRemotos.get())
+                        resultado = removeGitRemote(self._ruta.get(), comboRemotos.get())
                         if not resultado:
                             resultado_delete.put((False, "Error al eliminar el remoto"))
                             return
