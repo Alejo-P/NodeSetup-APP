@@ -2,6 +2,7 @@ import json
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import scrolledtext
+from plyer import notification
 import ttkbootstrap as ttk
 from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.constants import * # type: ignore
@@ -1442,8 +1443,25 @@ class NodeSetupAppNew(ttk.Window):
         goToFrame("Principal")
         
     def _sendNotification(self, title:str, message:str, duration:int=3000, **kwargs):
-        toast = ToastNotification(title=title, message=message, duration=duration, **kwargs)
-        toast.show_toast() 
+        iconName = kwargs.pop("icon", "principal")
+        
+        # toast = ToastNotification(
+        #     title=title,
+        #     message=message,
+        #     duration=duration,
+        #     icon=self._imagenes[iconName],
+        #     **kwargs
+        #     )
+        # toast.show_toast()
+        
+        notification.notify( # type: ignore
+            title=title,
+            message=message,
+            app_name="Node Setup App",
+            # ruta al recurso assets/ProfileIcon.ico
+            app_icon=os.path.join(ruta_assets, "ProfileIcon.ico"),
+            timeout=duration
+        )
     
     def _principalFrame(self):
         def abrir_ruta():
@@ -2086,12 +2104,20 @@ class NodeSetupAppNew(ttk.Window):
                         messagebox.showerror("Error", "La ruta seleccionada ya es un repositorio de Git")
                         return
                 
+                if not messagebox.askyesno("Informacion", "Se realizará un commit inicial para crear la rama predeterminada y realizar el commits en ella, ¿desea continuar?"):
+                    return
+                
                 resultado = runCommand([self._git_path, "init"], self._ruta.get())
                 if isinstance(resultado, subprocess.CalledProcessError):
                     messagebox.showerror("Error", f"Error al iniciar Git: {resultado.stderr}")
                     return
+
+                commit = runCommand([self._git_path, "commit", "--allow-empty", "-m", "Initial commit"], self._ruta.get())
+                if isinstance(commit, subprocess.CalledProcessError):
+                    messagebox.showerror("Error", f"Error al realizar el commit inicial: {commit.stderr}")
+                    return
                 
-                self._sendNotification("Git iniciado", "Se ha iniciado Git en la ruta seleccionada", icon=str(self._imagenes["git"]))
+                self._sendNotification("Git iniciado", "Se ha iniciado Git en la ruta seleccionada", icon="git")
             
             ttk.Label(frameInicio, text="Ingresa la URL del repositorio:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
             entryURL = ttk.Entry(frameInicio, textvariable=URLrepo, width=50)
@@ -2450,8 +2476,10 @@ class NodeSetupAppNew(ttk.Window):
                         btn_commit.config(state="normal", text="Commit")
                         if not exito:
                             messagebox.showerror("Error", f"Error al realizar el commit: {mensaje}")
+                            self._sendNotification("Error al realizar el commit", mensaje, icon="git")
                             return
                         messagebox.showinfo("Información", mensaje)
+                        self._sendNotification("Commit realizado", mensaje, icon="git")
                     except:
                         frameCommit.after(100, verificarCommit)
                     
@@ -2496,15 +2524,14 @@ class NodeSetupAppNew(ttk.Window):
                     resultadoCambios.put((True, "Cambios obtenidos correctamente"))
                 
                 def actualizarFrameCambios():
-                    for widget in scrolled_frame.winfo_children():
-                        widget.grid_forget()
+                    scrolled_frame.clear_widgets()
                     
                     if not self._ruta.get() or not isFolderInPath(".git", self._ruta.get()):
-                        ttk.Label(scrolled_frame, text="Ruta invalida", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        scrolled_frame.add_widget(ttk.Label(scrolled_frame, text="Ruta invalida", style="info.TLabel", anchor="center"), row=0, column=0, padx=5, pady=5, sticky="nsew")
                         return
                     
                     if not cambios:
-                        ttk.Label(scrolled_frame, text="No hay cambios", style="info.TLabel", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+                        scrolled_frame.add_widget(ttk.Label(scrolled_frame, text="No hay cambios", style="info.TLabel", anchor="center"), row=0, column=0, padx=5, pady=5, sticky="nsew")
                     
                     for i, cambio in enumerate(cambios):
                         detallesFrame = ttk.LabelFrame(scrolled_frame, text="Detalles de los cambios", bootstyle=cambio["estilo"]) # type: ignore
@@ -2513,7 +2540,7 @@ class NodeSetupAppNew(ttk.Window):
                         ttk.Label(detallesFrame, text=f"Archivo: {cambio['archivo']}", style="info.TLabel", anchor="center").grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
                         
                         detallesFrame.grid_columnconfigure(0, weight=1)
-                        detallesFrame.grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
+                        scrolled_frame.add_widget(detallesFrame, row=i, column=0, padx=5, pady=5, sticky="nsew")
                     
                     scrolled_frame.grid_columnconfigure(0, weight=1)
                         
@@ -2970,7 +2997,7 @@ class NodeSetupAppNew(ttk.Window):
                     self.Tareas.config(state="disabled")
                     self._funcOnUpdateFrames()
                     self.protocol("WM_DELETE_WINDOW", self._cerrarVentana)
-                    self._sendNotification("Informacion", f"{valores}")
+                    self._sendNotification("Informacion", f"{valores}", icon="tareas")
                     return
                 self.frameTareas.after(100, verificar_avanceTareas)
             except queue.Empty:
