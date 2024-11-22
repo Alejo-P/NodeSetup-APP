@@ -315,7 +315,7 @@ def loadImageTk(path:str, width:int = 50, height:int = 50):
         return imagenTk
     except Exception as e:
         print("Error al cargar la imagen:", e)
-        return str("")
+        return ImageTk.PhotoImage(Image.new("RGB", (width, height), "white"))
 
 def getGitBranches(ruta:str):
     """Obtiene las ramas de un repositorio Git.

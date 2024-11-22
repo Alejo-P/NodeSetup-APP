@@ -1,10 +1,12 @@
 from collections.abc import Callable
+import os
 import tkinter as tk
 from tkinter import Widget
 from typing import List, Literal
 import ttkbootstrap as ttk
-
+from PIL import Image, ImageTk
 from Actions import doNothing, loadImageTk
+from Vars import ruta_assets
 
 no_callback = lambda x: doNothing()
 

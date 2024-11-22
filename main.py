@@ -1277,18 +1277,28 @@ class NodeSetupAppNew(ttk.Window):
                 if str(widget.cget("state")) == "disabled":
                     continue
                 
-                widget.config( # type: ignore
-                    style="Custom.TLabel",
-                    cursor="hand2",
-                )
-                widget.bind("<Button-1>", onFrameClick)
+                if isinstance(widget, SelectionLabel):
+                    if widget.type == "warning":
+                        widget.config( # type: ignore
+                            style="Warning.TLabel",
+                            cursor="arrow",
+                        )
+                        widget.onClick(callback=onFrameClick)
+                        continue
+                
+                    widget.config( # type: ignore
+                        style="Custom.TLabel",
+                        cursor="hand2",
+                    )
+                    widget.onClick(callback=onFrameClick)
             
             event.widget.config(style="Selected.TLabel", cursor="arrow")
-            event.widget.unbind("<Button-1>")
+            event.widget.deleteBind("<Button-1>")
             showSelectedFrame(event.widget.cget("text"))
         
         def onUpdateFrames():
             for frame in self.frameSeleccion.winfo_children():
+                #TODO: Manejar la actualizacion de frames con el SelectedLabel
                 if str(frame.cget("state")) == "disabled":
                     frame.config( # type: ignore
                         style="Disabled.TLabel",
@@ -1338,7 +1348,21 @@ class NodeSetupAppNew(ttk.Window):
                 messagebox.showerror("Error", f"El frame {frameName} no existe")
         
         def setToolTipText():
-            self.toolTipPrincipal.setText("Configurar el entorno de Node")
+            textoTipPrincipal = self.toolTipPrincipal.getText().split("\n")
+            textoTipModulos = self.toolTipModulos.getText().split("\n")
+            textoTipGit = self.toolTipGit.getText().split("\n")
+            textoTipTareas = self.toolTipTareas.getText().split("\n")
+            textoTipConfiguracion = self.toolTipConfiguracion.getText().split("\n")
+            
+            textoTipPrincipal[0] = "Configurar el entorno Node"
+            if self.Principal.cget("style") == "Disabled.TLabel":
+                if "(No se puede acceder a este frame)" not in textoTipPrincipal:
+                    textoTipPrincipal.insert(1, "(No se puede acceder a este frame)")
+            else:
+                if "(No se puede acceder a este frame)" in textoTipPrincipal:
+                    textoTipPrincipal.remove("(No se puede acceder a este frame)")
+            self.toolTipPrincipal.setText("\n".join(textoTipPrincipal))
+            
             
             mensajeFrameModulos = "Seleccionar los módulos a instalar"
             if self.Modulos.cget("style") == "Disabled.TLabel":
@@ -1369,14 +1393,14 @@ class NodeSetupAppNew(ttk.Window):
         self._funcGoToFrame = goToFrame
         self._funcOnUpdateFrames = onUpdateFrames
         
-        self._npm_path = getPathOf("npm")
+        self._node_path = "" #getPathOf("node")
+        self._npm_path = "" #getPathOf("npm")
         self._git_path = getPathOf("git")
         self._code_path = getPathOf("code")
-        self._node_path = getPathOf("node")
         
         self._versionGit = getVersionOf(self._git_path) if self._git_path else None
-        self._versionNPM = getVersionOf(self._npm_path)
-        self._versionNode = getVersionOf(self._node_path)
+        self._versionNPM = getVersionOf(self._npm_path) if self._npm_path else None
+        self._versionNode = getVersionOf(self._node_path) if self._node_path else None
         
         estilos = ttk.Style()
         estilos.configure("Custom.TFrame", background="#3E556A")
@@ -1389,11 +1413,11 @@ class NodeSetupAppNew(ttk.Window):
         
         self.frameSeleccion = ttk.Frame(self, name="selector", style="Custom.TFrame")
         
-        self.Principal = ttk.Label(self.frameSeleccion, text="Principal", style="Custom.TLabel")
-        self.Modulos = ttk.Label(self.frameSeleccion, text="Modulos", style="Disabled.TLabel", state="disabled")
-        self.Git = ttk.Label(self.frameSeleccion, text="Git", style="Custom.TLabel" if self._versionGit else "Disabled.TLabel", state="normal" if self._versionGit else "disabled")
-        self.Tareas = ttk.Label(self.frameSeleccion, text="Tareas", style="Disabled.TLabel", state="disabled")
-        self.Configuracion = ttk.Label(self.frameSeleccion, text="Configuracion", style="Custom.TLabel")
+        self.Principal = SelectionLabel(self.frameSeleccion, text="Principal", style="Custom.TLabel")
+        self.Modulos = SelectionLabel(self.frameSeleccion, text="Modulos", style="Disabled.TLabel", state="disabled")
+        self.Git = SelectionLabel(self.frameSeleccion, text="Git", style="Custom.TLabel" if self._versionGit else "Disabled.TLabel", state="normal" if self._versionGit else "disabled")
+        self.Tareas = SelectionLabel(self.frameSeleccion, text="Tareas", style="Disabled.TLabel", state="disabled")
+        self.Configuracion = SelectionLabel(self.frameSeleccion, text="Configuracion", style="Custom.TLabel")
         
         self.toolTipPrincipal = ToolTip(self.Principal)
         self.toolTipModulos = ToolTip(self.Modulos)
@@ -1430,6 +1454,8 @@ class NodeSetupAppNew(ttk.Window):
         self.frameTareas = ttk.Frame(self)
         self.frameConfiguracion = ttk.Frame(self)
         
+        self._toast = None
+        
         self._loadImages()
         
         self._configuracionFrame()
@@ -1445,22 +1471,13 @@ class NodeSetupAppNew(ttk.Window):
     def _sendNotification(self, title:str, message:str, duration:int=3000, **kwargs):
         iconName = kwargs.pop("icon", "principal")
         
-        # toast = ToastNotification(
-        #     title=title,
-        #     message=message,
-        #     duration=duration,
-        #     icon=self._imagenes[iconName],
-        #     **kwargs
-        #     )
-        # toast.show_toast()
-        
         notification.notify( # type: ignore
             title=title,
             message=message,
             app_name="Node Setup App",
-            # ruta al recurso assets/ProfileIcon.ico
-            app_icon=os.path.join(ruta_assets, "ProfileIcon.ico"),
-            timeout=duration
+            app_icon="",
+            timeout=duration,
+            **kwargs
         )
     
     def _principalFrame(self):
@@ -1470,33 +1487,80 @@ class NodeSetupAppNew(ttk.Window):
                 onUpdateEntryRuta(None)
                     
         def onUpdateEntryRuta(event):
+            textoTooltip = self.toolTipPrincipal.getText()
+            mensajes = 0
+            
             if not self._ruta.get():
                 btn_irModulos.config(state="disabled")
                 btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
-                return
+                
+                mensajes += 1
+                self.Principal.type = "warning"
+                self.Principal.config(style="Warning.TLabel")
+                if "-> Debe seleccionar una ruta" not in textoTooltip:
+                    self.toolTipPrincipal.setText(f"{textoTooltip}\n-> Debe seleccionar una ruta")
+            else:
+                if "-> Debe seleccionar una ruta" in textoTooltip:
+                    textoTooltip = textoTooltip.replace("-> Debe seleccionar una ruta", "").strip()
+                    self.toolTipPrincipal.setText(textoTooltip)
             
             if not os.path.exists(self._ruta.get()) and not self.CrearRutaVar.get():
                 btn_irModulos.config(state="disabled")
                 btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
-                messagebox.showerror("Error", "La ruta seleccionada no existe")
-                return
+                self.Principal.type = "warning"
+                
+                mensajes += 1
+                self.Principal.config(style="Warning.TLabel")
+                if "-> La ruta no existe" not in textoTooltip:
+                    self.toolTipPrincipal.setText(f"{textoTooltip}\n-> La ruta no existe")
+            else:
+                if "-> La ruta no existe" in textoTooltip:
+                    textoTooltip = textoTooltip.replace("-> La ruta no existe", "").strip()
+                    self.toolTipPrincipal.setText(textoTooltip)
             
             if os.path.isfile(self._ruta.get()) or getFileExtension(self._ruta.get()):
                 btn_irModulos.config(state="disabled")
                 btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
-                messagebox.showerror("Error", "La ruta seleccionada es un archivo, debe ser un directorio")
-                return
+                self.Principal.type = "warning"
+                
+                mensajes += 1
+                self.Principal.config(style="Warning.TLabel")
+                if "-> La ruta no es un directorio" not in textoTooltip:
+                    self.toolTipPrincipal.setText(f"{textoTooltip}\n-> La ruta no es un directorio")
+            else:
+                if "-> La ruta no es un directorio" in textoTooltip:
+                    textoTooltip = textoTooltip.replace("-> La ruta no es un directorio", "").strip()
+                    self.toolTipPrincipal.setText(textoTooltip)
             
-            self.Modulos.config(state="normal")
-            btn_proceder.config(state="normal")
-            btn_irModulos.config(state="normal")
-            self._funcOnUpdateFrames()
+            if not self._npm_path or not self._node_path:
+                btn_irModulos.config(state="disabled")
+                btn_proceder.config(state="disabled")
+                self.Modulos.config(state="disabled")
+                self._funcOnUpdateFrames()
+                self.Principal.type = "warning"
+                
+                mensajes += 1
+                self.Principal.config(style="Warning.TLabel")
+                if "-> Node o NPM no encontrados" not in textoTooltip:
+                    self.toolTipPrincipal.setText(f"{textoTooltip}\n-> Node o NPM no encontrados")
+            else:
+                if "-> Node o NPM no encontrados" in textoTooltip:
+                    textoTooltip = textoTooltip.replace("-> Node o NPM no encontrados", "").strip()
+                    self.toolTipPrincipal.setText(textoTooltip)
+            
+            if mensajes == 0:
+                self.Principal.type = "normal"
+                self.Principal.config(style="Custom.TLabel")
+                self.Modulos.config(state="normal")
+                btn_proceder.config(state="normal")
+                btn_irModulos.config(state="normal")
+                self._funcOnUpdateFrames()
         
         def disableInfoEntries():
             for widget in frameInformacion.winfo_children():
