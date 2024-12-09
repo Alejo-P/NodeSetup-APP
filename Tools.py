@@ -9,6 +9,7 @@ class ToolTip:
         self.tipwindow = None
         self.id = None
         self.x = self.y = 0
+        self._maxwidth = 250
 
         styles = ttk.Style()
         styles.configure("dark.TLabel", background="#3E556A", foreground="white")
@@ -18,6 +19,9 @@ class ToolTip:
         
     def getText(self):
         return self.text or ""
+    
+    def getWidget(self):
+        return self.widget
 
     def showtip(self, direction: Literal["n", "s", "e", "w"] = "n"):
         "Display text in tooltip window"
@@ -36,7 +40,7 @@ class ToolTip:
 
         # Crear el contenido del tooltip
         label = ttk.Label(
-            tw, text=self.text, anchor=tk.CENTER, relief=tk.SOLID, borderwidth=1, style="dark.TLabel"
+            tw, text=self.text, anchor=tk.CENTER, relief=tk.SOLID, borderwidth=1, style="dark.TLabel", wraplength=self._maxwidth
         )
         label.pack(ipadx=7, ipady=7)
         

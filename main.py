@@ -1281,11 +1281,12 @@ class NodeSetupAppNew(ttk.Window):
                     if widget.type == "warning":
                         widget.config( # type: ignore
                             style="Warning.TLabel",
-                            cursor="arrow",
+                            cursor="hand2",
                         )
                         widget.onClick(callback=onFrameClick)
                         continue
-                
+                    
+                    widget.type = "normal"
                     widget.config( # type: ignore
                         style="Custom.TLabel",
                         cursor="hand2",
@@ -1294,6 +1295,7 @@ class NodeSetupAppNew(ttk.Window):
             
             event.widget.config(style="Selected.TLabel", cursor="arrow")
             event.widget.deleteBind("<Button-1>")
+            event.widget.type = "selected"
             showSelectedFrame(event.widget.cget("text"))
         
         def onUpdateFrames():
@@ -1307,19 +1309,43 @@ class NodeSetupAppNew(ttk.Window):
                     frame.unbind("<Button-1>")
                     continue
                 
-                if str(frame.cget("style")) == "Selected.TLabel":
+                if isinstance(frame, SelectionLabel):
+                    if frame.type == "warning":
+                        frame.config( # type: ignore
+                            style="Warning.TLabel",
+                            cursor="hand2",
+                        )
+                        frame.onClick(callback=onFrameClick)
+                        continue
+                    
+                    if frame.type == "selected":
+                        frame.config( # type: ignore
+                            style="Selected.TLabel",
+                            cursor="arrow"
+                        )
+                        frame.unbind("<Button-1>")
+                        continue
+                        
+                    frame.type = "normal"
                     frame.config( # type: ignore
-                        style="Selected.TLabel",
-                        cursor="arrow"
+                        style="Custom.TLabel",
+                        cursor="hand2",
                     )
-                    frame.unbind("<Button-1>")   
-                    continue 
+                    frame.onClick(callback=onFrameClick)
                 
-                frame.config( # type: ignore
-                    style="Custom.TLabel",
-                    cursor="hand2"
-                )
-                frame.bind("<Button-1>", onFrameClick)
+                # if str(frame.cget("style")) == "Selected.TLabel":
+                #     frame.config( # type: ignore
+                #         style="Selected.TLabel",
+                #         cursor="arrow"
+                #     )
+                #     frame.unbind("<Button-1>")
+                #     continue
+                
+                # frame.config( # type: ignore
+                #     style="Custom.TLabel",
+                #     cursor="hand2"
+                # )
+                # frame.bind("<Button-1>", onFrameClick)
             
             setToolTipText()
         
@@ -1393,8 +1419,8 @@ class NodeSetupAppNew(ttk.Window):
         self._funcGoToFrame = goToFrame
         self._funcOnUpdateFrames = onUpdateFrames
         
-        self._node_path = "" #getPathOf("node")
-        self._npm_path = "" #getPathOf("npm")
+        self._node_path = getPathOf("node")
+        self._npm_path = getPathOf("npm")
         self._git_path = getPathOf("git")
         self._code_path = getPathOf("code")
         
@@ -1497,8 +1523,10 @@ class NodeSetupAppNew(ttk.Window):
                 self._funcOnUpdateFrames()
                 
                 mensajes += 1
-                self.Principal.type = "warning"
-                self.Principal.config(style="Warning.TLabel")
+                if self.Principal.type != "selected":
+                    self.Principal.type = "warning"
+                    self.Principal.config(style="Warning.TLabel")
+                
                 if "-> Debe seleccionar una ruta" not in textoTooltip:
                     self.toolTipPrincipal.setText(f"{textoTooltip}\n-> Debe seleccionar una ruta")
             else:
@@ -1511,10 +1539,12 @@ class NodeSetupAppNew(ttk.Window):
                 btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
-                self.Principal.type = "warning"
                 
                 mensajes += 1
-                self.Principal.config(style="Warning.TLabel")
+                if self.Principal.type != "selected":
+                    self.Principal.type = "warning"
+                    self.Principal.config(style="Warning.TLabel")
+                
                 if "-> La ruta no existe" not in textoTooltip:
                     self.toolTipPrincipal.setText(f"{textoTooltip}\n-> La ruta no existe")
             else:
@@ -1527,10 +1557,12 @@ class NodeSetupAppNew(ttk.Window):
                 btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
-                self.Principal.type = "warning"
                 
                 mensajes += 1
-                self.Principal.config(style="Warning.TLabel")
+                if self.Principal.type != "selected":
+                    self.Principal.type = "warning"
+                    self.Principal.config(style="Warning.TLabel")
+                
                 if "-> La ruta no es un directorio" not in textoTooltip:
                     self.toolTipPrincipal.setText(f"{textoTooltip}\n-> La ruta no es un directorio")
             else:
@@ -1543,10 +1575,12 @@ class NodeSetupAppNew(ttk.Window):
                 btn_proceder.config(state="disabled")
                 self.Modulos.config(state="disabled")
                 self._funcOnUpdateFrames()
-                self.Principal.type = "warning"
                 
                 mensajes += 1
-                self.Principal.config(style="Warning.TLabel")
+                if self.Principal.type != "selected":
+                    self.Principal.type = "warning"
+                    self.Principal.config(style="Warning.TLabel")
+                
                 if "-> Node o NPM no encontrados" not in textoTooltip:
                     self.toolTipPrincipal.setText(f"{textoTooltip}\n-> Node o NPM no encontrados")
             else:
@@ -3467,7 +3501,10 @@ class NodeSetupAppNew(ttk.Window):
             self._userGit.set(getGitUser())
             self._correoGit.set(getGitEmail())
         
-        mensajesChkBox = [("Crear directorios adicionales", True),("Abrir en VS Code al finalizar", False)]
+        mensajesChkBox = [
+            ("Crear directorios adicionales", True),
+            ("Abrir en VS Code al finalizar", False)
+        ]
         
         for i, (mensaje, check) in enumerate(mensajesChkBox):
             var = tk.BooleanVar(value=check)
@@ -3516,7 +3553,7 @@ class NodeSetupAppNew(ttk.Window):
         scrollEntryNode.grid(row=5, column=0, padx=5, sticky="nsew")
         
         lblInfoEntryNode = ttk.Label(pathsFrame, image=self._imagenes["Info"], style="info.TLabel")
-        tooltipNode = ToolTip(lblInfoEntryNode, "La ruta de Node es necesaria para realizar las acciones de Node")
+        tooltipNode = ToolTip(lblInfoEntryNode, "La ruta de Node es necesaria para comprobar la version de Node")
         lblInfoEntryNode.bind("<Enter>", lambda e: tooltipNode.showtip("w"))
         lblInfoEntryNode.bind("<Leave>", lambda e: tooltipNode.hidetip())
         lblInfoEntryNode.grid(row=4, rowspan=2, column=1, padx=5, sticky="nsew")
@@ -3548,7 +3585,7 @@ class NodeSetupAppNew(ttk.Window):
         scrollEntryVSCode.grid(row=11, column=0, padx=5, sticky="nsew")
         
         lblInfoEntryVSCode = ttk.Label(pathsFrame, image=self._imagenes["Info"], style="info.TLabel")
-        tooltipVSCode = ToolTip(lblInfoEntryVSCode, "La ruta de VS Code es necesaria para abrir el proyecto en VS Code\ncuando se acabe de crear")
+        tooltipVSCode = ToolTip(lblInfoEntryVSCode, "La ruta de VS Code es necesaria para abrir el proyecto en VS Code cuando se acabe de crear")
         lblInfoEntryVSCode.bind("<Enter>", lambda e: tooltipVSCode.showtip("w"))
         lblInfoEntryVSCode.bind("<Leave>", lambda e: tooltipVSCode.hidetip())
         lblInfoEntryVSCode.grid(row=10, rowspan=2, column=1, padx=5, sticky="nsew")
@@ -3556,6 +3593,21 @@ class NodeSetupAppNew(ttk.Window):
         pathsFrame.grid_columnconfigure(0, weight=1)
         
         pathsFrame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+        
+        optionsFrame = ttk.LabelFrame(self.frameConfiguracion, text="Opciones", style="info.TLabelframe")
+        
+        self._recargaModulos = ttk.BooleanVar(value=False)
+        chkRecargarModulos = ttk.Checkbutton(optionsFrame, text="Obtener modulos instalados", variable=self._recargaModulos, style="success.TCheckbutton")
+        chkRecargarModulos.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+        
+        lblInfoRecargaM = ttk.Label(optionsFrame, image=self._imagenes["Info"], anchor="center")
+        tooltipRecargaM = ToolTip(lblInfoRecargaM, "Obtener modulos intalados: Recarga los modulos de Node al cambiar de directorio y selecciona aquellos que esten instalados")
+        lblInfoRecargaM.bind("<Enter>", lambda e: tooltipRecargaM.showtip("w"))
+        lblInfoRecargaM.bind("<Leave>", lambda e: tooltipRecargaM.hidetip())
+        lblInfoRecargaM.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+        
+        optionsFrame.grid_columnconfigure(0, weight=1)
+        optionsFrame.grid(row=1, column=0, columnspan=2 if not self._git_path else 1, padx=5, pady=5, sticky="nsew")
         
         if self._git_path:
             gitConfigFrame = ttk.LabelFrame(self.frameConfiguracion, text="Configuracion de Git", style="info.TLabelframe")
@@ -3587,7 +3639,7 @@ class NodeSetupAppNew(ttk.Window):
             btnGuardar.grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
             gitConfigFrame.grid_columnconfigure(0, weight=1)
-            gitConfigFrame.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            gitConfigFrame.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
     
         columnas, filas = self.frameConfiguracion.grid_size()
         for columna in range(columnas):

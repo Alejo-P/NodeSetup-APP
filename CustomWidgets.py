@@ -150,8 +150,17 @@ class MultiChoice(ttk.Frame):
         self.top_level_list.geometry(f"{top_level_width}x{top_level_height}+{x_position}+{y_position}")
         
         # Listbox con selección múltiple
-        listbox = tk.Listbox(self.top_level_list, selectmode="multiple", exportselection=False)
-        self._listboxScroll = ttk.Scrollbar(self.top_level_list, orient="vertical", command=listbox.yview, bootstyle="info-rounded") # type: ignore
+        listbox = tk.Listbox(
+            self.top_level_list,
+            selectmode="multiple",
+            exportselection=True
+        )
+        self._listboxScroll = ttk.Scrollbar(
+            self.top_level_list,
+            orient="vertical",
+            command=listbox.yview,
+            bootstyle="info-rounded" # type: ignore
+        ) # type: ignore
         listbox.config(yscrollcommand=self._listboxScroll.set)
         
         for value in self.list_values:
@@ -165,7 +174,14 @@ class MultiChoice(ttk.Frame):
         
         # Botón para confirmar selección
         info_frame = ttk.Frame(self.top_level_list)
-        ttk.Label(info_frame, text="Presiona Enter para confirmar\nla seleccion", anchor="center", style="warning.TLabel").pack(side="left", padx=5)
+        ttk.Label(
+            info_frame, 
+            text="Presiona Enter para confirmar la seleccion",
+            anchor="center",
+            style="warning.TLabel",
+            wraplength=150,
+            justify="center"
+        ).pack(side="left", padx=5)
         info_frame.grid(row=1, column=0, sticky="ew")
         
         # Configurar el grid del Toplevel

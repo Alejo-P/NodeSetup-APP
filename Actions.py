@@ -39,6 +39,40 @@ def getDetailedModules(excluirClaves:List[str] = [], excluirModulos:List[str] = 
         detalleMoodulos.append(dic)
     return detalleMoodulos
 
+def getInstalledModules(path:str = ""):
+    """Obtiene los modulos de NPM instalados en el sistema.
+
+    Args:
+        path (str, optional): _Ruta del proyecto donde se buscaran los modulos_. Defaults to "".
+    
+    Returns:
+        list[str]: _Lista de modulos de NPM_
+    """
+    
+    comando = [getPathOf("npm"), "list", "-g", "--depth=0"] if not path else [getPathOf("npm"), "list", "--depth=0"]
+    resultado = runCommand(comando, path if path else os.getcwd(), retornarEn="bytes")
+    
+    if isinstance(resultado, subprocess.CalledProcessError):
+        print("Error al obtener los modulos de NPM", resultado.stderr)
+        return ["Error al obtener los modulos de NPM"]
+    
+    salida = resultado.stdout.decode("utf-8").split("\n")
+    dic = {}
+    if os.path.exists(salida[0].strip()):
+        dic["directorio"] = salida[0].strip()
+        salida = salida[1:]
+    
+    modulos = []
+    for linea in salida:
+        if not linea:
+            continue
+        
+        if linea.find("├──") != -1 or linea.find("└──") != -1:
+            modulos.append(linea.strip().split(" ")[1])
+            
+    dic["modulos"] = modulos
+    return dic
+
 def setEvent(tipoEvento:Literal["INFO", "ERROR"], evento:dict[str, Any]):
     """Regsitar un evento (detalles de un comando) ejecutado por el programa.
 
@@ -976,5 +1010,4 @@ def isValidEmail(email:str):
 
 
 if __name__ == "__main__":
-    for dic in getBranchCommitsLog(os.getcwd()):
-        print(dic)
+    print(getInstalledModules(r"E:\Proyectos\Proyecto-FULL-PRESTIGE\BackEnd"))
