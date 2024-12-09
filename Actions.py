@@ -68,7 +68,8 @@ def getInstalledModules(path:str = ""):
             continue
         
         if linea.find("├──") != -1 or linea.find("└──") != -1:
-            modulos.append(linea.strip().split(" ")[1])
+            if "empty" not in linea:
+                modulos.append(linea.strip().split(" ")[1])
             
     dic["modulos"] = modulos
     return dic
