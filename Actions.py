@@ -1010,4 +1010,5 @@ def isValidEmail(email:str):
 
 
 if __name__ == "__main__":
-    print(getInstalledModules(r"E:\Proyectos\Proyecto-FULL-PRESTIGE\BackEnd"))
+    #print(getInstalledModules(r"E:\Proyectos\Proyecto-FULL-PRESTIGE\BackEnd"))
+    print(getInstalledModules(r"E:\Proyectos\Backups"))
