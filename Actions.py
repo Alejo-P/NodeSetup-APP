@@ -58,7 +58,7 @@ def getInstalledModules(path:str = ""):
     
     salida = resultado.stdout.decode("utf-8").split("\n")
     dic = {}
-    if os.path.exists(salida[0].split(" ")[0].strip()):
+    if os.path.exists(salida[0].split(" ")[-1].strip()):
         dic["directorio"] = salida[0].strip()
         salida = salida[1:]
     
