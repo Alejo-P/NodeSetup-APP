@@ -35,7 +35,8 @@ from Actions import (
     runCommand,
     loadImageTk,
     getGitBranches,
-    getDetailedModules
+    getDetailedModules,
+    getInstalledModules
 )
 from CustomWidgets import MultiChoice, ScrolledFrame, SelectionLabel
 from Tools import ToolTip
