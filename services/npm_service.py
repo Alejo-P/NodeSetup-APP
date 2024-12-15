@@ -1,12 +1,16 @@
 import subprocess
 import os
+import sys
 import json
+
+# Añade el directorio padre al path para importar módulos
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from Actions import getPathOf
 
 # Servicio para ejecutar comandos de npm
 class NpmService:
-    npm_path = getPathOf('npm')
+    npm_path = getPathOf('npm.cmd')
     
     def __init__(self, path: str = os.getcwd()):
         self._path = path  # Inicializamos el atributo privado
@@ -58,6 +62,18 @@ class NpmService:
             error = subprocess.CalledProcessError(-1, command, stderr=str(e))
             return f"Error desconocido: {error.stderr}"
 
+    # Inicializa un proyecto de npm
+    def init(self, newWindow: bool = False, allow_input: bool = False):
+        response = self._run(["init"], newWindow, in_bytes=True, allow_input=allow_input)
+        if isinstance(response, subprocess.CalledProcessError):
+            return response.stderr
+        
+        # Trata de decodificar la salida como JSON
+        try:
+            response = response.decode("utf-8") if isinstance(response, bytes) else response
+            return json.loads(response) if response.startswith('{') else response
+        except json.JSONDecodeError:
+            return response
     
     # Instala un paquete de npm
     def install(self, package: str, newWindow: bool = False):
@@ -116,6 +132,6 @@ class NpmService:
             return response
 
 if __name__ == "__main__":
-    service = NpmService("/ruta/al/proyecto")
-    output = service._run(["npm","init"], allow_input=True)
+    service = NpmService()
+    output = service.init(True)
     print(output)
