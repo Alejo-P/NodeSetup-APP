@@ -3503,18 +3503,34 @@ class NodeSetupAppNew(ttk.Window):
             self._correoGit.set(getGitEmail())
         
         mensajesChkBox = [
-            ("Crear directorios adicionales", True),
-            ("Abrir en VS Code al finalizar", False)
+            ("Crear directorios adicionales", True, ""),
+            ("Abrir en VS Code al finalizar", False, ""),
+            ("Usar comando de iniciacion 'npm init -y'", True, "Usar el comando 'npm init -y' para iniciar un proyecto (No se solicitaran datos)"),
         ]
         
-        for i, (mensaje, check) in enumerate(mensajesChkBox):
+        for i, (mensaje, check, tooltip_text) in enumerate(mensajesChkBox):
             var = tk.BooleanVar(value=check)
             chk = ttk.Checkbutton(masAccionesFrame, text=mensaje, variable=var, style="success.TCheckbutton")
             chk.grid(row=i, column=0, padx=5, pady=5, sticky="nsew")
             self._checkVars.append({mensaje: var})
             
+            if tooltip_text:
+                lblInfo = ttk.Label(masAccionesFrame, image=self._imagenes["Info"], style="info.TLabel")
+                tooltip = ToolTip(lblInfo, tooltip_text)
+                lblInfo.bind("<Enter>", lambda e: tooltip.showtip("w"))
+                lblInfo.bind("<Leave>", lambda e: tooltip.hidetip())
+                lblInfo.grid(row=i, column=1, padx=5, pady=5, sticky="nsew")
+                
+        masAccionesFrame.update_idletasks() # Actualizar los widgets para obtener el ancho del frame
         btn_verArchivos = ttk.Button(masAccionesFrame, text="Ver archivos", command=verArchivos, bootstyle=(INFO, OUTLINE)) # type: ignore
-        btn_verArchivos.grid(row=i+1, column=0, padx=5, pady=5, sticky="nsew")
+        btn_verArchivos.grid(
+            row=i+1,
+            column=0,
+            columnspan=masAccionesFrame.grid_size()[0], # Posicionar el widget en todas las columnas disponibles
+            padx=5,
+            pady=5,
+            sticky="nsew"
+        )
         
         self._checkVars[0]["Crear directorios adicionales"].trace_add(
             "write",

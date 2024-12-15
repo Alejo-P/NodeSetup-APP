@@ -23,7 +23,7 @@ class NpmService:
         self._path = value  # Asignamos el valor solo si es válido
     
     # Ejecuta un comando de npm
-    def _run(self, command: list[str], newWindow: bool = False, in_bytes: bool = False):
+    def _run(self, command: list[str], newWindow: bool = False, in_bytes: bool = False, allow_input: bool = False):
         try:
             if not command:
                 raise ValueError("No se ha proporcionado un comando para ejecutar")
@@ -45,17 +45,19 @@ class NpmService:
                 command,
                 check=True,
                 cwd=self.path,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdin=None if allow_input else subprocess.DEVNULL,  # Permite entrada interactiva
+                stdout=None if allow_input else subprocess.PIPE,   # Salida directa a consola
+                stderr=None if allow_input else subprocess.PIPE,   # Error directo a consola
                 text=not in_bytes,
-                creationflags=subprocess.CREATE_NO_WINDOW if not newWindow else 0  # Evita que se abra una ventana de consola
+                creationflags=0 if allow_input else subprocess.CREATE_NO_WINDOW  # Permite entrada en Windows
             )
-            return resultado.stdout
+            return resultado.stdout if resultado.stdout else "Comando ejecutado correctamente"
         except subprocess.CalledProcessError as error:
             return f"Error en el comando: {error.stderr}"
         except Exception as e:
             error = subprocess.CalledProcessError(-1, command, stderr=str(e))
             return f"Error desconocido: {error.stderr}"
+
     
     # Instala un paquete de npm
     def install(self, package: str, newWindow: bool = False):
@@ -112,3 +114,8 @@ class NpmService:
             return json.loads(response) if response.startswith('{') else response
         except json.JSONDecodeError:
             return response
+
+if __name__ == "__main__":
+    service = NpmService("/ruta/al/proyecto")
+    output = service._run(["npm","init"], allow_input=True)
+    print(output)
