@@ -1424,6 +1424,7 @@ class NodeSetupAppNew(ttk.Window):
         self._npm_path = getPathOf("npm")
         self._git_path = getPathOf("git")
         self._code_path = getPathOf("code")
+        self._paths = [""]
         
         self._versionGit = getVersionOf(self._git_path) if self._git_path else None
         self._versionNPM = getVersionOf(self._npm_path) if self._npm_path else None
@@ -1482,6 +1483,7 @@ class NodeSetupAppNew(ttk.Window):
         self.frameConfiguracion = ttk.Frame(self)
         
         self._toast = None
+        self._ruta = tk.StringVar()
         
         self._loadImages()
         
@@ -1615,9 +1617,6 @@ class NodeSetupAppNew(ttk.Window):
         def iniciarPrecargaModulos():
             self._funcGoToFrame("Modulos")
             self._funcIniciarCargaModulos()
-        
-        #StringVars
-        self._ruta = tk.StringVar()
         
         frameInformacion = ttk.LabelFrame(self.framePrincipal, text="Informacion")
         ttk.Label(frameInformacion, text="Version de la app:", anchor="center").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
@@ -3490,6 +3489,20 @@ class NodeSetupAppNew(ttk.Window):
             
             centerWindow(popUp_archivos)
         
+        def changePath():
+            if path := filedialog.askdirectory():
+                if not isFolderInPath(".git", path):
+                    messagebox.showerror("Error", "La ruta seleccionada no es un repositorio de Git")
+                    return
+                
+                if not path in self._paths:
+                    self._paths.append(path)
+                
+                self._ruta.set(path)
+                comboRuta.config(values=self._paths)
+                comboRuta.current(len(self._paths)-1)
+                onChangeGitScope()
+        
         masAccionesFrame = ttk.LabelFrame(self.frameConfiguracion, text="Acciones adicionales para el proyecto", style="info.TLabelframe")
         
         self._checkVars = []
@@ -3505,7 +3518,6 @@ class NodeSetupAppNew(ttk.Window):
         mensajesChkBox = [
             ("Crear directorios adicionales", True, ""),
             ("Abrir en VS Code al finalizar", False, ""),
-            ("Usar comando de iniciacion 'npm init -y'", True, "Usar el comando 'npm init -y' para iniciar un proyecto (No se solicitaran datos)"),
         ]
         
         for i, (mensaje, check, tooltip_text) in enumerate(mensajesChkBox):
@@ -3627,33 +3639,86 @@ class NodeSetupAppNew(ttk.Window):
         optionsFrame.grid(row=1, column=0, columnspan=2 if not self._git_path else 1, padx=5, pady=5, sticky="nsew")
         
         if self._git_path:
+            def onChangeGitScope():
+                def obtener_credenciales_background():
+                    if not comboRuta.get():
+                        usuario = getGitUser()
+                        correo = getGitEmail()
+                    else:
+                        usuario = getGitUser(self._ruta.get())
+                        correo = getGitEmail(self._ruta.get())
+                    
+                    credenciales.put((usuario, correo))
+                
+                def verificar_resultados():
+                    try:
+                        usuario, correo = credenciales.get_nowait()
+                        actualizarEntry(entryUserGit, usuario)
+                        actualizarEntry(entryCorreoGit, correo)
+                        self._userGit.set(usuario)
+                        self._correoGit.set(correo)
+                        btnGuardar.config(state="normal")
+                    except:
+                        self.frameConfiguracion.after(100, verificar_resultados)
+                        return
+                    
+                    clearQueue(credenciales)
+                    
+                credenciales = queue.Queue()
+                actualizarEntry(entryUserGit, "cargando ...")
+                actualizarEntry(entryCorreoGit, "cargando ...")
+                btnGuardar.config(state="disabled")
+                threading.Thread(target=obtener_credenciales_background, daemon=True).start()
+                self.frameConfiguracion.after(100, verificar_resultados)
+            
             gitConfigFrame = ttk.LabelFrame(self.frameConfiguracion, text="Configuracion de Git", style="info.TLabelframe")
-            ttk.Label(gitConfigFrame, text="Usuario de Git", style="info.TLabel").grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            
+            ttk.Label(gitConfigFrame, text="Ruta del repositorio", style="info.TLabel").grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            comboRuta = ttk.Combobox(gitConfigFrame, style="info.TCombobox", textvariable=self._ruta, width=50)
+            comboRuta.config(values=self._paths, state="readonly")
+            comboRuta.current(0)
+            comboRuta.grid(row=1, column=0, padx=5, sticky="nsew")
+            
+            comboRuta.bind("<<ComboboxSelected>>", lambda e: onChangeGitScope())
+            
+            scrollEntry = ttk.Scrollbar(gitConfigFrame, orient="horizontal", bootstyle="info-round") # type: ignore
+            comboRuta.config(xscrollcommand=scrollEntry.set)
+            scrollEntry.config(command=comboRuta.xview)
+            scrollEntry.grid(row=2, column=0, padx=5, sticky="nsew")
+            
+            lblmagEntry = ttk.Label(gitConfigFrame, image=self._imagenes["Magnifier"], style="info.TLabel", cursor="hand2")
+            tooltipRuta = ToolTip(lblmagEntry, "Seleccionar un directorio distinto")
+            lblmagEntry.bind("<Enter>", lambda e: tooltipRuta.showtip("w"))
+            lblmagEntry.bind("<Leave>", lambda e: tooltipRuta.hidetip())
+            lblmagEntry.bind("<Button-1>", lambda e: changePath())
+            lblmagEntry.grid(row=1, rowspan=2, column=1, padx=5, sticky="nsew")
+            
+            ttk.Label(gitConfigFrame, text="Usuario de Git", style="info.TLabel").grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             entryUserGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
             entryUserGit.insert(0, self._userGit.get())
             entryUserGit.config(state="readonly")
-            entryUserGit.grid(row=1, column=0, padx=5, sticky="nsew")
+            entryUserGit.grid(row=4, column=0, padx=5, sticky="nsew")
             
             lblinfoUserEntry = ttk.Label(gitConfigFrame, image=self._imagenes["User"], style="info.TLabel")
             tooltipUser = ToolTip(lblinfoUserEntry, "El usuario de Git con el que se realizaran las acciones de Git")
             lblinfoUserEntry.bind("<Enter>", lambda e: tooltipUser.showtip("w"))
             lblinfoUserEntry.bind("<Leave>", lambda e: tooltipUser.hidetip())
-            lblinfoUserEntry.grid(row=1, column=1, padx=5, sticky="nsew")
+            lblinfoUserEntry.grid(row=4, column=1, padx=5, sticky="nsew")
             
-            ttk.Label(gitConfigFrame, text="Correo de Git", style="info.TLabel").grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            ttk.Label(gitConfigFrame, text="Correo de Git", style="info.TLabel").grid(row=5, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
             entryCorreoGit = ttk.Entry(gitConfigFrame, style="info.TEntry", width=50)
             entryCorreoGit.insert(0, self._correoGit.get())
             entryCorreoGit.config(state="readonly")
-            entryCorreoGit.grid(row=3, column=0, padx=5, sticky="nsew")
+            entryCorreoGit.grid(row=6, column=0, padx=5, sticky="nsew")
             
             lblinfoCorreoEntry = ttk.Label(gitConfigFrame, image=self._imagenes["Mail"], style="info.TLabel")
             tooltipCorreo = ToolTip(lblinfoCorreoEntry, "El correo de Git con el que se realizaran las acciones de Git")
             lblinfoCorreoEntry.bind("<Enter>", lambda e: tooltipCorreo.showtip("w"))
             lblinfoCorreoEntry.bind("<Leave>", lambda e: tooltipCorreo.hidetip())
-            lblinfoCorreoEntry.grid(row=3, column=1, padx=5, sticky="nsew")
+            lblinfoCorreoEntry.grid(row=6, column=1, padx=5, sticky="nsew")
             
             btnGuardar = ttk.Button(gitConfigFrame, text="Cambiar", command=cambiarIdentificacionGit, bootstyle=(WARNING, OUTLINE)) # type: ignore
-            btnGuardar.grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+            btnGuardar.grid(row=7, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
             gitConfigFrame.grid_columnconfigure(0, weight=1)
             gitConfigFrame.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")

@@ -3,6 +3,8 @@ import os
 import sys
 import json
 
+from cmd_service import CmdService
+
 # Añade el directorio padre al path para importar módulos
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -12,9 +14,10 @@ from Actions import getPathOf
 class NpmService:
     npm_path = getPathOf('npm.cmd')
     
-    def __init__(self, path: str = os.getcwd()):
-        self._path = path  # Inicializamos el atributo privado
-     
+    def __init__(self, path: str | None = None) -> None:
+        self._path = path or ""  # Inicializamos el atributo privado
+        self.cmd_service = CmdService()  # Instancia del servicio de comandos
+    
     @property
     def path(self):
         return self._path  # Método getter para acceder a la propiedad 'path'
@@ -43,32 +46,40 @@ class NpmService:
                 command.insert(0, self.npm_path)
             else:
                 command[0] = command[0].replace("npm", self.npm_path)
-            
-            # Ejecuta el comando
-            resultado = subprocess.run(
+                
+            #Ejecuta el comando con Popen
+            process = subprocess.Popen(
                 command,
-                check=True,
-                cwd=self.path,
-                stdin=None if allow_input else subprocess.DEVNULL,  # Permite entrada interactiva
-                stdout=None if allow_input else subprocess.PIPE,   # Salida directa a consola
-                stderr=None if allow_input else subprocess.PIPE,   # Error directo a consola
+                cwd=self._path,
+                stdin=subprocess.PIPE if allow_input else subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=not in_bytes,
-                creationflags=0 if allow_input else subprocess.CREATE_NO_WINDOW  # Permite entrada en Windows
+                creationflags=subprocess.CREATE_NO_WINDOW if not newWindow else 0
             )
-            return resultado.stdout if resultado.stdout else "Comando ejecutado correctamente"
-        except subprocess.CalledProcessError as error:
-            return f"Error en el comando: {error.stderr}"
+
+            output = []
+            # Leer salida en tiempo real
+            if process.stdout:
+                for line in process.stdout:
+                    print(line.strip())  # Muestra la salida en tiempo real
+                    output.append(line.strip())
+
+            process.wait()  # Espera a que el proceso termine
+            
+            # Captura los errores si hay alguno
+            error = process.stderr.read() if process.stderr else None
+            if error:
+                print(f"Error: {error.strip()}")
+                return error.strip()
+            
+            return "\n".join(output)  # Devuelve toda la salida acumulada
         except Exception as e:
-            error = subprocess.CalledProcessError(-1, command, stderr=str(e))
-            return f"Error desconocido: {error.stderr}"
+            return f"Error desconocido: {str(e)}"
 
     # Inicializa un proyecto de npm
     def init(self, newWindow: bool = False, allow_input: bool = False):
         response = self._run(["init"], newWindow, in_bytes=True, allow_input=allow_input)
-        if isinstance(response, subprocess.CalledProcessError):
-            return response.stderr
-        
-        # Trata de decodificar la salida como JSON
         try:
             response = response.decode("utf-8") if isinstance(response, bytes) else response
             return json.loads(response) if response.startswith('{') else response
@@ -78,10 +89,6 @@ class NpmService:
     # Instala un paquete de npm
     def install(self, package: str, newWindow: bool = False):
         response = self._run(["install", package], newWindow, in_bytes=True)
-        if isinstance(response, subprocess.CalledProcessError):
-            return response.stderr
-        
-        # Trata de decodificar la salida como JSON
         try:
             response = response.decode("utf-8") if isinstance(response, bytes) else response
             return json.loads(response) if response.startswith('{') else response
@@ -91,10 +98,6 @@ class NpmService:
     # Desinstala un paquete de npm
     def uninstall(self, package: str, newWindow: bool = False):
         response = self._run(["uninstall", package], newWindow, in_bytes=True)
-        if isinstance(response, subprocess.CalledProcessError):
-            return response.stderr
-        
-        # Trata de decodificar la salida como JSON
         try:
             response = response.decode("utf-8") if isinstance(response, bytes) else response
             return json.loads(response) if response.startswith('{') else response
@@ -102,29 +105,21 @@ class NpmService:
             return response
     
     # Lista los paquetes instalados en un proyecto
-    def list_packages(self, newWindow: bool = False):
-        command = ["list", "--depth=0"]
+    def list_packages(self):
+        command = [self.npm_path, "list", "--depth=0"]
         if not self.path or not os.path.exists(self.path):
-            command.insert(1, "-g")
+            command.insert(2, "-g")
         
-        response = self._run(command, newWindow, in_bytes=True)
-        if isinstance(response, subprocess.CalledProcessError):
-            return response.stderr
+        print(command)
         
-        # Trata de decodificar la salida como JSON
-        try:
-            response = response.decode("utf-8") if isinstance(response, bytes) else response
-            return json.loads(response) if response.startswith('{') else response
-        except json.JSONDecodeError:
-            return response
+        self.cmd_service.cwd = self.path or os.getcwd()
+        response = self.cmd_service.run(command)
+        
+        return response
     
     # Ejecuta un script de npm
     def run_script(self, script: str, newWindow: bool = False):
         response = self._run(["run", script], newWindow, in_bytes=True)
-        if isinstance(response, subprocess.CalledProcessError):
-            return response.stderr
-        
-        # Trata de decodificar la salida como JSON
         try:
             response = response.decode("utf-8") if isinstance(response, bytes) else response
             return json.loads(response) if response.startswith('{') else response
@@ -133,5 +128,6 @@ class NpmService:
 
 if __name__ == "__main__":
     service = NpmService()
-    output = service.init(True)
+    service.path = "C:/Users/pinzo/Desktop/Proyecto-Web/BACKEND"
+    output = service.list_packages()
     print(output)
