@@ -3500,7 +3500,7 @@ class NodeSetupAppNew(ttk.Window):
                 
                 self._ruta.set(path)
                 comboRuta.config(values=self._paths)
-                comboRuta.current(len(self._paths)-1)
+                comboRuta.current(self._paths.index(path))
                 onChangeGitScope()
         
         masAccionesFrame = ttk.LabelFrame(self.frameConfiguracion, text="Acciones adicionales para el proyecto", style="info.TLabelframe")
