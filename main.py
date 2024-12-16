@@ -3767,6 +3767,10 @@ class NodeSetupAppNew(ttk.Window):
         self._imagenes["Edit"] = loadImageTk((os.path.join(ruta_assets, "editIcon.png")), 20, 20)
         self._imagenes["Link"] = loadImageTk((os.path.join(ruta_assets, "linkIcon.png")), 20, 20)
         self._imagenes["Prompt"] = loadImageTk((os.path.join(ruta_assets, "promptIcon.png")), 20, 20)
+        self._imagenes["Table_refresh"] = loadImageTk((os.path.join(ruta_assets, "tableRefreshIcon.png")), 20, 20)
+        self._imagenes["Table_done"] = loadImageTk((os.path.join(ruta_assets, "tableDoneIcon.png")), 20, 20)
+        self._imagenes["Cloud_refresh"] = loadImageTk((os.path.join(ruta_assets, "cloudRefreshIcon.png")), 20, 20)
+        self._imagenes["Cloud_done"] = loadImageTk((os.path.join(ruta_assets, "cloudDoneIcon.png")), 20, 20)
     
     def mostrar_imagenes(self):
         self.Principal.config(image=self._imagenes["principal"], anchor="center", compound="top")

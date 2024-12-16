@@ -333,19 +333,20 @@ def getVersionOf(elemento_ejecutable:str):
     
     return resultado.stdout.strip()
 
-def loadImageTk(path:str, width:int = 50, height:int = 50):
+def loadImageTk(path:str, width:int = 50, height:int = 50, *, resample = Image.Resampling.LANCZOS):
     """Carga una imagen en memoria.
 
     Args:
         path (str): _Ruta de la imagen a cargar_}
         width (int, optional): _Ancho de la imagen_. Defaults to 50.
         height (int, optional): _Alto de la imagen_. Defaults to 50.
+        resample (Image.Resampling, optional): _Tipo de resampleo de la imagen_. Defaults to Image.Resampling.LANCZOS.
 
     Returns:
         _PhotoImage_: _Imagen en formato Tkinter_
     """
     try:
-        imagen = Image.open(path).resize((width, height))
+        imagen = Image.open(path).resize((width, height), resample)
         imagenTk = ImageTk.PhotoImage(imagen)
         return imagenTk
     except Exception as e:
@@ -1011,5 +1012,5 @@ def isValidEmail(email:str):
 
 
 if __name__ == "__main__":
-    #print(getInstalledModules(r"E:\Proyectos\Proyecto-FULL-PRESTIGE\BackEnd"))
-    print(getInstalledModules(r"E:\Proyectos\Backups"))
+    print(getInstalledModules(r"E:\Proyectos\Proyecto-FULL-PRESTIGE\BackEnd"))
+    #print(getInstalledModules(r"E:\Proyectos\Backups"))
