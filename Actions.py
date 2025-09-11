@@ -1,4 +1,5 @@
 import ast, copy, validators
+from pathlib import Path
 from collections.abc import Callable
 import os, queue, re, subprocess, tkinter as tk
 import ttkbootstrap as ttk
@@ -333,7 +334,7 @@ def getVersionOf(elemento_ejecutable:str):
     
     return resultado.stdout.strip()
 
-def loadImageTk(path:str, width:int = 50, height:int = 50, *, resample = Image.Resampling.LANCZOS):
+def loadImageTk(path:Path | str, width:int = 50, height:int = 50, *, resample = Image.Resampling.LANCZOS):
     """Carga una imagen en memoria.
 
     Args:

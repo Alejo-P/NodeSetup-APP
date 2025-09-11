@@ -1,5 +1,7 @@
 # Ignorar el entorno virtual
 /env
+/.env
+/.venv
 
 # Otros archivos y carpetas a ignorar
 .vscode/

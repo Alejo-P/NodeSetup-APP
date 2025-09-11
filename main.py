@@ -56,7 +56,7 @@ class NodeSetupAppNew(ttk.Window):
                             style="Warning.TLabel",
                             cursor="hand2",
                         )
-                        widget.onClick(callback=onFrameClick)
+                        widget.on_click(callback=onFrameClick)
                         continue
                     
                     widget.type = "normal"
@@ -64,10 +64,10 @@ class NodeSetupAppNew(ttk.Window):
                         style="Custom.TLabel",
                         cursor="hand2",
                     )
-                    widget.onClick(callback=onFrameClick)
+                    widget.on_click(callback=onFrameClick)
             
             event.widget.config(style="Selected.TLabel", cursor="arrow")
-            event.widget.deleteBind("<Button-1>")
+            event.widget.delete_bind("<Button-1>")
             event.widget.type = "selected"
             showSelectedFrame(event.widget.cget("text"))
         
@@ -88,7 +88,7 @@ class NodeSetupAppNew(ttk.Window):
                             style="Warning.TLabel",
                             cursor="hand2",
                         )
-                        frame.onClick(callback=onFrameClick)
+                        frame.on_click(callback=onFrameClick)
                         continue
                     
                     if frame.type == "selected":
@@ -104,7 +104,7 @@ class NodeSetupAppNew(ttk.Window):
                         style="Custom.TLabel",
                         cursor="hand2",
                     )
-                    frame.onClick(callback=onFrameClick)
+                    frame.on_click(callback=onFrameClick)
                 
                 # if str(frame.cget("style")) == "Selected.TLabel":
                 #     frame.config( # type: ignore
@@ -230,21 +230,6 @@ class NodeSetupAppNew(ttk.Window):
         self.Git.pack(fill="both", expand=True)
         self.Tareas.pack(fill="both", expand=True)
         self.Configuracion.pack(fill="both", expand=True)
-        
-        self.Principal.bind("<Enter>", lambda e: self.toolTipPrincipal.showtip("e"))
-        self.Principal.bind("<Leave>", lambda e: self.toolTipPrincipal.hidetip())
-        
-        self.Modulos.bind("<Enter>", lambda e: self.toolTipModulos.showtip("e"))
-        self.Modulos.bind("<Leave>", lambda e: self.toolTipModulos.hidetip())
-        
-        self.Git.bind("<Enter>", lambda e: self.toolTipGit.showtip("e"))
-        self.Git.bind("<Leave>", lambda e: self.toolTipGit.hidetip())
-        
-        self.Tareas.bind("<Enter>", lambda e: self.toolTipTareas.showtip("e"))
-        self.Tareas.bind("<Leave>", lambda e: self.toolTipTareas.hidetip())
-        
-        self.Configuracion.bind("<Enter>", lambda e: self.toolTipConfiguracion.showtip("e"))
-        self.Configuracion.bind("<Leave>", lambda e: self.toolTipConfiguracion.hidetip())
         
         self.frameSeleccion.pack(fill="y", side="left", ipadx=5)
         
@@ -689,17 +674,17 @@ class NodeSetupAppNew(ttk.Window):
                             style="Warning.TLabel",
                             cursor="arrow",
                         )
-                        widget.onClick(callback=onClickFrame)
+                        widget.on_click(callback=onClickFrame)
                         continue
                 
                     widget.config( # type: ignore
                         style="Custom.TLabel",
                         cursor="hand2",
                     )
-                    widget.onClick(callback=onClickFrame)
+                    widget.on_click(callback=onClickFrame)
             
             event.widget.config(style="Selected.TLabel", cursor="arrow")
-            event.widget.deleteBind("<Button-1>")
+            event.widget.delete_bind("<Button-1>")
             showSelectedFrame(event.widget.cget("text"))
         
         def goToGitFrame(framename:str):
@@ -1638,7 +1623,7 @@ class NodeSetupAppNew(ttk.Window):
         lbl_frame = ttk.Frame(self.frameGit, style="Custom.TFrame", name="git_selector")
         lblInicio = SelectionLabel(lbl_frame, text="Inicio", style="Custom.TLabel", anchor="center")
         lblInicio.grid(row=0, column=0, sticky="nsew", ipady=6)
-        lblInicio.onClick(callback=onClickFrame)
+        lblInicio.on_click(callback=onClickFrame)
         
         self.toolTip_GitInicio = ToolTip(lblInicio)
         lblInicio.bind("<Enter>", lambda e: self.toolTip_GitInicio.showtip("n"))
@@ -1646,7 +1631,7 @@ class NodeSetupAppNew(ttk.Window):
         
         lblCommit = SelectionLabel(lbl_frame, text="Commit", style="Custom.TLabel", anchor="center")
         lblCommit.grid(row=0, column=1, sticky="nsew", ipady=6)
-        lblCommit.onClick(callback=onClickFrame)
+        lblCommit.on_click(callback=onClickFrame)
         
         self.toolTip_GitCommit = ToolTip(lblCommit)
         lblCommit.bind("<Enter>", lambda e: self.toolTip_GitCommit.showtip("n"))
@@ -1654,7 +1639,7 @@ class NodeSetupAppNew(ttk.Window):
         
         lblLogs = SelectionLabel(lbl_frame, text="Logs", style="Custom.TLabel", anchor="center")
         lblLogs.grid(row=0, column=2, sticky="nsew", ipady=6)
-        lblLogs.onClick(callback=onClickFrame)
+        lblLogs.on_click(callback=onClickFrame)
         
         self.toolTip_GitLogs = ToolTip(lblLogs)
         lblLogs.bind("<Enter>", lambda e: self.toolTip_GitLogs.showtip("n"))

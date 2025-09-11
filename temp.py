@@ -1,6 +1,6 @@
 from tkinter import ttk
 import tkinter as tk
-from icons import Icons
+from utils.icons import Icons
 
 # Ventana principal
 class App(tk.Tk):

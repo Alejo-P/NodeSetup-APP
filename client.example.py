@@ -8,9 +8,9 @@ def send_message():
     message = entry.get()
     client.sendall(message.encode("utf-8"))
     entry.delete(0, "end")
-    
-    contenedor = ttk.LabelFrame(scrolled_frame, text="Cliente")
-    ttk.Label(contenedor, text=message).pack(side="right", fill="x")
+
+    contenedor = ttk.LabelFrame(scrolled_frame, text="Cliente", style="Client.TLabelframe")
+    ttk.Label(contenedor, text=message, style="Client.TLabel").pack(side="right", fill="x")
     scrolled_frame.add_widget(contenedor, column=1)
     
 def check_messages_background():
@@ -23,8 +23,8 @@ def check_messages_background():
 def verificar_mensajes():
     try:
         mensaje = mensajes_servidor.get_nowait()
-        contenedor = ttk.LabelFrame(scrolled_frame, text="Servidor")
-        ttk.Label(contenedor, text=mensaje).pack(side="left", fill="x")
+        contenedor = ttk.LabelFrame(scrolled_frame, text="Servidor", style="Server.TLabelframe")
+        ttk.Label(contenedor, text=mensaje, style="Server.TLabel").pack(side="left", fill="x")
         scrolled_frame.add_widget(contenedor, column=0)
         scrolled_frame._canvas.yview_moveto(1) # Mover el scrollbar al final
         if not mensaje or mensaje == "exit":
@@ -50,6 +50,10 @@ root = ttk.Window(
 root.geometry("800x600")
 root.resizable(False, False)
 
+estilos = ttk.Style()
+estilos.configure("Server.TLabelframe", background="#E89382", font=("Arial", 10, "bold"), padding=5)
+estilos.configure("Client.TLabelframe", background="#B1BD7B", font=("Arial", 10, "bold"), padding=5)
+estilos.configure("TLabel", font=("Arial", 10), padding=5)
 
 mensajes_servidor = queue.Queue()
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

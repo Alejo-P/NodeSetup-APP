@@ -15,8 +15,8 @@ class SelectionLabel(ttk.Label):
         super().__init__(master, **kwargs)
         self._bindsSecuences = {}
         self.type = "normal"
-    
-    def onClick(self, *, button:Literal["left", "middle", "right",] = "left", callback:Callable[[tk.Event], None] = no_callback):
+
+    def on_click(self, *, button:Literal["left", "middle", "right",] = "left", callback:Callable[[tk.Event], None] = no_callback):
         if button == "right":
             sequence = "<Button-3>"
         elif button == "left":
@@ -28,7 +28,7 @@ class SelectionLabel(ttk.Label):
         
         self._bindsSecuences[sequence] = self.bind(sequence, callback)
     
-    def onDoubleClick(self, *, button:Literal["left", "middle", "right",] = "left", callback:Callable[[tk.Event], None] = no_callback):
+    def on_double_click(self, *, button:Literal["left", "middle", "right",] = "left", callback:Callable[[tk.Event], None] = no_callback):
         if button == "right":
             sequence = "<Double-Button-3>"
         elif button == "left":
@@ -40,12 +40,15 @@ class SelectionLabel(ttk.Label):
         
         self._bindsSecuences[sequence] = self.bind(sequence, callback)
     
-    def getBinds(self):
+    def get_binds(self):
         return self._bindsSecuences
-        
-    def deleteBind(self, sequence:str = "<Button-1>"):
-        self.unbind(sequence)
-        self._bindsSecuences.pop(sequence)
+
+    def delete_bind(self, sequence:str = "<Button-1>"):
+        try:
+            self.unbind(sequence)
+            self._bindsSecuences.pop(sequence)
+        except KeyError:
+            pass
 
 class MultiChoice(ttk.Frame):
     def __init__(self, master=None, values: List[str] = [""], textVar: ttk.Variable | None = None, **kwargs):
@@ -176,7 +179,7 @@ class MultiChoice(ttk.Frame):
         info_frame = ttk.Frame(self.top_level_list)
         ttk.Label(
             info_frame, 
-            text="Presiona Enter para confirmar la seleccion",
+            text="Presiona 'Enter' para confirmar la selección",
             anchor="center",
             style="warning.TLabel",
             wraplength=150,
@@ -190,6 +193,7 @@ class MultiChoice(ttk.Frame):
         
         # Darle el foco al Toplevel para que capture eventos FocusOut
         self.top_level_list.focus_set()
+        self.top_level_list.lift()  # Asegura que el Toplevel esté por encima de otras ventanas
 
     def update_selection(self, listbox):
         # Obtener los índices seleccionados
@@ -209,7 +213,8 @@ class MultiChoice(ttk.Frame):
         for value in self.selected_values:
             label = ttk.Label(self._show_selection_frame, text=value, relief="solid", padding=(5, 3))
             label.pack(side="left", padx=2, pady=2)
-        
+            label.bind("<Double-Button-1>", self._on_delete_item)
+
         self._canvas.grid_columnconfigure(0, weight=1)
         
         # Actualizar el área de desplazamiento del canvas
@@ -221,6 +226,27 @@ class MultiChoice(ttk.Frame):
         
         # Cerrar el Toplevel
         self.hideList()
+        
+    def _on_delete_item(self, event):
+        label = event.widget
+        value = label.cget("text")
+        
+        # Eliminar el valor de la lista de seleccionados
+        if value in self.selected_values:
+            self.selected_values.remove(value)
+        
+        # Actualizar el texto asociado
+        self._textVariable.set(", ".join(self.selected_values))
+        
+        # Eliminar el widget de la interfaz
+        label.destroy()
+        
+        # Actualizar el área de desplazamiento del canvas
+        self._canvas.update_idletasks()
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+        
+        # Verificar si el scroll debe mostrarse
+        self._update_scroll_visibility()
     
     def _on_textvariable_change(self, *args):
         # Verificar si el valor de la variable es vacío
@@ -298,6 +324,25 @@ class ScrolledFrame(Widget):
 
         # Vincular eventos de redimensionamiento
         self._canvas.bind("<Configure>", lambda e: self._adjust_frame_and_scrollbars())
+        
+        # Vincular el evento de scroll del mouse para desplazamiento vertical
+        # Solucionar conflicto con widgets que usan la rueda del ratón (Combobox, Listbox, etc.)
+        self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self._canvas.bind_all("<FocusOut>", lambda e: self._canvas.unbind_all("<MouseWheel>"))
+        self._canvas.bind_all("<FocusIn>", lambda e: self._canvas.bind_all("<MouseWheel>", self._on_mousewheel))
+
+        # Vincular el evento de scroll del mouse para desplazamiento horizontal con Shift
+        self._canvas.bind_all("<Shift-MouseWheel>", self._on_shift_mousewheel)
+        
+    def _on_mousewheel(self, event):
+        """Desplazamiento vertical con la rueda del ratón."""
+        if self._scrollbarY.winfo_ismapped():
+            self._canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            
+    def _on_shift_mousewheel(self, event):
+        """Desplazamiento horizontal con Shift + rueda del ratón."""
+        if self._scrollbarX.winfo_ismapped():
+            self._canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _update_scroll_visibility(self):
         """Actualizar la visibilidad de las barras de desplazamiento."""
@@ -362,6 +407,9 @@ class ScrolledFrame(Widget):
             widget.grid_forget()  # Eliminar cada widget del Frame interno
         self._adjust_frame_and_scrollbars()  # Ajustar tamaño del Frame interno y scrollbars
 
+    def grid_forget(self) -> None:
+        return super().grid_forget()
+    
     # Redefinir los métodos para acceder a los atributos del Frame interno
     def __getattr__(self, attr):
         """Permite acceder a los métodos y atributos del Frame interno."""
@@ -384,6 +432,7 @@ class ScrolledFrame(Widget):
         self._frame.grid(*args, **kwargs)
         self._canvas.update_idletasks()
         self.grid_adjust()
+
 
 class DndFrame(ttk.Frame):
     def __init__(self, master=None, **kwargs):
