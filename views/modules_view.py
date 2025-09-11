@@ -2,7 +2,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import messagebox
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import INFO, OUTLINE, CENTER, W, NSEW, LIGHT, SECONDARY, WARNING, EW
+from ttkbootstrap.constants import INFO, OUTLINE, CENTER, W, NSEW, LIGHT, SECONDARY, DANGER, SUCCESS, WARNING, EW
 from CustomWidgets import ScrolledFrame, MultiChoice
 from Tools import ToolTip
 from utils.icons import Icons
@@ -149,7 +149,7 @@ class ModulesView(ttk.Frame):
             self.npm_path if self.npm_path else "npm",
             "install",
             package_dict["nombre"].lower() + ("@" + package_dict["version"].get() if package_dict["version"].get() and package_dict["version"].get() != "Ocurrió un error" else ""),
-            *(package_dict["argumento"].get().split() if package_dict["argumento"].get() else [])
+            *(package_dict["argumento"].get().split(",") if package_dict["argumento"].get() else [])
         ]
         command = " ".join(command).strip()
         if not self.show_commands_without_selecting_modules:
@@ -170,24 +170,34 @@ class ModulesView(ttk.Frame):
         entry = ttk.Entry(self.popUp_prompt)
         entry.insert(0, command)
         entry.config(state="readonly", justify=CENTER)
-        entry.grid(row=0, column=0, columnspan=2, padx=10, sticky=NSEW)
+        entry.grid(row=0, column=0, columnspan=2, padx=10, pady=(5, 0), sticky=NSEW)
         entry.focus()
         
         scroll_entry = ttk.Scrollbar(self.popUp_prompt, orient="horizontal", command=entry.xview, bootstyle="info-round") # type: ignore
         entry.config(xscrollcommand=scroll_entry.set)
         scroll_entry.grid(row=1, column=0, columnspan=2, padx=10, sticky=NSEW)
         
-        button = ttk.Button(self.popUp_prompt, text="Cerrar", command=self.popUp_prompt.destroy)
-        button.grid(row=2, column=0, padx=(5, 10), pady=(0, 10), sticky=EW)
-        
-        button_copy = ttk.Button(self.popUp_prompt, text="Copiar al portapapeles", command=lambda: self._on_copy_command(command))
-        button_copy.grid(row=2, column=1, padx=(5, 10), pady=(0, 10), sticky=EW)
+        frame_btn = ttk.Frame(self.popUp_prompt)
+        frame_btn.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky=NSEW)
+
+        button = ttk.Button(frame_btn, text="Cerrar", command=self.popUp_prompt.destroy, bootstyle=(DANGER, OUTLINE)) # type: ignore
+        button.grid(row=0, column=0, padx=10, sticky=NSEW)
+
+        button_copy = ttk.Button(frame_btn, text="Copiar", command=lambda: self._on_copy_command(command), bootstyle=(SUCCESS, OUTLINE)) # type: ignore
+        button_copy.grid(row=0, column=1, padx=10, sticky=NSEW)
+
+        for columna in range(frame_btn.grid_size()[0]):
+            frame_btn.grid_columnconfigure(columna, weight=1)
+
+        for fila in range(frame_btn.grid_size()[1]):
+            frame_btn.grid_rowconfigure(fila, weight=1)
 
         for columna in range(self.popUp_prompt.grid_size()[0]):
             self.popUp_prompt.grid_columnconfigure(columna, weight=1)
             
         for fila in range(self.popUp_prompt.grid_size()[1]):
             self.popUp_prompt.grid_rowconfigure(fila, weight=1)
+        
         self._center_window(self.popUp_prompt)
         
     def _on_copy_command(self, command):
