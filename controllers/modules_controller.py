@@ -102,7 +102,5 @@ class ModulesController:
             self.view._action_btn.config(state="disabled")
             self._is_loaded = False
 
-    def on_change_show_commands_without_selecting_modules(self):
-        current_value = self.app_state.get_value('show_commands_without_selecting_modules')
-        self.app_state.set_value('show_commands_without_selecting_modules', not current_value)
-        self.view.show_commands_without_selecting_modules = not current_value
+    def on_change_show_commands_without_selecting_modules(self, value):
+        self.view.show_commands_without_selecting_modules = value

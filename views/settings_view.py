@@ -111,15 +111,14 @@ class SettingsView(ttk.Frame):
         # Frame Otras Configuraciones
         self.frame_other_settings = ttk.LabelFrame(self, text="Otras Configuraciones")
         
-        chk_show_commands = ttk.Checkbutton(
+        self.chk_show_commands = ttk.Checkbutton(
             self.frame_other_settings,
             text="Mostrar comandos aunque no se hayan seleccionado módulos",
             variable=self.show_commands_without_selecting_modules,
             bootstyle="info-round-toggle", # type: ignore
-            command=self._on_toggle_show_commands
         )
-        chk_show_commands.grid(row=0, column=0, padx=5, pady=5, sticky=W)
-        ToolTip(chk_show_commands, "Si está activado, los comandos de instalación se mostrarán aunque no se haya seleccionado ningún módulo.")
+        self.chk_show_commands.grid(row=0, column=0, padx=5, pady=5, sticky=W)
+        ToolTip(self.chk_show_commands, "Si está activado, los comandos de instalación se mostrarán aunque no se haya seleccionado ningún módulo.", position="s", delay_hide=6000)
         columnas, filas = self.frame_other_settings.grid_size()
         for columna in range(columnas):
             self.frame_other_settings.grid_columnconfigure(columna, weight=1)
@@ -176,10 +175,6 @@ class SettingsView(ttk.Frame):
         )
         if ruta:
             self.code_path.set(ruta)
-            
-    def _on_toggle_show_commands(self):
-        current_value = self.show_commands_without_selecting_modules.get()
-        self.show_commands_without_selecting_modules.set(not current_value)
         
     def ask_user_confirmation(self, title, message):
         return messagebox.askyesno(title, message, parent=self)

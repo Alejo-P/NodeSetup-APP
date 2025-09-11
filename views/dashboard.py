@@ -152,11 +152,11 @@ class DashboardWindow(ttk.Window):
 
     def _update_frames(self):
         self.Modulos.config(
-            state="normal" if self.app_state.get_value('git_path') else "disabled",
+            state="normal" if self.app_state.get_value('git_path') != "Cargando..." else "disabled",
             style="Custom.TLabel" if self.app_state.get_value('git_path') else "Disabled.TLabel"
         )
         self.Git.config(
-            state="normal" if self.app_state.get_value('git_path') else "disabled",
+            state="normal" if self.app_state.get_value('git_path') != "Cargando..." else "disabled",
             style="Custom.TLabel" if self.app_state.get_value('git_path') else "Disabled.TLabel"
         )
         

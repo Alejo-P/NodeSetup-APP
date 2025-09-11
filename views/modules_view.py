@@ -93,8 +93,7 @@ class ModulesView(ttk.Frame):
                 
                 frame_actions = ttk.Frame(self._scrolledModulos)
                 label_prompt = ttk.Label(frame_actions, image=Icons.info_icon, anchor=CENTER, bootstyle=INFO, padding=4) # type: ignore
-                #label_prompt.bind("<Button-1>", lambda e, dic=dic: print(f"npm install {dic['nombre'].lower()}@{dic['version'].get()} {dic['argumento'].get().replace(',', '')}"))
-                label_prompt.bind("<Button-1>", lambda e, dic=dic: self._on_copy_command(f"{self.npm_path} install {dic['nombre'].lower()}@{dic['version'].get()} {dic['argumento'].get().replace(',', '')}"))
+                label_prompt.bind("<Button-1>", lambda e, dic=dic: self.on_show_command(dic))
                 ToolTip(label_prompt, text="Ver/copiar comando de instalación", delay_hide=5000)
                 label_prompt.grid(row=0, column=0, padx=2)
                 
@@ -141,17 +140,27 @@ class ModulesView(ttk.Frame):
         except tk.TclError as e:
             print(f"Error al mostrar widgets: {e}")
         
-    def on_copy_command(self, command):
-        if not self.show_commands_without_selecting_modules:
-            self._on_copy_command(command)
-            return
-        
+    def on_show_command(self, package_dict):
         if hasattr(self, 'popUp_prompt') and self.popUp_prompt.winfo_exists():
             self.popUp_prompt.lift()  # Traer la ventana al frente
             return
         
+        command = [
+            self.npm_path if self.npm_path else "npm",
+            "install",
+            package_dict["nombre"].lower() + ("@" + package_dict["version"].get() if package_dict["version"].get() and package_dict["version"].get() != "Ocurrió un error" else ""),
+            *(package_dict["argumento"].get().split() if package_dict["argumento"].get() else [])
+        ]
+        command = " ".join(command).strip()
+        if not self.show_commands_without_selecting_modules:
+            if not package_dict["usar"].get():
+                messagebox.showwarning("Atención", "Debe seleccionar el módulo para ver/copiar el comando de instalación.", parent=self)
+                return
+            self._on_copy_command(command)
+            return
+
         self.popUp_prompt = tk.Toplevel(self)
-        self.popUp_prompt.title("Comando copiado")
+        self.popUp_prompt.title("Comando de instalación")
         self.popUp_prompt.geometry("400x100")
         self.popUp_prompt.resizable(False, False)
         self.popUp_prompt.protocol("WM_DELETE_WINDOW", self.popUp_prompt.destroy)
@@ -166,14 +175,14 @@ class ModulesView(ttk.Frame):
         
         scroll_entry = ttk.Scrollbar(self.popUp_prompt, orient="horizontal", command=entry.xview, bootstyle="info-round") # type: ignore
         entry.config(xscrollcommand=scroll_entry.set)
-        scroll_entry.grid(row=1, column=0, columnspan=2, padx=10, sticky=EW)
+        scroll_entry.grid(row=1, column=0, columnspan=2, padx=10, sticky=NSEW)
         
         button = ttk.Button(self.popUp_prompt, text="Cerrar", command=self.popUp_prompt.destroy)
-        button.grid(row=2, column=0, pady=(0, 10))
+        button.grid(row=2, column=0, padx=(5, 10), pady=(0, 10), sticky=EW)
         
         button_copy = ttk.Button(self.popUp_prompt, text="Copiar al portapapeles", command=lambda: self._on_copy_command(command))
-        button_copy.grid(row=2, column=1, pady=(0, 10))
-        
+        button_copy.grid(row=2, column=1, padx=(5, 10), pady=(0, 10), sticky=EW)
+
         for columna in range(self.popUp_prompt.grid_size()[0]):
             self.popUp_prompt.grid_columnconfigure(columna, weight=1)
             

@@ -1,6 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from tkinter.font import Font
+import ttkbootstrap as ttk
 from ttkbootstrap.constants import INFO, SUCCESS, DANGER, OUTLINE, CENTER, LEFT, EW, NSEW
 from Tools import ToolTip
 from config.constants import APP_VERSION
